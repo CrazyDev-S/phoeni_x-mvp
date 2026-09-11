@@ -4,9 +4,30 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1 import auth, exports, resumes
+from app.api.v1 import (
+    applications,
+    auth,
+    exports,
+    extension,
+    generations,
+    maintenance,
+    meetings,
+    resumes,
+    settings,
+    tailoring,
+)
 
 api_router = APIRouter(prefix="/api/v1")
-api_router.include_router(auth.router)
-api_router.include_router(resumes.router)
-api_router.include_router(exports.router)
+for module in (
+    auth,
+    settings,
+    resumes,
+    tailoring,
+    generations,
+    exports,
+    applications,
+    meetings,
+    maintenance,
+    extension,
+):
+    api_router.include_router(module.router)

@@ -13,18 +13,24 @@ own say-so.
 
 ## Status
 
+All three surfaces build and run.
+
 | Area | State |
 |---|---|
 | PostgreSQL schema (22 tables, 12 enums, `all_resumes` view) | Done |
-| Auth: register/login/refresh, JWT + extension PATs | Done |
-| Canonical Resume Markdown (CRM v1) + parser + renderer | Done |
-| Validation registry (10 rules, all negative-tested) | Done |
+| Auth: register/login/refresh, JWT + extension tokens | Done |
+| Canonical Resume Markdown (CRM v1): parser, renderer, round-trip property | Done |
+| Validation registry (10 hard rules, every one negative-tested) | Done |
 | DOCX export, `designed` + `ats_plain` profiles | Done |
-| Resume CRUD + full-text search + export API | Done |
-| LLM provider layer, generation pipeline | Not started |
-| Tailoring, job tracking, calendar, maintenance | Not started |
-| Next.js portal | Not started |
-| Chrome extension | Not started |
+| LLM layer: Anthropic + OpenAI adapters, model catalog, prompt caching | Done |
+| Generation pipeline: 3 turns, 2 Python gates, bounded repair | Done |
+| Job queue (Postgres `SKIP LOCKED`) + SSE and polling event streams | Done |
+| Tailoring: job-based and instruction-based | Done |
+| Tracking, stages, calendar, recurring meetings, maintenance | Done |
+| Next.js portal (11 routes) | Done |
+| Chrome MV3 side panel (5 tabs, scan + fill engines) | Done |
+| PDF export, tightening ladder | Not started |
+| ATS adapter registry / Workday multi-step | Not started |
 
 ## Setup
 
@@ -51,8 +57,32 @@ python3 -c "import secrets; print(secrets.token_urlsafe(48))"          # APP_SEC
 python3 -c "import base64,os; print(base64.b64encode(os.urandom(32)).decode())"  # APP_KEK
 ```
 
+```bash
+# 3. Web portal
+npm install                    # workspace root; links apps/* and packages/*
+npm run types                  # regenerate TS types from the running backend
+npm run dev:web                # http://localhost:3000
+
+# 4. Extension
+npm run build:ext              # then load apps/extension/.output/chrome-mv3
+                               # via chrome://extensions -> Load unpacked
+```
+
 API docs at <http://localhost:8000/docs>; the OpenAPI document both frontends
 generate their types from is at `/openapi.json`.
+
+### Connecting the extension
+
+1. In the portal, open **Settings -> Extension tokens** and create one. It is
+   shown exactly once - only a hash is stored.
+2. Click the extension's toolbar icon (or `Alt+Shift+J`) to open the side panel.
+3. Paste the backend URL and the token into the panel's **Settings** tab.
+
+### Using it
+
+Add an Anthropic or OpenAI key under **Settings -> API keys** before generating
+anything. Everything else - uploading a resume, exporting `.docx`, tracking
+applications, the calendar - works without one.
 
 ## Tests
 
@@ -78,13 +108,21 @@ The suite deliberately covers the things that fail silently:
 
 ```
 backend/app/
-  core/        config, security, crypto (AES-GCM), timezone, deps
-  models/      SQLAlchemy 2.0 tables + native PG enums
-  resume/      CRM dialect: ast.py, parser.py, renderer.py
-  validation/  the hard-rule registry
-  export/      oxml.py, carrier.py, profiles.py, docx_renderer.py
-  api/v1/      auth, resumes, exports
-  services/    persistence and seed data
+  core/           config, security, crypto (AES-GCM), timezone, deps
+  models/         SQLAlchemy 2.0 tables + native PG enums
+  resume/         CRM dialect: ast.py, parser.py, renderer.py
+  validation/     the hard-rule registry
+  export/         oxml.py, carrier.py, profiles.py, docx_renderer.py
+  llm/            ports, anthropic/openai adapters, catalog, prompts
+  orchestration/  resume_pipeline.py, form_pipeline.py, ats_report.py
+  worker/         the queue poller
+  api/v1/         auth, settings, resumes, tailoring, generations, exports,
+                  applications, meetings, maintenance, extension
+  services/       persistence, seed data, recurrence, generation queue
+backend/prompts/  resume_generator_v1.md - the frozen cached system prefix
+apps/web/         Next.js portal
+apps/extension/   WXT + React MV3 side panel
+packages/api-types/  generated OpenAPI types, shared by both clients
 ```
 
 ## Conventions worth knowing before editing
@@ -100,3 +138,16 @@ backend/app/
   at the top of `app/export/oxml.py`.
 - **Stage names are `text` plus a lookup table, not an enum**, because users
   configure their own interview pipelines.
+- **The system prompt is byte-frozen.** Nothing is interpolated into it - not
+  the date, not the mode, not the user. Interpolating anything invalidates the
+  whole ~17k-token cached prefix on every request. Volatile values go in the
+  first user message. `tests/test_pipeline.py` asserts this.
+- **Recurrence expands in LOCAL wall-clock, then converts to UTC.** Expanding
+  in UTC turns a weekly 10:00 ET standup into 09:00 or 11:00 across a DST
+  boundary.
+- **All LLM network I/O in the extension lives in the side panel**, never the
+  service worker: MV3 workers are evicted after ~30s idle and a generation
+  takes 60-180s.
+- **Provider differences are capability flags, not try/except.** `effort`
+  errors on Haiku 4.5; `temperature` is rejected by current Anthropic models.
+  See `app/llm/catalog.py`.

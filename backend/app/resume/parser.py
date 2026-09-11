@@ -216,7 +216,9 @@ def parse(text: str) -> Resume:
                     line_no, section or "document", line,
                     f"unknown section; expected one of {sorted(SECTIONS)}",
                 )
-            close_exp(); close_proj(); close_edu()
+            close_exp()
+            close_proj()
+            close_edu()
             section = SECTIONS[name]
             expect_tenure = False
             continue
@@ -363,7 +365,9 @@ def parse(text: str) -> Resume:
                 Language(name=m.group("name").strip(), proficiency=m.group("prof").strip())
             )
 
-    close_exp(); close_proj(); close_edu()
+    close_exp()
+    close_proj()
+    close_edu()
 
     for e in acc.experience:
         if e["total_tenure"] is None:

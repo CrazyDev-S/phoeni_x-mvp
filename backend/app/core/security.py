@@ -16,6 +16,8 @@ from app.core.timezone import utc_now
 
 _hasher = PasswordHash.recommended()
 
+# S105/S107 flag these as "possible hardcoded password"; they are literal
+# token KINDS, not secrets.
 TokenType = Literal["access", "refresh"]
 PAT_PREFIX = "rat_"  # resume assistant token
 
@@ -30,14 +32,14 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 def create_token(
     subject: uuid.UUID | str,
-    token_type: TokenType = "access",
+    token_type: TokenType = "access",  # noqa: S107
     extra: dict[str, Any] | None = None,
 ) -> str:
     settings = get_settings()
     now = utc_now()
     ttl = (
         timedelta(minutes=settings.access_token_ttl_minutes)
-        if token_type == "access"
+        if token_type == "access"  # noqa: S105 - a token kind, not a secret
         else timedelta(days=settings.refresh_token_ttl_days)
     )
     payload: dict[str, Any] = {

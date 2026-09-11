@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
+from datetime import UTC, date, datetime, time
 
 from app.core.timezone import (
     local_day_bounds,
@@ -26,14 +26,14 @@ def test_standard_and_daylight_offsets() -> None:
 def test_ambiguous_local_time_takes_first_occurrence() -> None:
     """2026-11-01 01:30 happens twice; policy is fold=0, i.e. still EDT."""
     got = local_to_utc(date(2026, 11, 1), time(1, 30))
-    assert got == datetime(2026, 11, 1, 5, 30, tzinfo=timezone.utc)
+    assert got == datetime(2026, 11, 1, 5, 30, tzinfo=UTC)
 
 
 def test_nonexistent_local_time_shifts_forward() -> None:
     """2026-03-08 02:30 never occurs; it must land at 03:30 EDT, not 01:30 EST."""
     got = local_to_utc(date(2026, 3, 8), time(2, 30))
     assert to_display(got).hour == 3
-    assert got == datetime(2026, 3, 8, 7, 30, tzinfo=timezone.utc)
+    assert got == datetime(2026, 3, 8, 7, 30, tzinfo=UTC)
 
 
 def test_fall_back_day_is_25_hours_long() -> None:

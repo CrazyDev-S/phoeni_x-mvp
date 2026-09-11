@@ -14,7 +14,7 @@ Six rules keep the EST/EDT bug impossible:
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 DEFAULT_TZ_NAME = "America/New_York"
@@ -26,7 +26,17 @@ def zone(name: str = DEFAULT_TZ_NAME) -> ZoneInfo:
 
 def utc_now() -> datetime:
     """Always tz-aware. Never ``datetime.utcnow()``."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
+
+
+def app_today(tz_name: str = DEFAULT_TZ_NAME) -> date:
+    """Today's date in the app's display zone, not the server's locale.
+
+    ``date.today()`` reads the host timezone, which on a UTC server rolls over
+    five hours early for an Eastern user - enough to make a gap check or a
+    "future end date" check disagree with what the user sees.
+    """
+    return utc_now().astimezone(zone(tz_name)).date()
 
 
 def to_display(dt: datetime, tz_name: str = DEFAULT_TZ_NAME) -> datetime:
@@ -60,12 +70,12 @@ def local_to_utc(
     aware = naive.replace(tzinfo=tz, fold=0)
 
     # A nonexistent local time round-trips to a different wall clock.
-    round_tripped = aware.astimezone(timezone.utc).astimezone(tz)
+    round_tripped = aware.astimezone(UTC).astimezone(tz)
     if round_tripped.replace(tzinfo=None) != naive:
         gap = round_tripped.utcoffset() - aware.utcoffset()  # type: ignore[operator]
         aware = (naive + gap).replace(tzinfo=tz, fold=0)
 
-    return aware.astimezone(timezone.utc)
+    return aware.astimezone(UTC)
 
 
 def local_day_bounds(

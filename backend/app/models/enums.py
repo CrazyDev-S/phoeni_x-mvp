@@ -11,14 +11,11 @@ time somebody adds "Take-home review".
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import TypeVar
 
 from sqlalchemy import Enum as SAEnum
 
-_E = TypeVar("_E", bound=StrEnum)
 
-
-def pg_enum(enum_cls: type[_E], name: str) -> SAEnum:
+def pg_enum[E: StrEnum](enum_cls: type[E], name: str) -> SAEnum:
     """Native PostgreSQL enum whose labels are the enum VALUES.
 
     Without ``values_callable`` SQLAlchemy emits member NAMES ("GROUNDED"),

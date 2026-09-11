@@ -36,6 +36,9 @@ class Settings(BaseSettings):
 
     display_timezone: str = "America/New_York"
 
+    # Run the generation worker inside the API process.
+    worker_in_process: bool = True
+
     @field_validator("app_kek")
     @classmethod
     def _kek_is_32_bytes(cls, v: str) -> str:

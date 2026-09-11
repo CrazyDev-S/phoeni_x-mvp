@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,14 +13,30 @@ from sqlalchemy import text
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.db.session import engine
+from app.worker.runner import worker_loop
 
 settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    yield
-    await engine.dispose()
+    """Run the generation worker in-process by default.
+
+    One process, no extra infrastructure. Set WORKER_IN_PROCESS=false and run
+    ``python -m app.worker.runner`` when you want it on its own box.
+    """
+    stop = asyncio.Event()
+    task = None
+    if settings.worker_in_process:
+        task = asyncio.create_task(worker_loop(stop))
+    try:
+        yield
+    finally:
+        stop.set()
+        if task is not None:
+            with contextlib.suppress(asyncio.CancelledError, TimeoutError):
+                await asyncio.wait_for(task, timeout=5)
+        await engine.dispose()
 
 
 app = FastAPI(
