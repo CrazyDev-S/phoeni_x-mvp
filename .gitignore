@@ -1,0 +1,28 @@
+# python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# env / secrets
+.env
+.env.local
+*.pem
+
+# node
+node_modules/
+.next/
+dist/
+.output/
+.wxt/
+*.tsbuildinfo
+
+# build artifacts
+*.docx
+!backend/assets/*.docx
+*.pdf
+!docs/**/*.pdf
+
+# os
+.DS_Store
