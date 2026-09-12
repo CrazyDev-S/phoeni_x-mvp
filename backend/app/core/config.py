@@ -23,7 +23,6 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str
-    database_url_sync: str
 
     # Auth
     access_token_ttl_minutes: int = 60

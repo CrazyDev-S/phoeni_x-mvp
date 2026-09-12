@@ -46,7 +46,7 @@ cd backend
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
 cp .env.example .env        # then replace APP_SECRET_KEY and APP_KEK
-.venv/bin/alembic upgrade head
+.venv/bin/python -m app.db.schema     # build the schema from the models
 .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
@@ -56,6 +56,28 @@ Generate real secrets rather than using the example values:
 python3 -c "import secrets; print(secrets.token_urlsafe(48))"          # APP_SECRET_KEY
 python3 -c "import base64,os; print(base64.b64encode(os.urandom(32)).decode())"  # APP_KEK
 ```
+
+`APP_SECRET_KEY` signs session tokens; `APP_KEK` encrypts the LLM API keys
+users store in Settings. They are separate because they rotate differently —
+changing the signing key just logs everyone out, while changing the KEK means
+re-encrypting every stored key (which is what the `kek_version` column is for).
+
+### Schema
+
+There is no migration tool. `app/db/schema.py` builds the database directly
+from the SQLAlchemy models, so adding a column is a model edit and nothing
+else. It is idempotent — safe to re-run — and `--reset` drops everything first:
+
+```bash
+.venv/bin/python -m app.db.schema            # create anything missing
+.venv/bin/python -m app.db.schema --reset    # drop and rebuild; destroys data
+```
+
+The trade-off to know about: `create_all` only ever *adds*. It will not alter
+an existing column, drop one, or rename anything. While the schema is still
+moving, `--reset` is the answer. Once there are applications in the database
+worth keeping, either write the `ALTER TABLE` by hand or add Alembic back —
+the models are unchanged either way, so nothing here blocks that.
 
 ```bash
 # 3. Web portal

@@ -6,9 +6,7 @@ sse-starlette==3.0.2
 
 # --- db ---
 sqlalchemy==2.0.52
-alembic==1.20.0
 asyncpg==0.31.0
-psycopg[binary]==3.3.5
 
 # --- config / validation ---
 pydantic==2.13.5

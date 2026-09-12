@@ -32,7 +32,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S", "DTZ"]
-"alembic/*" = ["ALL"]
+# A CLI entry point talks to the operator on stdout.
+"app/db/schema.py" = ["T201"]
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = [

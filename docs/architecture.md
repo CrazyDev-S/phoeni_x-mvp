@@ -34,6 +34,16 @@ Validation runs on the parsed AST, not with regexes over prose. That is what
 makes rules like "tenure arithmetic agrees with the claimed years" tractable at
 all.
 
+## Schema without migrations
+
+`app/db/schema.py` creates the database from `Base.metadata`. Two things cannot
+come from the models and are stated explicitly there: the `citext` extension
+behind the case-insensitive email column, and the `all_resumes` view.
+
+`--reset` drops the native enum types as well as the tables. `metadata.drop_all`
+leaves enum types behind, and the next `create_all` then fails with "type
+already exists" — which is the usual way this approach bites people.
+
 ## Time
 
 Six rules; follow all six and the EST/EDT bug cannot occur.
