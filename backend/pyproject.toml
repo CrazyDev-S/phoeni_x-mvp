@@ -44,3 +44,8 @@ extend-immutable-calls = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# The database engine is a module-level singleton, so its pooled connections
+# belong to whichever event loop created them. A loop per test would leave
+# connections bound to a closed loop; one loop for the session matches.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"

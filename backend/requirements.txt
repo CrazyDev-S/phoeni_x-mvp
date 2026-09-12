@@ -11,6 +11,7 @@ asyncpg==0.31.0
 # --- config / validation ---
 pydantic==2.13.5
 pydantic-settings==2.15.0
+python-dotenv==1.2.3
 email-validator==2.3.0
 
 # --- auth / crypto ---

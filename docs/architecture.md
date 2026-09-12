@@ -113,6 +113,36 @@ status, race/ethnicity, criminal history, salary expectation. These return
 - OpenAI pricing is not in this project's authoritative reference, so cost for
   that provider is reported as unknown rather than guessed.
 
+## Measured behaviour of a real generation
+
+Numbers from an actual run on the heavy tier, because the estimates in the
+original plan were optimistic by roughly 5x:
+
+| Turn | Wall clock | Output tokens |
+|---|---|---|
+| scenario | 5-8 min | up to 24k, mostly reasoning |
+| draft (+2 repairs) | ~2 min | 4.2k / 2.5k / 2.8k |
+| flags | ~2 min | 5.5k |
+| **total** | **~10 min, ~$1.70** | |
+
+Four things follow from that, all of them now in the code:
+
+- **Thinking tokens count toward the output budget.** The scenario turn
+  truncated at a 24k cap with the reasoning alone, and a truncated reply is a
+  broken one - the JSON stops mid-token. `max_tokens` is now 64k there, and
+  `stop_reason == "max_tokens"` is retried once with double the budget rather
+  than silently accepted.
+- **The prompt cache TTL has to be 1h, not the 5m default.** A single turn can
+  outlast a five-minute entry, so the prefix expired mid-job and was re-written
+  at 1.25x instead of read at 0.1x - paying the write twice and the read never.
+- **Progress must be committed as it happens.** The worker holds one
+  transaction for the whole job, so events written there stay invisible until
+  it finishes. `emit_now` uses its own transaction, and doubles as the
+  heartbeat that tells a slow job from a dead one.
+- **A single phase can run for minutes.** Turns are streamed and reasoning is
+  forwarded (coalesced, every 3s), or the percentage sits still long enough to
+  read as a hang.
+
 ## Naming
 
 Names are spelled out. The rule is that a reader who has never seen the file

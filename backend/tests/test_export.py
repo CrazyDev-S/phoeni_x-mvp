@@ -33,8 +33,8 @@ def _parts(data: bytes) -> tuple[str, str]:
 
 
 @pytest.fixture
-def resume(aran_md: str):
-    return parse(aran_md)
+def resume(aran_markdown: str):
+    return parse(aran_markdown)
 
 
 @pytest.fixture
@@ -160,8 +160,8 @@ def test_ats_headings_carry_an_outline_level(ats: bytes) -> None:
         ("no education", lambda md: md.split("## EDUCATION")[0]),
     ],
 )
-def test_structural_variants_render(aran_md: str, case: str, mutate) -> None:
-    data = render_docx(parse(mutate(aran_md)))
+def test_structural_variants_render(aran_markdown: str, case: str, mutate) -> None:
+    data = render_docx(parse(mutate(aran_markdown)))
     assert len(data) > 10_000, case
 
 

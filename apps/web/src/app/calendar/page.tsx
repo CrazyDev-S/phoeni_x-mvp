@@ -1,224 +1,241 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { EventPopover } from "@/components/calendar/event-popover";
+import { MiniMonth } from "@/components/calendar/mini-month";
+import { MonthGrid } from "@/components/calendar/month-grid";
+import { TimeGrid } from "@/components/calendar/time-grid";
+import { rangeTitle, Toolbar, type CalendarView } from "@/components/calendar/toolbar";
 import { NextCallBanner } from "@/components/next-call";
-import { Badge, Button, Card, Empty, Field, Input, Select, Spinner, Textarea } from "@/components/ui";
 import { request } from "@/lib/api";
-import { DISPLAY_TIME_ZONE, formatDay, formatTime } from "@/lib/format";
+import {
+  addDays,
+  addMonths,
+  dayOf,
+  durationMinutes,
+  instantAt,
+  minutesLabel,
+  monthGrid,
+  todayKey,
+  weekOf,
+  type DayKey,
+  type Meeting,
+} from "@/lib/calendar";
+import { DISPLAY_TIME_ZONE } from "@/lib/format";
 
-interface Meeting {
-  id: string;
-  title: string;
-  meeting_type: string;
-  starts_at: string;
-  ends_at: string;
-  display_timezone: string;
-  status: string;
-  conferencing_url: string | null;
-  agenda: string | null;
-  preparation_notes: string | null;
-  notes: string | null;
-  series_id: string | null;
-  is_exception: boolean;
+interface Selection {
+  meeting: Meeting;
+  anchor: DOMRect;
 }
 
-const STATUSES = ["scheduled", "held", "cancelled", "rescheduled", "no_show"];
-
-function startOfWeek(d: Date) {
-  const copy = new Date(d);
-  const day = (copy.getDay() + 6) % 7; // Monday-first
-  copy.setDate(copy.getDate() - day);
-  return copy;
+interface PatchVariables {
+  id: string;
+  body: Record<string, unknown>;
+  /** Applied to the cache up front, so a dragged meeting lands where it was dropped. */
+  optimistic?: Pick<Meeting, "starts_at" | "ends_at">;
 }
 
 export default function CalendarPage() {
   const queryClient = useQueryClient();
-  const [anchor, setAnchor] = useState(() => startOfWeek(new Date()));
-  const [selected, setSelected] = useState<Meeting | null>(null);
+  const [view, setView] = useState<CalendarView>("week");
+  const [anchor, setAnchor] = useState<DayKey>(() => todayKey());
+  const [miniMonth, setMiniMonth] = useState<DayKey>(anchor);
+  const [selected, setSelected] = useState<Selection | null>(null);
 
   const days = useMemo(
-    () =>
-      Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(anchor);
-        d.setDate(d.getDate() + i);
-        return d;
-      }),
-    [anchor],
+    () => (view === "day" ? [anchor] : view === "week" ? weekOf(anchor) : monthGrid(anchor)),
+    [view, anchor],
   );
-  const from = days[0].toISOString().slice(0, 10);
-  const to = days[6].toISOString().slice(0, 10);
+  const from = days[0];
+  const to = days[days.length - 1];
 
-  const { data, isLoading } = useQuery({
+  const { data, isFetching } = useQuery({
     queryKey: ["meetings", from, to],
     queryFn: () => request<Meeting[]>(`/api/v1/meetings?from=${from}&to=${to}`),
+    // Keep the previous grid on screen while the next range loads, so paging
+    // does not blink through an empty week.
+    placeholderData: keepPreviousData,
   });
+  const meetings = useMemo(() => data ?? [], [data]);
 
   const patch = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) =>
+    mutationFn: ({ id, body }: PatchVariables) =>
       request<Meeting>(`/api/v1/meetings/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
-    onSuccess: (m) => {
-      setSelected(m);
+    onMutate: ({ id, optimistic }: PatchVariables) => {
+      if (!optimistic) return;
+      queryClient.setQueriesData<Meeting[]>({ queryKey: ["meetings"] }, (rows) =>
+        rows?.map((row) => (row.id === id ? { ...row, ...optimistic } : row)),
+      );
+    },
+    onSuccess: (updated) => {
+      setSelected((current) =>
+        current && current.meeting.id === updated.id ? { ...current, meeting: updated } : current,
+      );
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
       queryClient.invalidateQueries({ queryKey: ["next-call"] });
       queryClient.invalidateQueries({ queryKey: ["applications"] });
     },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ["meetings"] });
+    },
   });
 
-  const byDay = useMemo(() => {
-    const map = new Map<string, Meeting[]>();
-    for (const m of data ?? []) {
-      const key = formatDay(m.starts_at);
-      map.set(key, [...(map.get(key) ?? []), m]);
-    }
-    return map;
-  }, [data]);
+  const step = useCallback(
+    (direction: -1 | 1) => {
+      setAnchor((current) =>
+        view === "day"
+          ? addDays(current, direction)
+          : view === "week"
+            ? addDays(current, 7 * direction)
+            : addMonths(current, direction),
+      );
+    },
+    [view],
+  );
+
+  const openDay = useCallback((day: DayKey) => {
+    setAnchor(day);
+    setView("day");
+    setSelected(null);
+  }, []);
+
+  const move = useCallback(
+    (meeting: Meeting, day: DayKey, minutes: number) => {
+      const startsAt = instantAt(day, minutes);
+      const endsAt = new Date(
+        new Date(startsAt).getTime() + durationMinutes(meeting) * 60_000,
+      ).toISOString();
+      patch.mutate({
+        id: meeting.id,
+        body: { local_date: day, local_time: minutesLabel(minutes) },
+        optimistic: { starts_at: startsAt, ends_at: endsAt },
+      });
+    },
+    [patch],
+  );
+
+  // The mini calendar follows whatever the main grid is showing.
+  useEffect(() => setMiniMonth(anchor), [anchor]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.isContentEditable ||
+        (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+      ) {
+        return;
+      }
+      switch (event.key.toLowerCase()) {
+        case "t":
+          setAnchor(todayKey());
+          break;
+        case "d":
+          setView("day");
+          break;
+        case "w":
+          setView("week");
+          break;
+        case "m":
+          setView("month");
+          break;
+        case "arrowleft":
+        case "k":
+          step(-1);
+          break;
+        case "arrowright":
+        case "j":
+          step(1);
+          break;
+        default:
+          return;
+      }
+      event.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [step]);
+
+  const highlighted = useMemo(
+    () => new Set<DayKey>(view === "month" ? [] : days),
+    [view, days],
+  );
+  const busyDays = useMemo(() => new Set(meetings.map(dayOf)), [meetings]);
 
   return (
     <div className="space-y-4">
       <NextCallBanner />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">Calendar</h1>
-          <p className="text-sm text-[var(--color-ink-soft)]">
-            All times in US Eastern ({DISPLAY_TIME_ZONE}) — the zone is derived from the
-            instant, so it reads EST in winter and EDT in summer.
+      <Toolbar
+        view={view}
+        title={rangeTitle(view, anchor, days)}
+        busy={isFetching}
+        onView={setView}
+        onToday={() => setAnchor(todayKey())}
+        onStep={step}
+      />
+
+      <div className="flex gap-4">
+        <aside className="hidden w-56 shrink-0 space-y-3 lg:block">
+          <MiniMonth
+            month={miniMonth}
+            selected={anchor}
+            highlighted={highlighted}
+            busyDays={busyDays}
+            onMonth={setMiniMonth}
+            onPick={(day) => setAnchor(day)}
+          />
+          <p className="px-1 text-xs leading-relaxed text-[var(--color-ink-soft)]">
+            All times in US Eastern ({DISPLAY_TIME_ZONE}) — the zone is derived from the instant,
+            so it reads EST in winter and EDT in summer.
           </p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setAnchor((a) => new Date(a.getTime() - 7 * 864e5))}>
-            ← Previous
-          </Button>
-          <Button onClick={() => setAnchor(startOfWeek(new Date()))}>This week</Button>
-          <Button onClick={() => setAnchor((a) => new Date(a.getTime() + 7 * 864e5))}>
-            Next →
-          </Button>
+          {!isFetching && !meetings.length && (
+            <p className="px-1 text-xs leading-relaxed text-[var(--color-ink-soft)]">
+              Nothing scheduled here. Meetings appear once you schedule an interview stage or
+              create a recurring team meeting.
+            </p>
+          )}
+          <p className="px-1 text-xs leading-relaxed text-[var(--color-ink-soft)]">
+            Drag a meeting to reschedule it. Keys: <strong>T</strong> today, <strong>D</strong>/
+            <strong>W</strong>/<strong>M</strong> views, <strong>←</strong>/<strong>→</strong> to
+            page.
+          </p>
+        </aside>
+
+        <div className="min-w-0 flex-1">
+          {view === "month" ? (
+            <MonthGrid
+              anchor={anchor}
+              days={days}
+              meetings={meetings}
+              selectedId={selected?.meeting.id ?? null}
+              onSelect={(meeting, rect) => setSelected({ meeting, anchor: rect })}
+              onPickDay={openDay}
+            />
+          ) : (
+            <TimeGrid
+              days={days}
+              meetings={meetings}
+              selectedId={selected?.meeting.id ?? null}
+              onSelect={(meeting, rect) => setSelected({ meeting, anchor: rect })}
+              onMove={move}
+              onPickDay={openDay}
+            />
+          )}
         </div>
       </div>
 
-      {isLoading ? (
-        <Card>
-          <div className="flex items-center gap-2 px-4 py-10 text-sm text-[var(--color-ink-soft)]">
-            <Spinner /> Loading…
-          </div>
-        </Card>
-      ) : (
-        <div className="grid gap-3 lg:grid-cols-7">
-          {days.map((d) => {
-            const key = d.toISOString().slice(0, 10);
-            const items = byDay.get(key) ?? [];
-            const isToday = key === new Date().toISOString().slice(0, 10);
-            return (
-              <Card key={key} className={isToday ? "border-[var(--color-brand)]" : ""}>
-                <div className="border-b border-[var(--color-line)] px-3 py-2">
-                  <p className="text-xs text-[var(--color-ink-soft)]">
-                    {d.toLocaleDateString(undefined, { weekday: "short" })}
-                  </p>
-                  <p className="text-sm font-medium">
-                    {d.toLocaleDateString(undefined, { day: "numeric", month: "short" })}
-                  </p>
-                </div>
-                <ul className="min-h-20 space-y-1 p-2">
-                  {items.map((m) => (
-                    <li key={m.id}>
-                      <button
-                        onClick={() => setSelected(m)}
-                        className={`w-full rounded-md border px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--color-canvas)] ${
-                          m.status === "cancelled"
-                            ? "border-[var(--color-line)] line-through opacity-60"
-                            : "border-[var(--color-brand)] bg-[var(--color-brand-soft)]"
-                        }`}
-                      >
-                        <span className="block font-medium">{formatTime(m.starts_at)}</span>
-                        <span className="block truncate">{m.title}</span>
-                      </button>
-                    </li>
-                  ))}
-                  {!items.length && (
-                    <li className="px-2 py-1 text-xs text-[var(--color-ink-soft)]">—</li>
-                  )}
-                </ul>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
       {selected && (
-        <Card title={selected.title} action={<Badge>{selected.status}</Badge>}>
-          <div className="grid gap-4 p-4 lg:grid-cols-2">
-            <div className="space-y-3">
-              <p className="text-sm text-[var(--color-ink-soft)]">
-                {formatDay(selected.starts_at)} · {formatTime(selected.starts_at)}–
-                {formatTime(selected.ends_at)} ({selected.display_timezone})
-                {selected.series_id && (
-                  <> · recurring{selected.is_exception ? ", edited" : ""}</>
-                )}
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Move to date">
-                  <Input
-                    type="date"
-                    defaultValue={formatDay(selected.starts_at)}
-                    onChange={(e) =>
-                      patch.mutate({ id: selected.id, body: { local_date: e.target.value } })
-                    }
-                  />
-                </Field>
-                <Field label="Time (Eastern)">
-                  <Input
-                    type="time"
-                    defaultValue={formatTime(selected.starts_at)}
-                    onChange={(e) =>
-                      patch.mutate({ id: selected.id, body: { local_time: e.target.value } })
-                    }
-                  />
-                </Field>
-              </div>
-              <Field label="Status">
-                <Select
-                  value={selected.status}
-                  onChange={(e) =>
-                    patch.mutate({ id: selected.id, body: { status: e.target.value } })
-                  }
-                >
-                  {STATUSES.map((s) => (
-                    <option key={s} value={s}>{s.replace("_", " ")}</option>
-                  ))}
-                </Select>
-              </Field>
-            </div>
-            <div className="space-y-3">
-              <Field label="Preparation">
-                <Textarea
-                  rows={4}
-                  defaultValue={selected.preparation_notes ?? ""}
-                  onBlur={(e) =>
-                    patch.mutate({ id: selected.id, body: { preparation_notes: e.target.value } })
-                  }
-                />
-              </Field>
-              <Field label="Notes">
-                <Textarea
-                  rows={4}
-                  defaultValue={selected.notes ?? ""}
-                  onBlur={(e) => patch.mutate({ id: selected.id, body: { notes: e.target.value } })}
-                />
-              </Field>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {!isLoading && !data?.length && (
-        <Card>
-          <Empty
-            title="Nothing scheduled this week"
-            body="Meetings appear here when you schedule an interview stage or create a recurring team meeting."
-          />
-        </Card>
+        <EventPopover
+          meeting={selected.meeting}
+          anchor={selected.anchor}
+          pending={patch.isPending}
+          onPatch={(body) => patch.mutate({ id: selected.meeting.id, body })}
+          onClose={() => setSelected(null)}
+        />
       )}
     </div>
   );

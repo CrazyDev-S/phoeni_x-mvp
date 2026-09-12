@@ -14,14 +14,19 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from datetime import timedelta
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.timezone import utc_now
+from app.db.session import SessionLocal
 from app.models.enums import GenerationKind, GenerationStatus
 from app.models.generation import Generation, GenerationEvent, LLMCall
+
+# A job is retried this many times before it is called dead.
+MAX_ATTEMPTS = 3
 
 
 def idempotency_key(*parts: Any) -> str:
@@ -82,6 +87,64 @@ async def emit(
     session.add(event)
     await session.flush()
     return event
+
+
+async def emit_now(generation_id: uuid.UUID, type_: str, payload: dict) -> None:
+    """Record progress in its own transaction, committed immediately.
+
+    Progress has to be visible to OTHER connections while the job is still
+    running, and the worker holds one long transaction for the whole job - so
+    anything written there stays invisible until it finishes. A reader would
+    sit at 0% for the entire run and then jump straight to done.
+
+    Committing here also doubles as the worker's heartbeat: ``locked_at`` moves
+    forward on every event, which is what lets reclaim_stale tell a slow job
+    from a dead one.
+    """
+    async with SessionLocal() as session:
+        await emit(session, generation_id, type_, payload)
+        values: dict = {"locked_at": utc_now()}
+        if type_ == "phase":
+            values["phase"] = payload.get("phase")
+            if "percent" in payload:
+                values["progress_percent"] = payload["percent"]
+        await session.execute(
+            update(Generation).where(Generation.id == generation_id).values(**values)
+        )
+        await session.commit()
+
+
+async def reclaim_stale(session: AsyncSession, *, older_than: timedelta) -> int:
+    """Return jobs whose worker died to the queue.
+
+    A worker that is restarted or killed mid-job leaves its row in RUNNING
+    forever, and nothing else will ever pick it up. Anything that has not
+    produced an event within `older_than` is presumed dead.
+    """
+    cutoff = utc_now() - older_than
+    stale = list(
+        await session.scalars(
+            select(Generation).where(
+                Generation.status == GenerationStatus.RUNNING,
+                Generation.locked_at < cutoff,
+            )
+        )
+    )
+    for row in stale:
+        if row.attempt >= MAX_ATTEMPTS:
+            row.status = GenerationStatus.FAILED
+            row.error_code = "WORKER_LOST"
+            row.error_detail = (
+                f"No progress for {older_than} across {row.attempt} attempts; "
+                "the worker was most likely restarted mid-run."
+            )
+            row.finished_at = utc_now()
+            await emit(session, row.id, "error",
+                       {"code": row.error_code, "detail": row.error_detail})
+        else:
+            row.status = GenerationStatus.QUEUED
+            row.locked_at = None
+    return len(stale)
 
 
 def _jsonable(payload: dict) -> dict:

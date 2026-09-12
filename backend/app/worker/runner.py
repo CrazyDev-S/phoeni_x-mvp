@@ -10,6 +10,9 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+from datetime import timedelta
+
+from sqlalchemy import func, select
 
 from app.core.timezone import app_today, utc_now
 from app.db.session import SessionLocal
@@ -30,29 +33,49 @@ from app.orchestration.resume_pipeline import (
     ResumePipeline,
 )
 from app.resume.parser import ResumeMarkdownError
-from app.services.generation import claim_next, emit, job_description_hash, record_calls
+from app.services.generation import (
+    claim_next,
+    emit,
+    emit_now,
+    job_description_hash,
+    reclaim_stale,
+    record_calls,
+)
 
 log = logging.getLogger("worker")
 POLL_SECONDS = 1.0
+# A job that has emitted nothing for this long is presumed abandoned. The
+# slowest healthy gap is one model turn, well under a minute on the heavy
+# tier, so this leaves generous headroom.
+STALE_AFTER = timedelta(minutes=10)
 
 
 async def run_once() -> bool:
     """Claim and process one job. Returns False when the queue is empty."""
     async with SessionLocal() as session:
-        generation = await claim_next(session)
-        if generation is None:
+        # A worker that died mid-job left its row in RUNNING; nothing else
+        # would ever pick it up.
+        if await reclaim_stale(session, older_than=STALE_AFTER):
+            await session.commit()
+        claimed = await claim_next(session)
+        if claimed is None:
             return False
+        # Keep the plain UUID, not the ORM object. Once its session closes the
+        # instance is detached, and reading any attribute from the error
+        # handler raises DetachedInstanceError - which masks the real failure
+        # and leaves the job stuck in RUNNING forever.
+        generation_id = claimed.id
         await session.commit()
 
     try:
         async with SessionLocal() as session:
-            generation = await session.get(Generation, generation.id)
+            generation = await session.get(Generation, generation_id)
             await _process(session, generation)
             await session.commit()
     except Exception as exc:
-        log.exception("generation %s failed", generation.id)
+        log.exception("generation %s failed", generation_id)
         async with SessionLocal() as session:
-            row = await session.get(Generation, generation.id)
+            row = await session.get(Generation, generation_id)
             row.status = GenerationStatus.FAILED
             row.finished_at = utc_now()
             row.error_code = getattr(exc, "code", type(exc).__name__)
@@ -88,7 +111,9 @@ async def _process(session, generation: Generation) -> None:
         today=app_today(settings.display_timezone if settings else "America/New_York"),
     )
 
-    pipeline = ResumePipeline(provider)
+    pipeline = ResumePipeline(provider, research_dossiers=spec.research_dossiers)
+    # Lets a long turn report progress while it is still running.
+    pipeline.on_event = lambda event: emit_now(generation.id, event.type, event.data)
     if generation.kind in (GenerationKind.RESUME_STORY, GenerationKind.RESUME_JOB):
         stream = pipeline.generate(spec)
     elif generation.kind is GenerationKind.TAILOR_JOB:
@@ -113,11 +138,9 @@ async def _process(session, generation: Generation) -> None:
             if event.type == "done":
                 result = event.data["result"]
                 break
-            if event.type == "phase":
-                generation.phase = event.data.get("phase")
-                generation.progress_percent = event.data.get("percent", generation.progress_percent)
-            await emit(session, generation.id, event.type, event.data)
-            await session.flush()
+            # Committed immediately in its own transaction. Writing it here
+            # would hide it until the whole job finished.
+            await emit_now(generation.id, event.type, event.data)
     except ResumeMarkdownError as exc:
         raise LLMError("CRM_UNPARSEABLE", str(exc)) from exc
 
@@ -192,7 +215,11 @@ async def _persist(session, generation: Generation, payload: dict, result) -> No
             GenerationKind.TAILOR_INSTRUCTION: ResumeSource.TAILORED_INSTRUCTION,
         }[generation.kind]
         row = BaseResume(
-            display_name=payload.get("display_name") or _auto_name(result, payload),
+            display_name=await _free_display_name(
+                session,
+                generation.user_id,
+                payload.get("display_name") or _auto_name(result, payload),
+            ),
             target_title=payload.get("target_title") or result.resume.header.title,
             stack_label=payload.get("stack_label"),
             stack_tags=_stack_tags(result),
@@ -208,6 +235,30 @@ async def _persist(session, generation: Generation, payload: dict, result) -> No
     session.add(row)
     await session.flush()
     generation.result_id = row.id
+
+
+async def _free_display_name(session, user_id, wanted: str) -> str:
+    """Find a name no existing resume is using.
+
+    Display names are unique per user, and regenerating for the same target
+    title produces the same auto-generated name every time. Without this, a
+    re-run fails on the unique index at the very last step - after the whole
+    generation has been paid for.
+    """
+    taken = set(
+        await session.scalars(
+            select(func.lower(BaseResume.display_name)).where(
+                BaseResume.user_id == user_id, BaseResume.is_archived.is_(False)
+            )
+        )
+    )
+    if wanted.lower() not in taken:
+        return wanted
+    for suffix in range(2, 100):
+        candidate = f"{wanted} ({suffix})"
+        if candidate.lower() not in taken:
+            return candidate
+    return f"{wanted} ({utc_now():%Y-%m-%d %H:%M:%S})"
 
 
 def _auto_name(result, payload: dict) -> str:

@@ -324,8 +324,26 @@ def must_have_coverage(context: Context) -> list[Finding]:
 
 @rule
 def dossier_provenance(context: Context) -> list[Finding]:
-    """Mode B may not name a company without a searched, sourced dossier."""
-    if context.mode != "constructed" or not context.strict_dossier:
+    """Mode B may not name a company without a searched, sourced dossier.
+
+    Only enforced when the model actually had a research tool. Without one it
+    cannot produce a source for anything, so the rule would fail every single
+    generation - a gate nobody can pass is noise, not safety.
+    """
+    if context.mode != "constructed":
+        return []
+    if not context.strict_dossier:
+        if context.resume.experience:
+            return [
+                Finding(
+                    "DOSSIER_PROVENANCE", "warning",
+                    "Company research is off, so no employer here has a verified "
+                    "source. Check every company name before sending this.",
+                    "experience", "",
+                    "Turn on company research in Settings, or replace the names "
+                    "with your own history.",
+                )
+            ]
         return []
     dossiers = {d.get("employer"): d for d in context.ledger.get("dossiers", [])}
     findings = []
