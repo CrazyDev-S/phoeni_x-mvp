@@ -255,16 +255,98 @@ export interface paths {
         post?: never;
         /**
          * Delete Resume
-         * @description Archive rather than delete.
+         * @description Delete permanently. This cannot be undone.
          *
-         *     Tailored resumes reference base resumes with ON DELETE RESTRICT, because
-         *     losing the version somebody actually applied with is unrecoverable.
+         *     Tailored versions are the documents somebody actually applied with, so
+         *     they are never destroyed as an invisible side effect: without ``cascade``
+         *     the request is refused and the response says how many there are, which is
+         *     what lets the caller name the number in its confirmation.
          */
         delete: operations["delete_resume_api_v1_resumes__resume_id__delete"];
         options?: never;
         head?: never;
         /** Update Resume */
         patch: operations["update_resume_api_v1_resumes__resume_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/resumes/{resume_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive Resume
+         * @description Hide a resume without destroying it. Reversible.
+         */
+        post: operations["archive_resume_api_v1_resumes__resume_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/resumes/{resume_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Resume */
+        post: operations["restore_resume_api_v1_resumes__resume_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tailored-resumes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tailored Resumes */
+        get: operations["list_tailored_resumes_api_v1_tailored_resumes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tailored-resumes/{resume_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Tailored Resume */
+        get: operations["get_tailored_resume_api_v1_tailored_resumes__resume_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Tailored Resume
+         * @description Delete permanently.
+         *
+         *     Any application pointing at this version keeps its own record; the link is
+         *     ON DELETE SET NULL, so deleting the document does not delete the history of
+         *     having applied.
+         */
+        delete: operations["delete_tailored_resume_api_v1_tailored_resumes__resume_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Tailored Resume */
+        patch: operations["update_tailored_resume_api_v1_tailored_resumes__resume_id__patch"];
         trace?: never;
     };
     "/api/v1/resumes/generate/story": {
@@ -1540,6 +1622,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[TailoredResumeSummary] */
+        Page_TailoredResumeSummary_: {
+            /** Items */
+            items: components["schemas"]["TailoredResumeSummary"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** RefreshRequest */
         RefreshRequest: {
             /** Refresh Token */
@@ -1988,6 +2081,116 @@ export interface components {
              * @default false
              */
             force: boolean;
+        };
+        /** TailoredResumeOut */
+        TailoredResumeOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /** Company Name */
+            company_name: string | null;
+            /** Job Title */
+            job_title: string | null;
+            /** Job Url */
+            job_url: string | null;
+            /** Job Source */
+            job_source: string;
+            /**
+             * Base Resume Id
+             * Format: uuid
+             */
+            base_resume_id: string;
+            status: components["schemas"]["ResumeStatus"];
+            /** Must Have Coverage Percent */
+            must_have_coverage_percent: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Content Markdown */
+            content_markdown: string;
+            /** Content Text */
+            content_text: string;
+            /** Markdown Version */
+            markdown_version: number;
+            /** Job Description Text */
+            job_description_text: string;
+            /** Ledger */
+            ledger?: {
+                [key: string]: unknown;
+            } | null;
+            /** Ats Report */
+            ats_report?: {
+                [key: string]: unknown;
+            } | null;
+            /** Flags */
+            flags?: {
+                [key: string]: unknown;
+            } | null;
+            /** Validation */
+            validation?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** TailoredResumePatch */
+        TailoredResumePatch: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Company Name */
+            company_name?: string | null;
+            /** Job Title */
+            job_title?: string | null;
+            /** Job Url */
+            job_url?: string | null;
+            /** Content Markdown */
+            content_markdown?: string | null;
+            status?: components["schemas"]["ResumeStatus"] | null;
+        };
+        /** TailoredResumeSummary */
+        TailoredResumeSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /** Company Name */
+            company_name: string | null;
+            /** Job Title */
+            job_title: string | null;
+            /** Job Url */
+            job_url: string | null;
+            /** Job Source */
+            job_source: string;
+            /**
+             * Base Resume Id
+             * Format: uuid
+             */
+            base_resume_id: string;
+            status: components["schemas"]["ResumeStatus"];
+            /** Must Have Coverage Percent */
+            must_have_coverage_percent: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** TokenPair */
         TokenPair: {
@@ -2579,7 +2782,10 @@ export interface operations {
     };
     delete_resume_api_v1_resumes__resume_id__delete: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Also delete the tailored versions built from this resume. */
+                cascade?: boolean;
+            };
             header?: never;
             path: {
                 resume_id: string;
@@ -2628,6 +2834,198 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResumeCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_resume_api_v1_resumes__resume_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_resume_api_v1_resumes__resume_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tailored_resumes_api_v1_tailored_resumes_get: {
+        parameters: {
+            query?: {
+                base_resume_id?: string | null;
+                /** @description full-text search */
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_TailoredResumeSummary_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tailored_resume_api_v1_tailored_resumes__resume_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TailoredResumeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_tailored_resume_api_v1_tailored_resumes__resume_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_tailored_resume_api_v1_tailored_resumes__resume_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TailoredResumePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TailoredResumeOut"];
                 };
             };
             /** @description Validation Error */

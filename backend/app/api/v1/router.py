@@ -14,6 +14,7 @@ from app.api.v1 import (
     meetings,
     resumes,
     settings,
+    tailored_resumes,
     tailoring,
 )
 
@@ -22,6 +23,7 @@ for module in (
     auth,
     settings,
     resumes,
+    tailored_resumes,
     tailoring,
     generations,
     exports,

@@ -1,9 +1,10 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { ConfirmDelete } from "@/components/confirm-delete";
 import { FindingsList, type Finding } from "@/components/findings";
 import { Badge, Button, Card, ErrorNote, Spinner, Textarea } from "@/components/ui";
 import { downloadDocx, request } from "@/lib/api";
@@ -26,6 +27,7 @@ type Panel = "validation" | "ats" | "ledger" | "flags";
 export default function ResumeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [draft, setDraft] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel>("validation");
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -111,6 +113,19 @@ export default function ResumeDetailPage() {
           >
             {dirty ? "Save changes" : "Saved"}
           </Button>
+          <ConfirmDelete
+            label={data.display_name}
+            size="md"
+            onDelete={(cascade) =>
+              request(`/api/v1/resumes/${id}${cascade ? "?cascade=true" : ""}`, {
+                method: "DELETE",
+              }).then(() => undefined)
+            }
+            onDeleted={() => {
+              queryClient.invalidateQueries({ queryKey: ["resumes"] });
+              router.replace("/resumes");
+            }}
+          />
         </div>
       </div>
 

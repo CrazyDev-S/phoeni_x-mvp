@@ -76,3 +76,37 @@ class ExportRequest(BaseModel):
     profile: str = Field(default="designed", pattern="^(designed|ats_plain)$")
     page: str = Field(default="letter", pattern="^(letter|a4)$")
     filename: str | None = None
+
+
+class TailoredResumeSummary(ORMModel):
+    id: uuid.UUID
+    display_name: str
+    company_name: str | None
+    job_title: str | None
+    job_url: str | None
+    job_source: str
+    base_resume_id: uuid.UUID
+    status: ResumeStatus
+    must_have_coverage_percent: float | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class TailoredResumeOut(TailoredResumeSummary):
+    content_markdown: str
+    content_text: str
+    markdown_version: int
+    job_description_text: str
+    ledger: dict | None = None
+    ats_report: dict | None = None
+    flags: dict | None = None
+    validation: dict | None = None
+
+
+class TailoredResumePatch(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=160)
+    company_name: str | None = None
+    job_title: str | None = None
+    job_url: str | None = None
+    content_markdown: str | None = None
+    status: ResumeStatus | None = None

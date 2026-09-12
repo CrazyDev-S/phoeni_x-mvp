@@ -8,8 +8,9 @@ from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, select
 
 from app.core.deps import CurrentUser, Session
+from app.models.application import JobApplication
 from app.models.enums import ResumeSource
-from app.models.resume import BaseResume
+from app.models.resume import BaseResume, TailoredResume
 from app.resume.renderer import render_plain_text
 from app.schemas.common import Page
 from app.schemas.resume import (
@@ -121,14 +122,69 @@ async def update_resume(
     )
 
 
-@router.delete("/{resume_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_resume(
+@router.post("/{resume_id}/archive", response_model=ResumeOut)
+async def archive_resume(
     resume_id: uuid.UUID, user: CurrentUser, session: Session
-) -> None:
-    """Archive rather than delete.
-
-    Tailored resumes reference base resumes with ON DELETE RESTRICT, because
-    losing the version somebody actually applied with is unrecoverable.
-    """
+) -> BaseResume:
+    """Hide a resume without destroying it. Reversible."""
     row = await _owned(session, user, resume_id)
     row.is_archived = True
+    return row
+
+
+@router.post("/{resume_id}/restore", response_model=ResumeOut)
+async def restore_resume(
+    resume_id: uuid.UUID, user: CurrentUser, session: Session
+) -> BaseResume:
+    row = await _owned(session, user, resume_id)
+    row.is_archived = False
+    return row
+
+
+@router.delete("/{resume_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_resume(
+    resume_id: uuid.UUID,
+    user: CurrentUser,
+    session: Session,
+    cascade: bool = Query(
+        default=False,
+        description="Also delete the tailored versions built from this resume.",
+    ),
+) -> None:
+    """Delete permanently. This cannot be undone.
+
+    Tailored versions are the documents somebody actually applied with, so
+    they are never destroyed as an invisible side effect: without ``cascade``
+    the request is refused and the response says how many there are, which is
+    what lets the caller name the number in its confirmation.
+    """
+    row = await _owned(session, user, resume_id)
+    dependents = list(
+        await session.scalars(
+            select(TailoredResume).where(TailoredResume.base_resume_id == row.id)
+        )
+    )
+    if dependents and not cascade:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "HAS_TAILORED_VERSIONS",
+                "message": (
+                    f"This resume has {len(dependents)} tailored version"
+                    f"{'s' if len(dependents) != 1 else ''} built from it. "
+                    "Deleting it will delete them too."
+                ),
+                "tailored_count": len(dependents),
+            },
+        )
+
+    for tailored in dependents:
+        # Keep the record of having applied; only the document goes.
+        await session.execute(
+            JobApplication.__table__.update()
+            .where(JobApplication.tailored_resume_id == tailored.id)
+            .values(tailored_resume_id=None)
+        )
+        await session.delete(tailored)
+    await session.flush()
+    await session.delete(row)
