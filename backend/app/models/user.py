@@ -76,10 +76,11 @@ class UserSettings(Timestamps, Base):
     strict_dossier: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default="true"
     )
-    # Mode B names archetype companies by default rather than real employers a
-    # user never worked at. See docs/modes.md.
+    # The generator prompt requires real, searched employers: a company may not
+    # be named until its dossier is filled and verified. Turning this off
+    # substitutes archetype descriptions instead, which is a weaker document.
     allow_real_company_names: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default="false"
+        Boolean, nullable=False, server_default="true"
     )
     monthly_budget_usd_micros: Mapped[int | None] = mapped_column(BigInteger)
     display_timezone: Mapped[str] = mapped_column(

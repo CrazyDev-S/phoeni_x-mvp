@@ -2,7 +2,10 @@
   "name": "resume-assist",
   "private": true,
   "version": "0.1.0",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev:web": "npm run dev -w @resume-assist/web",
     "dev:ext": "npm run dev -w @resume-assist/extension",
@@ -11,5 +14,10 @@
     "types": "npm run generate -w @resume-assist/api-types",
     "lint": "npm run lint --workspaces --if-present"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.10.0"
+  }
 }

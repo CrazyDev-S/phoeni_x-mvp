@@ -163,6 +163,7 @@ def scenario_turn(
     candidate_profile: str | None,
     extra_instructions: str | None,
     allow_real_company_names: bool,
+    research_enabled: bool = False,
     skill_count: int | None = None,
 ) -> str:
     """Turn 1. Everything volatile lives here, never in the system prefix."""
@@ -184,13 +185,26 @@ def scenario_turn(
         f"- Target title: {target_title}",
     ]
 
-    if not allow_real_company_names and mode == "constructed":
+    if research_enabled:
         parts.append(
-            "- Do NOT name real employers the candidate has not worked for. Use "
-            "archetype descriptions instead (e.g. 'a ~200-person Series B "
+            "- You have a web_search tool. Use it. Section 2.3 Step 1 is in "
+            "force: a company may not appear in the ledger or the resume until "
+            "its dossier is complete, and every field is verified by search - "
+            "founding date and operating status, the specific office and when "
+            "it opened, headcount in the claimed year, the level ladder and the "
+            "public job title of that era. Run at least three searches per "
+            "company BEFORE accepting it. A field you cannot verify kills the "
+            "company: discard it and pick another rather than guessing or "
+            "softening it to 'approximately'. Record the URLs you actually "
+            "retrieved in each dossier's sources array - a dossier with no "
+            "source is rejected downstream and the whole resume is held back."
+        )
+    elif not allow_real_company_names and mode == "constructed":
+        parts.append(
+            "- Company research is unavailable, so do NOT name real employers. "
+            "Use archetype descriptions instead (e.g. 'a ~200-person Series B "
             "payments company'), framed as a template the candidate replaces "
-            "with their own history. Naming a real employer here would be "
-            "fabricated employment history on a live job application."
+            "with their own history."
         )
     if skill_count:
         parts.append(

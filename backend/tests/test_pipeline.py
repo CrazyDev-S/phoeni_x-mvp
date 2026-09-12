@@ -8,10 +8,11 @@ API key, and they must not spend money.
 from __future__ import annotations
 
 from datetime import date
+from typing import ClassVar
 
 import pytest
 
-from app.llm.provider import LLMError, LLMRequest, LLMResponse, Usage
+from app.llm.provider import LLMError, LLMRequest, LLMResponse, SystemBlock, Usage
 from app.orchestration.resume_pipeline import (
     MAX_REPAIRS,
     PipelineInput,
@@ -289,3 +290,100 @@ async def test_research_off_means_no_search_tool_and_no_unsatisfiable_gate(
     assert dossier and all(f.severity == "warning" for f in dossier)
     # A warning must not block the extension's one-click download.
     assert result.needs_review is False
+
+
+@pytest.mark.asyncio
+async def test_research_on_sends_the_search_tool_and_enforces_dossiers(
+    aran_markdown: str,
+) -> None:
+    """The generator prompt makes a verified dossier the licence to name a
+    company. That only works if the model is actually given a search tool."""
+
+    class ResearchProvider(StubProvider):
+        caps: ClassVar[dict] = {
+            "server_web_search": True,
+            "web_search_tool_type": "web_search_20260209",
+        }
+
+    # The unsourced companies fail validation, so the draft is retried the
+    # full MAX_REPAIRS times before the run is handed back for review.
+    provider = ResearchProvider(
+        [LEDGER_JSON, aran_markdown, aran_markdown, aran_markdown, FLAGS_JSON]
+    )
+    pipeline = ResumePipeline(provider, research_dossiers=True)
+    result = (
+        await drain(
+            pipeline.generate(
+                PipelineInput(
+                    target_title="X", mode="constructed",
+                    strict_dossier=True, today=date(2026, 9, 11),
+                )
+            )
+        )
+    )[-1].data["result"]
+
+    scenario = provider.requests[0]
+    assert scenario.tools, "research was on but no search tool was sent"
+    assert scenario.tools[0]["type"] == "web_search_20260209"
+    assert scenario.tools[0]["max_uses"] >= 9, "three companies need three searches each"
+
+    instruction = scenario.messages[0]["content"]
+    assert "web_search" in instruction
+    assert "three searches per company" in instruction
+    # Nothing should tell the model to avoid real employers when it can research.
+    assert "do NOT name real employers" not in instruction
+
+    # With research available, an unsourced company is a hard error again.
+    dossier = [f for f in result.findings if f.rule_id == "DOSSIER_PROVENANCE"]
+    assert dossier and all(f.severity == "error" for f in dossier)
+    assert result.needs_review is True
+
+
+@pytest.mark.asyncio
+async def test_a_paused_turn_is_resumed_not_treated_as_an_answer() -> None:
+    """A server tool that hits its iteration limit returns pause_turn with the
+    work so far. Accepting that as the final answer truncates the research."""
+    from app.llm.anthropic_adapter import AnthropicAdapter
+
+    adapter = AnthropicAdapter("sk-test", "claude-opus-5")
+    calls: list[dict] = []
+
+    class Block:
+        type = "text"
+        text = '{"mode":"grounded"}'
+
+    class Message:
+        usage = type("U", (), {"input_tokens": 10, "output_tokens": 5,
+                               "cache_read_input_tokens": 0})()
+
+        def __init__(self, stop_reason: str) -> None:
+            self.stop_reason = stop_reason
+            self.content = [Block()]
+
+    async def fake_create(**kwargs):
+        calls.append(kwargs)
+        # Pause once, then finish.
+        return Message("pause_turn" if len(calls) == 1 else "end_turn")
+
+    adapter._client = type(
+        "C", (), {
+            "messages": type("M", (), {"create": staticmethod(fake_create)})(),
+            "with_options": lambda self, **kw: self,
+        },
+    )()
+
+    response = await adapter.complete(
+        LLMRequest(
+            purpose="scenario",
+            system=[SystemBlock("x")],
+            messages=[{"role": "user", "content": "go"}],
+            max_output_tokens=4000,
+        )
+    )
+
+    assert len(calls) == 2, "a paused turn was accepted instead of resumed"
+    # The resume carries the assistant turn back with nothing appended.
+    assert calls[1]["messages"][-1]["role"] == "assistant"
+    assert response.stop_reason == "end_turn"
+    # Usage is summed across both legs, not just the last.
+    assert response.usage.input_tokens == 20

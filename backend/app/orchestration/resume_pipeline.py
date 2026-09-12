@@ -126,7 +126,8 @@ class ResumePipeline:
         self.tool_choice: dict | None = None
         if self.research_enabled:
             tool_type = provider.caps.get("web_search_tool_type", "web_search_20260209")
-            self.tools = [{"type": tool_type, "name": "web_search", "max_uses": 8}]
+            # Three companies x at least three searches each, plus headroom.
+            self.tools = [{"type": tool_type, "name": "web_search", "max_uses": 24}]
             self.tool_choice = {"type": "auto"}
 
     # -- public entry points ----------------------------------------------
@@ -148,6 +149,7 @@ class ResumePipeline:
                     candidate_profile=spec.candidate_profile,
                     extra_instructions=spec.extra_instructions,
                     allow_real_company_names=spec.allow_real_company_names,
+                    research_enabled=self.research_enabled,
                     skill_count=spec.skill_count,
                 ),
             }

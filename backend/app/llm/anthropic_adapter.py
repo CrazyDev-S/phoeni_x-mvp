@@ -36,6 +36,9 @@ from app.models.enums import LLMProvider
 # requests it estimates will exceed ~10 minutes, and idle connections drop.
 STREAM_THRESHOLD_TOKENS = 20_000
 
+# How many times a turn may be resumed after a server tool pauses it.
+MAX_PAUSE_RESUMES = 6
+
 
 class AnthropicAdapter:
     name = "anthropic"
@@ -117,16 +120,35 @@ class AnthropicAdapter:
         kwargs = self._kwargs(req)
         started = time.perf_counter()
         client = self._client.with_options(timeout=req.timeout_s)
-        try:
-            if req.max_output_tokens >= STREAM_THRESHOLD_TOKENS:
-                async with client.messages.stream(**kwargs) as stream:
-                    message = await stream.get_final_message()
-            else:
-                message = await client.messages.create(**kwargs)
-        except anthropic.APIError as exc:
-            raise _translate(exc) from exc
+        totals = Usage()
 
-        return self._to_response(message, int((time.perf_counter() - started) * 1000))
+        # A server tool that hits its own iteration limit returns
+        # stop_reason="pause_turn" with the work so far. Resuming means sending
+        # the assistant turn straight back with nothing appended. Treating a
+        # pause as an answer would silently truncate the research half way.
+        for _ in range(MAX_PAUSE_RESUMES + 1):
+            try:
+                if req.max_output_tokens >= STREAM_THRESHOLD_TOKENS:
+                    async with client.messages.stream(**kwargs) as stream:
+                        message = await stream.get_final_message()
+                else:
+                    message = await client.messages.create(**kwargs)
+            except anthropic.APIError as exc:
+                raise _translate(exc) from exc
+
+            _accumulate(totals, message)
+            if message.stop_reason != "pause_turn":
+                break
+            kwargs["messages"] = [
+                *kwargs["messages"],
+                {"role": "assistant", "content": message.content},
+            ]
+
+        response = self._to_response(message, int((time.perf_counter() - started) * 1000))
+        # Report what the whole turn cost, not just its final leg.
+        response.usage = totals
+        response.cost_usd_micros = cost_micros(self.spec, totals.as_dict())
+        return response
 
     async def stream(self, req: LLMRequest) -> AsyncIterator[LLMEvent]:
         kwargs = self._kwargs(req)
@@ -219,6 +241,20 @@ class AnthropicAdapter:
         except anthropic.APIError as exc:
             return False, str(getattr(exc, "message", exc))
         return True, "ok"
+
+
+def _accumulate(totals: Usage, message: Any) -> None:
+    usage = message.usage
+    creation = getattr(usage, "cache_creation", None)
+    totals.input_tokens += getattr(usage, "input_tokens", 0) or 0
+    totals.output_tokens += getattr(usage, "output_tokens", 0) or 0
+    totals.cache_read_tokens += getattr(usage, "cache_read_input_tokens", 0) or 0
+    written_5m = getattr(creation, "ephemeral_5m_input_tokens", 0) or 0
+    written_1h = getattr(creation, "ephemeral_1h_input_tokens", 0) or 0
+    if not (written_5m or written_1h):
+        written_5m = getattr(usage, "cache_creation_input_tokens", 0) or 0
+    totals.cache_write_5m_tokens += written_5m
+    totals.cache_write_1h_tokens += written_1h
 
 
 def _anthropic_schema(model: type[Any]) -> dict[str, Any]:

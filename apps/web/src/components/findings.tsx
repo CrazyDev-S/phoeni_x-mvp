@@ -30,13 +30,13 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
   return (
     <ul className="divide-y divide-[var(--color-line)]">
       {findings.map((f, i) => (
-        <li key={`${f.rule_id}-${i}`} className="px-4 py-3">
+        <li key={`${f.rule_id}-${i}`} className="min-w-0 px-4 py-3">
           <div className="flex items-start gap-2">
             <Badge tone={f.severity === "error" ? "bad" : f.severity === "warning" ? "warn" : "neutral"}>
               {f.severity}
             </Badge>
             <div className="min-w-0 flex-1">
-              <p className="text-sm">{f.message}</p>
+              <p className="text-sm break-words">{f.message}</p>
               {f.excerpt && (
                 <p className="mono mt-1 truncate text-xs text-[var(--color-ink-soft)]">
                   {f.excerpt}

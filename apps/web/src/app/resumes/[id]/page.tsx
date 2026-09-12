@@ -116,9 +116,13 @@ export default function ResumeDetailPage() {
 
       {saveError && <ErrorNote>{saveError}</ErrorNote>}
 
+      {/* min-w-0 on both tracks is load-bearing: a grid `1fr` is
+          `minmax(auto, 1fr)`, and `auto` resolves to min-content — so one wide
+          child (the JSON block) expands its column and crushes the other. */}
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <Card
-          title="Canonical Resume Markdown"
+          className="min-w-0"
+          title="Resume Markdown"
           action={
             <span className="text-xs text-[var(--color-ink-soft)]">
               {dirty ? "Unsaved edits" : "In sync"}
@@ -134,8 +138,8 @@ export default function ResumeDetailPage() {
           />
         </Card>
 
-        <div className="space-y-4">
-          <Card>
+        <div className="min-w-0 space-y-4">
+          <Card className="min-w-0">
             <div className="flex gap-1 border-b border-[var(--color-line)] p-1">
               {(
                 [
@@ -161,7 +165,12 @@ export default function ResumeDetailPage() {
             {panel === "validation" && <FindingsList findings={findings} />}
             {panel === "ats" && <AtsPanel report={data.ats_report} />}
             {panel === "ledger" && <JsonPanel value={data.ledger} empty="No scenario ledger — this resume was uploaded, not generated." />}
-            {panel === "flags" && <JsonPanel value={data.flags} empty="No interview-prep block for this resume." />}
+            {panel === "flags" && (
+              <PrepPanel
+                value={data.flags as Flags | null}
+                empty="No interview-prep block for this resume."
+              />
+            )}
           </Card>
         </div>
       </div>
@@ -199,7 +208,7 @@ function AtsPanel({ report }: { report: Record<string, unknown> | null }) {
         ))}
       </dl>
       {rows.length > 0 && (
-        <div className="max-h-72 overflow-auto">
+        <div className="max-h-72 min-w-0 overflow-auto">
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-[var(--color-canvas)] text-[var(--color-ink-soft)]">
               <tr>
@@ -235,8 +244,123 @@ function JsonPanel({ value, empty }: { value: unknown; empty: string }) {
     return <p className="px-4 py-6 text-sm text-[var(--color-ink-soft)]">{empty}</p>;
   }
   return (
-    <pre className="mono max-h-96 overflow-auto px-4 py-3 text-[11px] leading-relaxed">
+    <pre className="mono max-h-96 min-w-0 overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-[11px] leading-relaxed">
       {JSON.stringify(value, null, 2)}
     </pre>
+  );
+}
+
+interface Flags {
+  must_verify?: string[];
+  interview_probes?: { question: string; suggested_answer: string }[];
+  estimated_figures?: { figure: string; where: string; derivation: string }[];
+  uncovered_requirements?: { requirement: string; how_to_close: string }[];
+  notes?: string;
+}
+
+/**
+ * The interview-prep block, rendered rather than dumped.
+ *
+ * This is the sheet you read before a call, so raw JSON is the wrong shape for
+ * it. The original object stays available underneath for anything the schema
+ * does not cover.
+ */
+function PrepPanel({ value, empty }: { value: Flags | null; empty: string }) {
+  if (!value) {
+    return <p className="px-4 py-6 text-sm text-[var(--color-ink-soft)]">{empty}</p>;
+  }
+
+  const sections: [string, React.ReactNode][] = [];
+
+  if (value.must_verify?.length) {
+    sections.push([
+      "Verify before sending",
+      <ul key="verify" className="list-disc space-y-1 pl-5">
+        {value.must_verify.map((item, i) => (
+          <li key={i} className="break-words">{item}</li>
+        ))}
+      </ul>,
+    ]);
+  }
+
+  if (value.interview_probes?.length) {
+    sections.push([
+      "Questions this timeline invites",
+      <dl key="probes" className="space-y-3">
+        {value.interview_probes.map((probe, i) => (
+          <div key={i}>
+            <dt className="font-medium break-words">{probe.question}</dt>
+            <dd className="mt-0.5 break-words text-[var(--color-ink-soft)]">
+              {probe.suggested_answer}
+            </dd>
+          </div>
+        ))}
+      </dl>,
+    ]);
+  }
+
+  if (value.estimated_figures?.length) {
+    sections.push([
+      "Every number, and where it came from",
+      <ul key="figures" className="space-y-2">
+        {value.estimated_figures.map((figure, i) => (
+          <li key={i} className="break-words">
+            <span className="mono font-medium">{figure.figure}</span>
+            {figure.where && (
+              <span className="text-[var(--color-ink-soft)]"> · {figure.where}</span>
+            )}
+            {figure.derivation && (
+              <span className="block text-[var(--color-ink-soft)]">
+                {figure.derivation}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>,
+    ]);
+  }
+
+  if (value.uncovered_requirements?.length) {
+    sections.push([
+      "Not covered by this resume",
+      <ul key="gaps" className="space-y-2">
+        {value.uncovered_requirements.map((gap, i) => (
+          <li key={i} className="break-words">
+            {gap.requirement}
+            {gap.how_to_close && (
+              <span className="block text-[var(--color-ink-soft)]">
+                {gap.how_to_close}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>,
+    ]);
+  }
+
+  if (!sections.length) return <JsonPanel value={value} empty={empty} />;
+
+  return (
+    <div className="max-h-[32rem] min-w-0 overflow-y-auto">
+      {sections.map(([heading, body]) => (
+        <section key={heading} className="border-b border-[var(--color-line)] px-4 py-3 last:border-0">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-ink-soft)]">
+            {heading}
+          </h3>
+          <div className="space-y-1 text-sm">{body}</div>
+        </section>
+      ))}
+      {value.notes && (
+        <p className="break-words px-4 py-3 text-sm text-[var(--color-ink-soft)]">
+          {value.notes}
+        </p>
+      )}
+      <details className="border-t border-[var(--color-line)] px-4 py-2">
+        <summary className="cursor-pointer text-xs text-[var(--color-ink-soft)]">
+          Raw data
+        </summary>
+        <JsonPanel value={value} empty={empty} />
+      </details>
+    </div>
   );
 }

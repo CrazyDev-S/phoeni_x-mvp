@@ -207,9 +207,9 @@ export default function SettingsPage() {
 
           {(
             [
-              ["research_dossiers", "Research company dossiers", "Uses web search so a named employer has verifiable facts behind it."],
-              ["strict_dossier", "Block unverified employers", "In Mode B, refuse to ship a resume naming a company with no sourced dossier."],
-              ["allow_real_company_names", "Allow real company names in Mode B", "Off by default. Naming a real employer you have not worked for is fabricated employment history on a live application."],
+              ["research_dossiers", "Research company dossiers", "Gives the model web search so every employer it names has a verified founding date, office, headcount and title ladder behind it. Required by the generator prompt."],
+              ["strict_dossier", "Block employers with no sourced dossier", "Holds the resume back for review if a company is named without at least one retrieved source."],
+              ["allow_real_company_names", "Name real companies", "On. Turning it off substitutes archetype descriptions (\"a ~200-person Series B payments company\") instead, which reads weaker and has to be replaced by hand before sending."],
             ] as const
           ).map(([key, label, hint]) => (
             <label key={key} className="flex items-start gap-3">
