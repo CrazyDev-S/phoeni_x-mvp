@@ -1,6 +1,18 @@
+import { CalendarOff, ChevronLeft, ChevronRight, Video } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { EmptyNote, Section } from "../chrome-shell";
 import { ErrorNote, formatTime } from "../components";
 
 interface Meeting {
@@ -57,49 +69,94 @@ export function CalendarTab() {
   }
 
   return (
-    <div className="card">
-      <div className="row" style={{ marginBottom: 8 }}>
-        <button className="btn" onClick={() => shift(-1)}>‹</button>
-        <input type="date" value={day} onChange={(e) => setDay(e.target.value)} />
-        <button className="btn" onClick={() => shift(1)}>›</button>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-1.5">
+        <Button
+          variant="outline"
+          size="icon-sm"
+          aria-label="Previous day"
+          onClick={() => shift(-1)}
+        >
+          <ChevronLeft />
+        </Button>
+        <Input
+          type="date"
+          aria-label="Day"
+          value={day}
+          onChange={(e) => setDay(e.target.value)}
+          className="h-8 flex-1 text-center"
+        />
+        <Button variant="outline" size="icon-sm" aria-label="Next day" onClick={() => shift(1)}>
+          <ChevronRight />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setDay(new Date().toISOString().slice(0, 10))}
+        >
+          Today
+        </Button>
       </div>
-      <p className="small muted" style={{ margin: "0 0 8px" }}>
-        All times US Eastern.
-      </p>
 
       {error && <ErrorNote>{error}</ErrorNote>}
-      {busy && <p className="small muted">Loading…</p>}
-      {!busy && !items.length && <p className="small muted">Nothing scheduled.</p>}
 
-      <ul className="list">
-        {items.map((m) => (
-          <li key={m.id} style={{ padding: "8px 0" }}>
-            <div className="row">
-              <strong>{formatTime(m.starts_at)}</strong>
-              <span className="truncate" style={{ flex: 1 }}>{m.title}</span>
-            </div>
-            <div className="row small" style={{ marginTop: 4 }}>
-              <select
-                value={m.status}
-                onChange={(e) => setStatus(m.id, e.target.value)}
-                style={{ flex: 1 }}
-              >
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>{s.replace("_", " ")}</option>
-                ))}
-              </select>
-              {m.conferencing_url && (
-                <a className="btn" href={m.conferencing_url} target="_blank" rel="noreferrer">
-                  Join
-                </a>
-              )}
-            </div>
-            {m.preparation_notes && (
-              <p className="small muted" style={{ margin: "4px 0 0" }}>{m.preparation_notes}</p>
-            )}
-          </li>
-        ))}
-      </ul>
+      <Section title={busy ? "Loading…" : `${items.length} scheduled`}>
+        {busy ? (
+          <div className="space-y-2">
+            <Skeleton className="h-16 w-full rounded-xl" />
+            <Skeleton className="h-16 w-full rounded-xl" />
+          </div>
+        ) : !items.length ? (
+          <EmptyNote icon={CalendarOff}>
+            Nothing scheduled on this day. Meetings appear once you schedule an interview
+            stage or create a recurring team meeting.
+          </EmptyNote>
+        ) : (
+          <ul className="space-y-2">
+            {items.map((m) => (
+              <li key={m.id} className="bg-card space-y-2 rounded-xl border p-3">
+                <div className="flex items-baseline gap-2">
+                  <strong className="text-primary shrink-0 text-xs tabular-nums">
+                    {formatTime(m.starts_at)}
+                  </strong>
+                  <span className="min-w-0 flex-1 text-xs font-medium">{m.title}</span>
+                </div>
+
+                {m.preparation_notes && (
+                  <p className="text-muted-foreground border-l-2 pl-2 text-[11px] leading-relaxed">
+                    {m.preparation_notes}
+                  </p>
+                )}
+
+                <div className="flex items-center gap-1.5">
+                  <Select value={m.status} onValueChange={(value) => setStatus(m.id, value)}>
+                    <SelectTrigger size="sm" aria-label="Status" className="flex-1 capitalize">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUSES.map((s) => (
+                        <SelectItem key={s} value={s} className="capitalize">
+                          {s.replace("_", " ")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {m.conferencing_url && (
+                    <Button asChild size="sm">
+                      <a href={m.conferencing_url} target="_blank" rel="noreferrer">
+                        <Video />
+                        Join
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <p className="text-subtle text-center text-[10px]">All times US Eastern.</p>
     </div>
   );
 }

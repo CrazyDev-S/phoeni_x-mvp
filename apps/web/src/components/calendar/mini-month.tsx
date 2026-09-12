@@ -1,6 +1,8 @@
 "use client";
 
-import { Chevron, IconButton } from "./toolbar";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+import { IconButton } from "./toolbar";
 import {
   addMonths,
   dayLabel,
@@ -9,6 +11,7 @@ import {
   todayKey,
   type DayKey,
 } from "@/lib/calendar";
+import { cn } from "@/lib/utils";
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
@@ -32,22 +35,22 @@ export function MiniMonth({
   const today = todayKey();
 
   return (
-    <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-3">
+    <div className="bg-card rounded-xl border p-3">
       <div className="mb-2 flex items-center justify-between">
         <p className="text-sm font-medium">{dayLabel(month, "MMMM yyyy")}</p>
         <div className="flex">
           <IconButton label="Previous month" onClick={() => onMonth(addMonths(month, -1))}>
-            <Chevron direction="left" />
+            <ChevronLeft />
           </IconButton>
           <IconButton label="Next month" onClick={() => onMonth(addMonths(month, 1))}>
-            <Chevron direction="right" />
+            <ChevronRight />
           </IconButton>
         </div>
       </div>
 
       <div className="grid grid-cols-7 gap-y-0.5 text-center">
         {WEEKDAYS.map((weekday, index) => (
-          <span key={index} className="py-1 text-[10px] font-medium text-[var(--color-ink-soft)]">
+          <span key={index} className="text-muted-foreground py-1 text-[10px] font-medium">
             {weekday}
           </span>
         ))}
@@ -60,19 +63,20 @@ export function MiniMonth({
               type="button"
               onClick={() => onPick(day)}
               aria-current={day === selected ? "date" : undefined}
-              className={`relative mx-auto flex size-7 items-center justify-center rounded-full text-xs transition-colors ${
+              className={cn(
+                "relative mx-auto flex size-7 items-center justify-center rounded-full text-xs transition-colors",
                 isToday
-                  ? "bg-[var(--color-brand)] font-medium text-white"
+                  ? "bg-primary text-primary-foreground font-medium"
                   : inRange
-                    ? "bg-[var(--color-brand-soft)] text-[var(--color-brand)]"
+                    ? "bg-muted text-foreground font-medium"
                     : isSameMonth(day, month)
-                      ? "hover:bg-[var(--color-canvas)]"
-                      : "text-[var(--color-ink-soft)] opacity-60 hover:bg-[var(--color-canvas)]"
-              }`}
+                      ? "hover:bg-muted"
+                      : "text-muted-foreground/60 hover:bg-muted",
+              )}
             >
               {dayLabel(day, "d")}
               {busyDays.has(day) && !isToday && (
-                <span className="absolute bottom-0.5 size-1 rounded-full bg-[var(--color-brand)]" />
+                <span className="bg-foreground/50 absolute bottom-0.5 size-1 rounded-full" />
               )}
             </button>
           );

@@ -3,7 +3,11 @@ import { formatInTimeZone } from "date-fns-tz";
 /** Everything the user sees is rendered in their display zone, never the browser's. */
 export const DISPLAY_TIME_ZONE = "America/New_York";
 
-export function formatDateTime(iso: string, pattern = "EEE d MMM, HH:mm zzz", timeZone = DISPLAY_TIME_ZONE) {
+export function formatDateTime(
+  iso: string,
+  pattern = "EEE d MMM, HH:mm zzz",
+  timeZone = DISPLAY_TIME_ZONE,
+) {
   return formatInTimeZone(new Date(iso), timeZone, pattern);
 }
 

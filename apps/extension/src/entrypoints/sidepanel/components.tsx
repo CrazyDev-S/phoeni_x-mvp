@@ -1,4 +1,12 @@
-import type { ReactNode } from "react";
+import { AlertCircle, Video } from "lucide-react";
+import { useId, type ReactNode } from "react";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Progress as ProgressBar } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
 export interface Upcoming {
   meeting: { id: string; title: string; starts_at: string; conferencing_url: string | null };
@@ -41,55 +49,91 @@ export function relative(minutes: number): string {
 export function NextCall({ upcoming }: { upcoming: Upcoming | null }) {
   if (!upcoming) return null;
   const soon = upcoming.starts_in_minutes <= 120;
+
   return (
-    <div className={`banner ${soon ? "soon" : ""}`}>
-      <div className="row">
-        <span className="badge">Next call</span>
-        <strong className="truncate">{upcoming.meeting.title}</strong>
-        <span style={{ marginLeft: "auto" }}>{relative(upcoming.starts_in_minutes)}</span>
+    <div
+      className={cn(
+        "space-y-1.5 rounded-xl border p-2.5",
+        soon ? "border-foreground/20 bg-muted" : "bg-card",
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <Badge variant={soon ? "default" : "secondary"} className="shrink-0">
+          Next call
+        </Badge>
+        <strong className="min-w-0 flex-1 truncate text-xs">{upcoming.meeting.title}</strong>
+        <span className="shrink-0 text-xs tabular-nums">
+          {relative(upcoming.starts_in_minutes)}
+        </span>
       </div>
-      <div className="small muted" style={{ marginTop: 3 }}>
+
+      <p className="text-muted-foreground text-[11px] leading-snug">
         {[upcoming.company_name, upcoming.stage_name].filter(Boolean).join(" · ")}
         {upcoming.company_name && " — "}
         {formatDateTime(upcoming.meeting.starts_at)}
-      </div>
+      </p>
+
       {upcoming.meeting.conferencing_url && (
-        <a
-          className="small"
-          href={upcoming.meeting.conferencing_url}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Join
-        </a>
+        <Button asChild size="xs" variant={soon ? "default" : "outline"} className="w-full">
+          <a href={upcoming.meeting.conferencing_url} target="_blank" rel="noreferrer">
+            <Video />
+            Join
+          </a>
+        </Button>
       )}
     </div>
   );
 }
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+/**
+ * Label, control and help text.
+ *
+ * The control is a function of its id rather than a plain child: shadcn's
+ * Select renders a button, not a <select>, so the label cannot simply wrap it.
+ */
+export function PanelField({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: ReactNode;
+  children: (control: { id: string; "aria-describedby"?: string }) => ReactNode;
+}) {
+  const id = useId();
+  const hintId = `${id}-hint`;
   return (
-    <label className="field">
-      <span>{label}</span>
-      {children}
-    </label>
+    <Field>
+      <FieldLabel htmlFor={id} className="text-xs">
+        {label}
+      </FieldLabel>
+      {children({ id, "aria-describedby": hint ? hintId : undefined })}
+      {hint && (
+        <FieldDescription id={hintId} className="text-[11px]">
+          {hint}
+        </FieldDescription>
+      )}
+    </Field>
   );
 }
 
 export function Progress({ label, percent }: { label: string; percent: number }) {
   return (
-    <div>
-      <div className="row small" style={{ justifyContent: "space-between", marginBottom: 4 }}>
-        <span>{label}</span>
-        <span className="muted">{percent}%</span>
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-[11px]">
+        <span className="min-w-0 truncate">{label}</span>
+        <span className="text-muted-foreground shrink-0 tabular-nums">{percent}%</span>
       </div>
-      <div className="bar">
-        <div style={{ width: `${percent}%` }} />
-      </div>
+      <ProgressBar value={percent} aria-label={label} className="h-1.5" />
     </div>
   );
 }
 
 export function ErrorNote({ children }: { children: ReactNode }) {
-  return <p className="err small">{children}</p>;
+  return (
+    <Alert variant="destructive">
+      <AlertCircle />
+      <AlertDescription className="text-xs">{children}</AlertDescription>
+    </Alert>
+  );
 }

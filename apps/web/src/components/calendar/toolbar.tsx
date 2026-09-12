@@ -1,6 +1,11 @@
 "use client";
 
-import { Button, Spinner } from "@/components/ui";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { dayLabel, isSameMonth, type DayKey } from "@/lib/calendar";
 
 export type CalendarView = "day" | "week" | "month";
@@ -42,38 +47,37 @@ export function Toolbar({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <Button onClick={onToday}>Today</Button>
-      <div className="flex items-center gap-1">
+      <Button variant="outline" onClick={onToday}>
+        Today
+      </Button>
+
+      <div className="flex items-center gap-0.5">
         <IconButton label="Previous" onClick={() => onStep(-1)}>
-          <Chevron direction="left" />
+          <ChevronLeft />
         </IconButton>
         <IconButton label="Next" onClick={() => onStep(1)}>
-          <Chevron direction="right" />
+          <ChevronRight />
         </IconButton>
       </div>
+
       <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
         {title}
-        {busy && <Spinner className="text-[var(--color-ink-soft)]" />}
+        {busy && <Spinner className="text-muted-foreground" />}
       </h1>
 
-      <div className="ml-auto flex rounded-md border border-[var(--color-line)] bg-[var(--color-surface)] p-0.5">
-        {VIEWS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            title={option.hint}
-            aria-pressed={view === option.value}
-            onClick={() => onView(option.value)}
-            className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
-              view === option.value
-                ? "bg-[var(--color-brand-soft)] text-[var(--color-brand)]"
-                : "text-[var(--color-ink-soft)] hover:bg-[var(--color-canvas)]"
-            }`}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        value={view}
+        onValueChange={(next) => onView(next as CalendarView)}
+        className="ml-auto"
+      >
+        <TabsList>
+          {VIEWS.map((option) => (
+            <TabsTrigger key={option.value} value={option.value} title={option.hint}>
+              {option.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
     </div>
   );
 }
@@ -88,26 +92,19 @@ export function IconButton({
   children: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className="flex size-8 items-center justify-center rounded-full text-[var(--color-ink-soft)] transition-colors hover:bg-[var(--color-canvas)] hover:text-[var(--color-ink)]"
-    >
-      {children}
-    </button>
-  );
-}
-
-export function Chevron({ direction }: { direction: "left" | "right" }) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden className="size-4 fill-none stroke-current stroke-2">
-      <path
-        d={direction === "left" ? "M15 5 8 12l7 7" : "M9 5l7 7-7 7"}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={label}
+          onClick={onClick}
+          className="rounded-full"
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }

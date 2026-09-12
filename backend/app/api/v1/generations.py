@@ -12,7 +12,7 @@ import json
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Header, HTTPException, Request, status
+from fastapi import APIRouter, Header, HTTPException, status
 from sqlalchemy import select
 from sse_starlette.sse import EventSourceResponse
 
@@ -95,7 +95,6 @@ async def poll_events(
 @router.get("/{generation_id}/events")
 async def stream_events(
     generation_id: uuid.UUID,
-    request: Request,
     user: CurrentUser,
     session: Session,
     last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None,
@@ -112,8 +111,6 @@ async def stream_events(
     async def publisher():
         seq = cursor
         while True:
-            if await request.is_disconnected():
-                return
             async with SessionLocal() as s:
                 events = list(
                     await s.scalars(
@@ -134,10 +131,32 @@ async def stream_events(
                     }
                 if events and events[-1].type in ("complete", "error"):
                     return
+
                 generation = await s.get(Generation, generation_id)
-                if generation and generation.status in TERMINAL and not events:
-                    # Terminal with nothing left to replay: close cleanly rather
-                    # than holding the connection open forever.
+                if generation is not None and generation.status in TERMINAL:
+                    # Never close a finished job silently. A client that
+                    # reconnects having already seen every event would get an
+                    # empty stream, reconnect again, and spin forever waiting
+                    # for an outcome that had already been delivered. Restating
+                    # the outcome costs one frame and always ends the wait.
+                    yield {
+                        "id": str(seq + 1),
+                        "event": "error" if generation.status is GenerationStatus.FAILED else "complete",
+                        "data": json.dumps(
+                            {
+                                "replayed": True,
+                                "status": generation.status.value,
+                                "result_kind": generation.result_kind,
+                                "result_id": str(generation.result_id)
+                                if generation.result_id
+                                else None,
+                                "needs_review": generation.status
+                                is GenerationStatus.NEEDS_REVIEW,
+                                "code": generation.error_code,
+                                "detail": generation.error_detail,
+                            }
+                        ),
+                    }
                     return
             await asyncio.sleep(POLL_INTERVAL)
 

@@ -1,6 +1,16 @@
+import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { ErrorNote } from "../components";
 
 interface Job {
@@ -56,54 +66,74 @@ export function MaintainTab() {
     }
   }
 
-  if (error) return <div className="card"><ErrorNote>{error}</ErrorNote></div>;
+  if (error) return <ErrorNote>{error}</ErrorNote>;
+
   if (!jobs.length) {
     return (
-      <div className="card small muted">
-        No maintained jobs yet. Promote an application once you have signed.
-      </div>
+      <Card className="py-3">
+        <CardContent className="text-muted-foreground px-3 text-center text-xs text-balance">
+          No maintained jobs yet. Promote an application once you have signed.
+        </CardContent>
+      </Card>
     );
   }
 
   return (
     <>
       {jobs.map((job) => (
-        <div className="card" key={job.id}>
-          <button
-            className="row"
-            onClick={() => toggle(job.id)}
-            style={{ width: "100%", border: 0, background: "transparent", padding: 0, textAlign: "left" }}
-          >
-            <strong className="truncate" style={{ flex: 1 }}>{job.employer_name}</strong>
-            <span className={`badge ${job.status === "active" ? "ok" : ""}`}>{job.status}</span>
-          </button>
-          <p className="small muted" style={{ margin: "2px 0 0" }}>
-            {job.role_title} · since {job.start_date}
-          </p>
-
-          {open === job.id && (
-            <div style={{ marginTop: 8 }}>
-              <p className="small muted" style={{ margin: "0 0 4px" }}>Recurring meetings</p>
-              <ul className="list small">
-                {series.length === 0 && <li className="muted">None yet.</li>}
-                {series.map((s) => (
-                  <li key={s.id} className="row" style={{ padding: "4px 0" }}>
-                    <span className="truncate" style={{ flex: 1 }}>{s.title}</span>
-                    <span className="muted">{s.start_time_local}</span>
-                    {!s.is_active && <span className="badge">paused</span>}
-                  </li>
-                ))}
-              </ul>
-              <textarea
-                rows={3}
-                placeholder="Notes for this job…"
-                defaultValue={job.notes_markdown ?? ""}
-                onBlur={(e) => saveNotes(job.id, e.target.value)}
-                style={{ marginTop: 6 }}
+        <Card key={job.id} className="py-0">
+          <Collapsible open={open === job.id} onOpenChange={() => void toggle(job.id)}>
+            <CollapsibleTrigger className="hover:bg-muted/50 flex w-full items-start gap-2 rounded-xl p-3 text-left transition-colors">
+              <div className="min-w-0 flex-1">
+                <strong className="block truncate text-xs">{job.employer_name}</strong>
+                <p className="text-muted-foreground mt-0.5 text-[11px]">
+                  {job.role_title} · since {job.start_date}
+                </p>
+              </div>
+              <Badge
+                variant="secondary"
+                className={cn("shrink-0", job.status === "active" && "bg-success/10 text-success")}
+              >
+                {job.status}
+              </Badge>
+              <ChevronDown
+                className={cn(
+                  "text-muted-foreground mt-0.5 size-3.5 shrink-0 transition-transform",
+                  open === job.id && "rotate-180",
+                )}
               />
-            </div>
-          )}
-        </div>
+            </CollapsibleTrigger>
+
+            <CollapsibleContent>
+              <div className="space-y-2 border-t p-3">
+                <p className="text-muted-foreground text-[11px] font-medium">
+                  Recurring meetings
+                </p>
+                <ul className="divide-y">
+                  {series.length === 0 && (
+                    <li className="text-muted-foreground py-1 text-[11px]">None yet.</li>
+                  )}
+                  {series.map((s) => (
+                    <li key={s.id} className="flex items-center gap-2 py-1 text-[11px]">
+                      <span className="min-w-0 flex-1 truncate">{s.title}</span>
+                      <span className="text-muted-foreground shrink-0 tabular-nums">
+                        {s.start_time_local}
+                      </span>
+                      {!s.is_active && <Badge variant="secondary">paused</Badge>}
+                    </li>
+                  ))}
+                </ul>
+                <Textarea
+                  rows={3}
+                  aria-label={`Notes for ${job.employer_name}`}
+                  placeholder="Notes for this job…"
+                  defaultValue={job.notes_markdown ?? ""}
+                  onBlur={(e) => saveNotes(job.id, e.target.value)}
+                />
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
       ))}
     </>
   );

@@ -52,7 +52,9 @@ export function addDays(key: DayKey, days: number): DayKey {
 
 export function addMonths(key: DayKey, months: number): DayKey {
   const date = civil(key);
-  const first = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1, 12));
+  const first = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1, 12),
+  );
   // Clamp, so 31 January plus one month is the last day of February rather
   // than sliding into March.
   const lastDay = new Date(
@@ -76,7 +78,9 @@ export function weekOf(key: DayKey): DayKey[] {
 export function monthGrid(key: DayKey): DayKey[] {
   const date = civil(key);
   const first = keyOf(new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 12)));
-  const last = keyOf(new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0, 12)));
+  const last = keyOf(
+    new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0, 12)),
+  );
   const start = startOfWeek(first);
   const span = Math.round((civil(last).getTime() - civil(start).getTime()) / DAY_MS) + 1;
   const length = Math.ceil(span / 7) * 7;
@@ -117,7 +121,10 @@ export function zoneAbbreviation(key: DayKey): string {
 
 /** The instant a local wall-clock slot maps to — used for optimistic moves. */
 export function instantAt(day: DayKey, minutes: number): string {
-  return fromZonedTime(`${day}T${minutesLabel(minutes)}:00`, DISPLAY_TIME_ZONE).toISOString();
+  return fromZonedTime(
+    `${day}T${minutesLabel(minutes)}:00`,
+    DISPLAY_TIME_ZONE,
+  ).toISOString();
 }
 
 export function dayOf(meeting: Meeting): DayKey {
@@ -171,27 +178,39 @@ export function placeDay(
     } else {
       columnEnds[column] = end;
     }
-    cluster.push({ meeting: span.meeting, startMinutes: span.start, endMinutes: end, column, columns: 1 });
+    cluster.push({
+      meeting: span.meeting,
+      startMinutes: span.start,
+      endMinutes: end,
+      column,
+      columns: 1,
+    });
   }
   flush();
   return placed;
 }
 
 export interface EventColor {
+  /** Background of a filled block. */
   fill: string;
-  soft: string;
+  /** Text that sits on `fill`. */
+  foreground: string;
+  /** Text and border when the block is drawn as an outline instead. */
   ink: string;
 }
 
-/** Muted hues, so a full week still reads as one surface rather than confetti. */
-const PALETTE: EventColor[] = [
-  { fill: "#1f3864", soft: "#e8edf7", ink: "#16284a" },
-  { fill: "#0f6f7b", soft: "#e3f0f2", ink: "#0b555e" },
-  { fill: "#6b3f7a", soft: "#f1e9f4", ink: "#53305f" },
-  { fill: "#3f6b43", soft: "#e9f2ea", ink: "#2f5233" },
-  { fill: "#9a4b28", soft: "#f7ece6", ink: "#7a3b1f" },
-  { fill: "#8a6d1f", soft: "#f5efdd", ink: "#6d5618" },
-];
+/**
+ * Muted hues, so a full week still reads as one surface rather than confetti.
+ *
+ * Each entry points at theme tokens rather than a literal colour: the same
+ * meeting has to stay legible on a white canvas and on a near-black one, and
+ * only CSS knows which of those is on screen.
+ */
+const PALETTE: EventColor[] = Array.from({ length: 6 }, (_, index) => ({
+  fill: `var(--event-${index + 1})`,
+  foreground: `var(--event-${index + 1}-foreground)`,
+  ink: `var(--event-${index + 1}-ink)`,
+}));
 
 const COLOR_BY_TYPE: Record<string, number> = {
   interview: 0,

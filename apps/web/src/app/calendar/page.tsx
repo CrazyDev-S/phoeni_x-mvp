@@ -1,6 +1,12 @@
 "use client";
 
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { CalendarDays, Globe, Keyboard } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { EventPopover } from "@/components/calendar/event-popover";
@@ -9,6 +15,8 @@ import { MonthGrid } from "@/components/calendar/month-grid";
 import { TimeGrid } from "@/components/calendar/time-grid";
 import { rangeTitle, Toolbar, type CalendarView } from "@/components/calendar/toolbar";
 import { NextCallBanner } from "@/components/next-call";
+import { PageHero } from "@/components/page-hero";
+import { SidePanel } from "@/components/side-panel";
 import { request } from "@/lib/api";
 import {
   addDays,
@@ -45,7 +53,8 @@ export default function CalendarPage() {
   const [selected, setSelected] = useState<Selection | null>(null);
 
   const days = useMemo(
-    () => (view === "day" ? [anchor] : view === "week" ? weekOf(anchor) : monthGrid(anchor)),
+    () =>
+      view === "day" ? [anchor] : view === "week" ? weekOf(anchor) : monthGrid(anchor),
     [view, anchor],
   );
   const from = days[0];
@@ -62,7 +71,10 @@ export default function CalendarPage() {
 
   const patch = useMutation({
     mutationFn: ({ id, body }: PatchVariables) =>
-      request<Meeting>(`/api/v1/meetings/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+      request<Meeting>(`/api/v1/meetings/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
     onMutate: ({ id, optimistic }: PatchVariables) => {
       if (!optimistic) return;
       queryClient.setQueriesData<Meeting[]>({ queryKey: ["meetings"] }, (rows) =>
@@ -71,7 +83,9 @@ export default function CalendarPage() {
     },
     onSuccess: (updated) => {
       setSelected((current) =>
-        current && current.meeting.id === updated.id ? { ...current, meeting: updated } : current,
+        current && current.meeting.id === updated.id
+          ? { ...current, meeting: updated }
+          : current,
       );
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
       queryClient.invalidateQueries({ queryKey: ["next-call"] });
@@ -166,7 +180,14 @@ export default function CalendarPage() {
   const busyDays = useMemo(() => new Set(meetings.map(dayOf)), [meetings]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
+      <PageHero
+        eyebrow="Schedule"
+        eyebrowIcon={CalendarDays}
+        title="Calendar"
+        description="Interview stages and recurring team meetings, every time shown in your display zone."
+      />
+
       <NextCallBanner />
 
       <Toolbar
@@ -178,34 +199,8 @@ export default function CalendarPage() {
         onStep={step}
       />
 
-      <div className="flex gap-4">
-        <aside className="hidden w-56 shrink-0 space-y-3 lg:block">
-          <MiniMonth
-            month={miniMonth}
-            selected={anchor}
-            highlighted={highlighted}
-            busyDays={busyDays}
-            onMonth={setMiniMonth}
-            onPick={(day) => setAnchor(day)}
-          />
-          <p className="px-1 text-xs leading-relaxed text-[var(--color-ink-soft)]">
-            All times in US Eastern ({DISPLAY_TIME_ZONE}) — the zone is derived from the instant,
-            so it reads EST in winter and EDT in summer.
-          </p>
-          {!isFetching && !meetings.length && (
-            <p className="px-1 text-xs leading-relaxed text-[var(--color-ink-soft)]">
-              Nothing scheduled here. Meetings appear once you schedule an interview stage or
-              create a recurring team meeting.
-            </p>
-          )}
-          <p className="px-1 text-xs leading-relaxed text-[var(--color-ink-soft)]">
-            Drag a meeting to reschedule it. Keys: <strong>T</strong> today, <strong>D</strong>/
-            <strong>W</strong>/<strong>M</strong> views, <strong>←</strong>/<strong>→</strong> to
-            page.
-          </p>
-        </aside>
-
-        <div className="min-w-0 flex-1">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+        <div className="min-w-0">
           {view === "month" ? (
             <MonthGrid
               anchor={anchor}
@@ -226,6 +221,62 @@ export default function CalendarPage() {
             />
           )}
         </div>
+
+        <aside className="hidden space-y-6 lg:sticky lg:top-24 lg:block">
+          <MiniMonth
+            month={miniMonth}
+            selected={anchor}
+            highlighted={highlighted}
+            busyDays={busyDays}
+            onMonth={setMiniMonth}
+            onPick={(day) => setAnchor(day)}
+          />
+
+          <SidePanel icon={Keyboard} title="Getting around">
+            <ul className="space-y-3 text-sm">
+              {[
+                [<Kbd key="t">T</Kbd>, "Jump to today"],
+                [
+                  <span key="dwm" className="flex gap-1">
+                    <Kbd>D</Kbd>
+                    <Kbd>W</Kbd>
+                    <Kbd>M</Kbd>
+                  </span>,
+                  "Day, week or month",
+                ],
+                [
+                  <span key="arrows" className="flex gap-1">
+                    <Kbd>←</Kbd>
+                    <Kbd>→</Kbd>
+                  </span>,
+                  "Page back and forward",
+                ],
+              ].map(([keys, label], index) => (
+                <li key={index} className="flex items-center gap-3">
+                  <span className="shrink-0">{keys}</span>
+                  <span className="text-muted-foreground text-xs">{label}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-muted-foreground mt-4 border-t pt-3 text-xs leading-relaxed">
+              Drag a meeting to reschedule it — the API takes local wall-clock, which is
+              exactly what a drop position is.
+            </p>
+          </SidePanel>
+
+          <SidePanel icon={Globe} title="Times and zones">
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              Everything is rendered in US Eastern ({DISPLAY_TIME_ZONE}). The zone is
+              derived from the instant, so it reads EST in winter and EDT in summer.
+            </p>
+            {!isFetching && !meetings.length && (
+              <p className="text-muted-foreground mt-3 border-t pt-3 text-xs leading-relaxed">
+                Nothing scheduled in this range. Meetings appear once you schedule an
+                interview stage or create a recurring team meeting.
+              </p>
+            )}
+          </SidePanel>
+        </aside>
       </div>
 
       {selected && (
@@ -238,5 +289,14 @@ export default function CalendarPage() {
         />
       )}
     </div>
+  );
+}
+
+/** A key cap, for the shortcut legend in the aside. */
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="bg-muted text-foreground inline-flex h-5 min-w-5 items-center justify-center rounded border px-1.5 text-[11px] font-medium">
+      {children}
+    </kbd>
   );
 }

@@ -6,10 +6,17 @@ import { request } from "@/lib/api";
 import { streamGeneration } from "@/lib/sse";
 import type { Finding } from "@/components/findings";
 
+export interface Step {
+  phase: string;
+  label: string;
+}
+
 export interface GenerationState {
   id: string | null;
   phase: string;
   label: string;
+  /** Every phase the stream has announced, in order, for the progress trail. */
+  steps: Step[];
   percent: number;
   thinking: string;
   findings: Finding[];
@@ -22,9 +29,19 @@ export interface GenerationState {
 }
 
 const IDLE: GenerationState = {
-  id: null, phase: "", label: "", percent: 0, thinking: "", findings: [],
-  report: null, resultKind: null, resultId: null, needsReview: false,
-  error: null, running: false,
+  id: null,
+  phase: "",
+  label: "",
+  steps: [],
+  percent: 0,
+  thinking: "",
+  findings: [],
+  report: null,
+  resultKind: null,
+  resultId: null,
+  needsReview: false,
+  error: null,
+  running: false,
 };
 
 /**
@@ -45,7 +62,10 @@ export function useGeneration() {
     setState({ ...IDLE, running: true, label: "Starting…" });
 
     let accepted: {
-      id: string; reused?: boolean; result_kind?: string | null; result_id?: string | null;
+      id: string;
+      reused?: boolean;
+      result_kind?: string | null;
+      result_id?: string | null;
     };
     try {
       accepted = await request(path, { method: "POST", body: JSON.stringify(body) });
@@ -56,8 +76,12 @@ export function useGeneration() {
 
     if (accepted.reused) {
       setState({
-        ...IDLE, id: accepted.id, percent: 100, label: "Reused an identical recent run",
-        resultKind: accepted.result_kind ?? null, resultId: accepted.result_id ?? null,
+        ...IDLE,
+        id: accepted.id,
+        percent: 100,
+        label: "Reused an identical recent run",
+        resultKind: accepted.result_kind ?? null,
+        resultId: accepted.result_id ?? null,
       });
       return accepted;
     }
@@ -68,15 +92,24 @@ export function useGeneration() {
         setState((s) => {
           const d = event.data as Record<string, never>;
           switch (event.type) {
-            case "phase":
-              return { ...s, phase: String(d.phase ?? ""), label: String(d.label ?? ""), percent: Number(d.percent ?? s.percent) };
+            case "phase": {
+              const phase = String(d.phase ?? "");
+              const label = String(d.label ?? "");
+              // The stream can repeat a phase; the trail records each one once.
+              const steps =
+                s.steps.at(-1)?.phase === phase ? s.steps : [...s.steps, { phase, label }];
+              return { ...s, phase, label, steps, percent: Number(d.percent ?? s.percent) };
+            }
             case "thinking":
               return { ...s, thinking: (s.thinking + String(d.text ?? "")).slice(-4000) };
             case "usage":
               return Array.isArray(d.findings) ? { ...s, findings: d.findings } : s;
             case "complete":
               return {
-                ...s, percent: 100, running: false, label: "Done",
+                ...s,
+                percent: 100,
+                running: false,
+                label: "Done",
                 findings: (d.findings as Finding[]) ?? s.findings,
                 report: (d.report as Record<string, unknown>) ?? null,
                 resultKind: (d.result_kind as string) ?? null,

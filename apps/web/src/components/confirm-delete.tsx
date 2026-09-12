@@ -1,8 +1,23 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import { useState } from "react";
 
-import { Button, ErrorNote } from "./ui";
+import { ErrorAlert } from "@/components/error-alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 
 /**
  * Permanent deletion, behind a confirmation that names what is about to go.
@@ -16,13 +31,13 @@ export function ConfirmDelete({
   label,
   onDelete,
   onDeleted,
-  size = "sm",
+  size = "default",
 }: {
   label: string;
   /** Resolves when deleted; throws an ApiError the caller can inspect. */
   onDelete: (cascade: boolean) => Promise<void>;
   onDeleted?: () => void;
-  size?: "sm" | "md";
+  size?: "sm" | "default";
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -37,7 +52,11 @@ export function ConfirmDelete({
       onDeleted?.();
       setOpen(false);
     } catch (err) {
-      const e = err as { code?: string; message?: string; detail?: Record<string, unknown> };
+      const e = err as {
+        code?: string;
+        message?: string;
+        detail?: Record<string, unknown>;
+      };
       if (e.code === "HAS_TAILORED_VERSIONS" && e.detail) {
         setCascade({
           message: String(e.detail.message ?? ""),
@@ -51,39 +70,54 @@ export function ConfirmDelete({
     }
   }
 
-  function reset() {
-    setOpen(false);
-    setCascade(null);
-    setError(null);
-  }
-
-  if (!open) {
-    return (
-      <Button size={size} variant="ghost" onClick={() => setOpen(true)}>
-        Delete
-      </Button>
-    );
-  }
-
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs text-[var(--color-ink-soft)]">
-        {cascade
-          ? `${cascade.message} This cannot be undone.`
-          : `Delete “${label}” permanently?`}
-      </span>
-      <Button
-        size={size}
-        variant="danger"
-        loading={busy}
-        onClick={() => run(Boolean(cascade))}
-      >
-        {cascade ? `Delete all ${cascade.count + 1}` : "Delete"}
-      </Button>
-      <Button size={size} variant="ghost" onClick={reset} disabled={busy}>
-        Cancel
-      </Button>
-      {error && <ErrorNote>{error}</ErrorNote>}
-    </div>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) {
+          setCascade(null);
+          setError(null);
+        }
+      }}
+    >
+      <AlertDialogTrigger asChild>
+        <Button variant="ghost" size={size}>
+          <Trash2 />
+          Delete
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {cascade ? "This will delete more than one resume" : `Delete “${label}”?`}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {cascade
+              ? `${cascade.message} This cannot be undone.`
+              : "This permanently removes the resume. This cannot be undone."}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        {error && <ErrorAlert>{error}</ErrorAlert>}
+
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={busy}
+            className={cn(buttonVariants({ variant: "destructive" }))}
+            // The dialog stays open between the first refusal and the cascade
+            // confirmation, so the default close-on-select is suppressed.
+            onClick={(event) => {
+              event.preventDefault();
+              void run(Boolean(cascade));
+            }}
+          >
+            {busy && <Spinner />}
+            {cascade ? `Delete all ${cascade.count + 1}` : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

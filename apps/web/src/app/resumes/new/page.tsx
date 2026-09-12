@@ -1,44 +1,133 @@
 "use client";
 
+import {
+  Briefcase,
+  ClipboardPaste,
+  FilePlus2,
+  Lightbulb,
+  ListChecks,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { FindingsList } from "@/components/findings";
-import { Button, Card, ErrorNote, Field, Input, Textarea } from "@/components/ui";
+import { ErrorAlert } from "@/components/error-alert";
+import { FormField } from "@/components/form-field";
+import { GenerationProgress } from "@/components/generation-progress";
+import { PageHero } from "@/components/page-hero";
+import { CheckList, PointList, SidePanel, type PointItem } from "@/components/side-panel";
+import { StepsBand } from "@/components/steps-band";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { FieldGroup } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { useGeneration } from "@/hooks/use-generation";
 import { request } from "@/lib/api";
 
-type Tab = "upload" | "story" | "job";
+const NEW_RESUME_TIPS = [
+  "Name it for the stack, e.g. “Senior AI Fullstack — Python/FastAPI”.",
+  "Keep the target title close to the roles you will apply for.",
+  "One base resume per stack beats one per company.",
+  "Generated resumes still need a read before you send them.",
+];
+
+const ON_SAVE: PointItem[] = [
+  {
+    Icon: ShieldCheck,
+    title: "It is parsed, not just stored",
+    detail:
+      "A document that cannot be read back cannot be exported, so it is checked here rather than at download time.",
+  },
+  {
+    Icon: ListChecks,
+    title: "Hard rules are re-checked",
+    detail:
+      "No placeholders, exactly four skill categories, and tenure arithmetic that agrees with the claimed years.",
+  },
+];
+
+const CRM_PLACEHOLDER = `---
+name: Your Name
+title: Senior Engineer
+location: City, Country
+---
+
+## PROFESSIONAL SUMMARY
+
+…`;
 
 export default function NewResumePage() {
-  const [tab, setTab] = useState<Tab>("upload");
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-xl font-semibold">New resume</h1>
-      <div className="flex gap-1 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-1">
-        {(
-          [
-            ["upload", "Paste existing"],
-            ["story", "Generate from a story"],
-            ["job", "Generate from a job"],
-          ] as [Tab, string][]
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`flex-1 rounded-md px-3 py-2 text-sm transition-colors ${
-              tab === key
-                ? "bg-[var(--color-brand-soft)] font-medium text-[var(--color-brand)]"
-                : "text-[var(--color-ink-soft)] hover:bg-[var(--color-canvas)]"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+    <div className="space-y-8">
+      <PageHero
+        eyebrow="Step one"
+        eyebrowIcon={FilePlus2}
+        title="Add a resume"
+        description="Start from something you already have, or let the generator build one from a story or a posting."
+      />
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <div className="min-w-0 space-y-6">
+          <Tabs defaultValue="upload" className="gap-4">
+            <TabsList className="h-11 w-full">
+              <TabsTrigger value="upload" className="gap-1.5">
+                <ClipboardPaste className="hidden size-4 sm:block" />
+                Paste existing
+              </TabsTrigger>
+              <TabsTrigger value="story" className="gap-1.5">
+                <Sparkles className="hidden size-4 sm:block" />
+                From a story
+              </TabsTrigger>
+              <TabsTrigger value="job" className="gap-1.5">
+                <Briefcase className="hidden size-4 sm:block" />
+                From a job
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="upload">
+              <UploadForm />
+            </TabsContent>
+            <TabsContent value="story">
+              <GenerateForm kind="story" />
+            </TabsContent>
+            <TabsContent value="job">
+              <GenerateForm kind="job" />
+            </TabsContent>
+          </Tabs>
+
+          <StepsBand
+            title="Which option?"
+            description="Three ways in, one library out."
+            steps={[
+              {
+                title: "Paste existing",
+                detail: "You already have a resume in Canonical Resume Markdown.",
+              },
+              {
+                title: "From a story",
+                detail: "Describe the career you want represented and let it build one.",
+              },
+              {
+                title: "From a job",
+                detail: "Start from a posting and work backwards to a base resume.",
+              },
+            ]}
+          />
+        </div>
+
+        <aside className="space-y-6 lg:sticky lg:top-24">
+          <SidePanel icon={Lightbulb} title="Tips for better results">
+            <CheckList items={NEW_RESUME_TIPS} />
+          </SidePanel>
+          <SidePanel icon={ShieldCheck} title="What happens on save">
+            <PointList items={ON_SAVE} />
+          </SidePanel>
+        </aside>
       </div>
-      {tab === "upload" && <UploadForm />}
-      {tab === "story" && <GenerateForm kind="story" />}
-      {tab === "job" && <GenerateForm kind="job" />}
     </div>
   );
 }
@@ -68,7 +157,11 @@ function UploadForm() {
       });
       router.push(`/resumes/${created.id}`);
     } catch (err) {
-      const e = err as { code?: string; message?: string; detail?: Record<string, unknown> };
+      const e = err as {
+        code?: string;
+        message?: string;
+        detail?: Record<string, unknown>;
+      };
       setError(e.message ?? "Could not save");
       if (e.code === "CRM_PARSE_ERROR" && e.detail) {
         setParseHint(
@@ -81,37 +174,68 @@ function UploadForm() {
   }
 
   return (
-    <Card className="p-5">
-      <form onSubmit={submit} className="space-y-4">
-        <Field label="Name" hint="Include the stack, e.g. “Senior AI Fullstack — Python/FastAPI”.">
-          <Input required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-        </Field>
-        <Field label="Target title">
-          <Input required value={targetTitle} onChange={(e) => setTargetTitle(e.target.value)} />
-        </Field>
-        <Field
-          label="Resume (Canonical Resume Markdown)"
-          hint="Parsed on save — a document that cannot be read back cannot be exported, so it is checked here rather than at download time."
-        >
-          <Textarea
-            required
-            rows={18}
-            className="mono text-xs"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder={"---\nname: Your Name\ntitle: Senior Engineer\nlocation: City, Country\n---\n\n## PROFESSIONAL SUMMARY\n\n…"}
-          />
-        </Field>
-        {error && (
-          <div className="space-y-1">
-            <ErrorNote>{error}</ErrorNote>
-            {parseHint && <p className="mono text-xs text-[var(--color-ink-soft)]">{parseHint}</p>}
-          </div>
-        )}
-        <Button type="submit" variant="primary" loading={busy}>
-          Save resume
-        </Button>
-      </form>
+    <Card className="py-0">
+      <CardContent className="p-5 md:p-6">
+        <form onSubmit={submit}>
+          <FieldGroup className="gap-5">
+            <FormField
+              label="Name"
+              hint="Include the stack, e.g. “Senior AI Fullstack — Python/FastAPI”."
+            >
+              {(control) => (
+                <Input
+                  {...control}
+                  required
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                />
+              )}
+            </FormField>
+
+            <FormField label="Target title">
+              {(control) => (
+                <Input
+                  {...control}
+                  required
+                  value={targetTitle}
+                  onChange={(e) => setTargetTitle(e.target.value)}
+                />
+              )}
+            </FormField>
+
+            <FormField
+              label="Resume (Canonical Resume Markdown)"
+              hint="Parsed on save — a document that cannot be read back cannot be exported, so it is checked here rather than at download time."
+            >
+              {(control) => (
+                <Textarea
+                  {...control}
+                  required
+                  rows={18}
+                  className="field-sizing-fixed min-h-80 font-mono text-xs"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder={CRM_PLACEHOLDER}
+                />
+              )}
+            </FormField>
+
+            {error && (
+              <ErrorAlert>
+                {error}
+                {parseHint && (
+                  <span className="mt-1 block font-mono text-xs">{parseHint}</span>
+                )}
+              </ErrorAlert>
+            )}
+
+            <Button type="submit" size="lg" className="h-12 w-full" disabled={busy}>
+              {busy && <Spinner />}
+              Save resume
+            </Button>
+          </FieldGroup>
+        </form>
+      </CardContent>
     </Card>
   );
 }
@@ -136,94 +260,84 @@ function GenerateForm({ kind }: { kind: "story" | "job" }) {
   }
 
   return (
-    <Card className="p-5">
-      <form onSubmit={submit} className="space-y-4">
-        <Field label="Target title">
-          <Input
-            required
-            placeholder="Senior Software Engineer – AI Fullstack"
-            value={targetTitle}
-            onChange={(e) => setTargetTitle(e.target.value)}
-          />
-        </Field>
+    <Card className="py-0">
+      <CardContent className="p-5 md:p-6">
+        <form onSubmit={submit}>
+          <FieldGroup className="gap-5">
+            <FormField label="Target title">
+              {(control) => (
+                <Input
+                  {...control}
+                  required
+                  placeholder="Senior Software Engineer – AI Fullstack"
+                  value={targetTitle}
+                  onChange={(e) => setTargetTitle(e.target.value)}
+                />
+              )}
+            </FormField>
 
-        {kind === "story" ? (
-          <>
-            <Field label="How many technologies overall?" hint="Still spread across exactly four categories.">
-              <Input
-                type="number"
-                min={4}
-                max={40}
-                value={skillCount}
-                onChange={(e) => setSkillCount(e.target.value)}
+            {kind === "story" ? (
+              <>
+                <FormField
+                  label="How many technologies overall?"
+                  hint="Still spread across exactly four categories."
+                >
+                  {(control) => (
+                    <Input
+                      {...control}
+                      type="number"
+                      min={4}
+                      max={40}
+                      value={skillCount}
+                      onChange={(e) => setSkillCount(e.target.value)}
+                    />
+                  )}
+                </FormField>
+                <FormField label="Anything else that should shape it?">
+                  {(control) => (
+                    <Textarea
+                      {...control}
+                      rows={5}
+                      value={extra}
+                      onChange={(e) => setExtra(e.target.value)}
+                    />
+                  )}
+                </FormField>
+              </>
+            ) : (
+              <FormField label="Job description">
+                {(control) => (
+                  <Textarea
+                    {...control}
+                    required
+                    rows={12}
+                    value={jobDescription}
+                    onChange={(e) => setJobDescription(e.target.value)}
+                    placeholder="Paste the full posting…"
+                  />
+                )}
+              </FormField>
+            )}
+
+            <Button
+              type="submit"
+              size="lg"
+              className="h-12 w-full"
+              disabled={state.running}
+            >
+              {state.running ? <Spinner /> : <Sparkles />}
+              {state.running ? state.label || "Working…" : "Generate"}
+            </Button>
+
+            {(state.running || state.error || state.resultId) && (
+              <GenerationProgress
+                state={state}
+                onOpen={(id) => router.push(`/resumes/${id}`)}
               />
-            </Field>
-            <Field label="Anything else that should shape it?">
-              <Textarea rows={5} value={extra} onChange={(e) => setExtra(e.target.value)} />
-            </Field>
-          </>
-        ) : (
-          <Field label="Job description">
-            <Textarea
-              required
-              rows={12}
-              value={jobDescription}
-              onChange={(e) => setJobDescription(e.target.value)}
-              placeholder="Paste the full posting…"
-            />
-          </Field>
-        )}
-
-        <Button type="submit" variant="primary" loading={state.running}>
-          Generate
-        </Button>
-
-        {(state.running || state.error || state.resultId) && (
-          <ProgressPanel state={state} onOpen={(id) => router.push(`/resumes/${id}`)} />
-        )}
-      </form>
+            )}
+          </FieldGroup>
+        </form>
+      </CardContent>
     </Card>
-  );
-}
-
-export function ProgressPanel({
-  state,
-  onOpen,
-}: {
-  state: ReturnType<typeof useGeneration>["state"];
-  onOpen?: (id: string) => void;
-}) {
-  return (
-    <div className="space-y-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-canvas)] p-4">
-      <div className="flex items-center justify-between text-sm">
-        <span>{state.label || "Working…"}</span>
-        <span className="text-[var(--color-ink-soft)]">{state.percent}%</span>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-line)]">
-        <div
-          className="h-full bg-[var(--color-brand)] transition-[width] duration-500"
-          style={{ width: `${state.percent}%` }}
-        />
-      </div>
-      {state.thinking && (
-        <details className="text-xs text-[var(--color-ink-soft)]">
-          <summary className="cursor-pointer">Reasoning</summary>
-          <p className="mono mt-2 max-h-40 overflow-auto whitespace-pre-wrap">
-            {state.thinking}
-          </p>
-        </details>
-      )}
-      {state.error && <ErrorNote>{state.error}</ErrorNote>}
-      {state.findings.length > 0 && (
-        <div className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface)]">
-          <FindingsList findings={state.findings} />
-        </div>
-      )}
-      {state.resultId && onOpen && (
-        <Button variant="primary" onClick={() => onOpen(state.resultId!)}>
-          Open the result
-        </Button>
-      )}
-    </div>
   );
 }

@@ -1,13 +1,37 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Download, FileDown, FileText, Save } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { ConfirmDelete } from "@/components/confirm-delete";
+import { ErrorAlert } from "@/components/error-alert";
 import { FindingsList, type Finding } from "@/components/findings";
-import { Badge, Button, Card, ErrorNote, Spinner, Textarea } from "@/components/ui";
+import { PageHero } from "@/components/page-hero";
+import { StatusBadge } from "@/components/status-badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { downloadDocx, request } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 interface Resume {
   id: string;
@@ -22,14 +46,11 @@ interface Resume {
   validation: { findings?: Finding[] } | null;
 }
 
-type Panel = "validation" | "ats" | "ledger" | "flags";
-
 export default function ResumeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const router = useRouter();
   const [draft, setDraft] = useState<string | null>(null);
-  const [panel, setPanel] = useState<Panel>("validation");
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -64,8 +85,13 @@ export default function ResumeDetailPage() {
 
   if (isLoading || !data || draft === null) {
     return (
-      <div className="flex items-center gap-2 py-16 text-sm text-[var(--color-ink-soft)]">
-        <Spinner /> Loading…
+      <div className="space-y-4" aria-busy>
+        <Skeleton className="h-9 w-72" />
+        <Skeleton className="h-4 w-48" />
+        <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+          <Skeleton className="h-[32rem]" />
+          <Skeleton className="h-[32rem]" />
+        </div>
       </div>
     );
   }
@@ -74,194 +100,240 @@ export default function ResumeDetailPage() {
   const dirty = draft !== data.content_markdown;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold">
+    <div className="space-y-8">
+      <PageHero
+        size="page"
+        eyebrow={data.mode === "constructed" ? "Constructed scenario" : "Base resume"}
+        eyebrowIcon={FileText}
+        title={
+          <>
             {data.display_name}
-            {data.status === "needs_review" && <Badge tone="warn">Needs review</Badge>}
-          </h1>
-          <p className="text-sm text-[var(--color-ink-soft)]">{data.target_title}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={() =>
-              downloadDocx(
-                { resume_id: id, kind: "base", profile: "designed" },
-                `${data.display_name}.docx`,
-              )
-            }
-          >
-            Download .docx
-          </Button>
-          <Button
-            onClick={() =>
-              downloadDocx(
-                { resume_id: id, kind: "base", profile: "ats_plain" },
-                `${data.display_name}_ATS.docx`,
-              )
-            }
-            title="Single column, no table — for Workday and Taleo upload forms"
-          >
-            ATS version
-          </Button>
-          <Button
-            variant="primary"
-            disabled={!dirty}
-            loading={save.isPending}
-            onClick={() => save.mutate(draft)}
-          >
-            {dirty ? "Save changes" : "Saved"}
-          </Button>
-          <ConfirmDelete
-            label={data.display_name}
-            size="md"
-            onDelete={(cascade) =>
-              request(`/api/v1/resumes/${id}${cascade ? "?cascade=true" : ""}`, {
-                method: "DELETE",
-              }).then(() => undefined)
-            }
-            onDeleted={() => {
-              queryClient.invalidateQueries({ queryKey: ["resumes"] });
-              router.replace("/resumes");
-            }}
-          />
-        </div>
-      </div>
+            {data.status === "needs_review" && (
+              <StatusBadge tone="warn">Needs review</StatusBadge>
+            )}
+          </>
+        }
+        description={data.target_title}
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="lg"
+              className="h-11"
+              onClick={() =>
+                downloadDocx(
+                  { resume_id: id, kind: "base", profile: "designed" },
+                  `${data.display_name}.docx`,
+                )
+              }
+            >
+              <Download />
+              Download .docx
+            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="h-11"
+                  onClick={() =>
+                    downloadDocx(
+                      { resume_id: id, kind: "base", profile: "ats_plain" },
+                      `${data.display_name}_ATS.docx`,
+                    )
+                  }
+                >
+                  <FileDown />
+                  ATS version
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                Single column, no table — for Workday and Taleo upload forms
+              </TooltipContent>
+            </Tooltip>
+            <Button
+              size="lg"
+              className="h-11"
+              disabled={!dirty || save.isPending}
+              onClick={() => save.mutate(draft)}
+            >
+              <Save />
+              {dirty ? "Save changes" : "Saved"}
+            </Button>
+            <ConfirmDelete
+              label={data.display_name}
+              onDelete={(cascade) =>
+                request(`/api/v1/resumes/${id}${cascade ? "?cascade=true" : ""}`, {
+                  method: "DELETE",
+                }).then(() => undefined)
+              }
+              onDeleted={() => {
+                queryClient.invalidateQueries({ queryKey: ["resumes"] });
+                router.replace("/resumes");
+              }}
+            />
+          </>
+        }
+      />
 
-      {saveError && <ErrorNote>{saveError}</ErrorNote>}
+      {saveError && <ErrorAlert>{saveError}</ErrorAlert>}
 
       {/* min-w-0 on both tracks is load-bearing: a grid `1fr` is
           `minmax(auto, 1fr)`, and `auto` resolves to min-content — so one wide
           child (the JSON block) expands its column and crushes the other. */}
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <Card
-          className="min-w-0"
-          title="Resume Markdown"
-          action={
-            <span className="text-xs text-[var(--color-ink-soft)]">
+        <Card className="min-w-0 gap-0 overflow-hidden py-0">
+          <CardHeader className="flex flex-row items-center justify-between border-b py-3">
+            <CardTitle className="text-sm">Resume Markdown</CardTitle>
+            <span
+              className={cn(
+                "text-xs",
+                dirty ? "text-warning font-medium" : "text-muted-foreground",
+              )}
+            >
               {dirty ? "Unsaved edits" : "In sync"}
             </span>
-          }
-        >
-          <Textarea
-            rows={30}
-            spellCheck={false}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            className="mono rounded-none border-0 text-xs focus:ring-0"
-          />
+          </CardHeader>
+          <CardContent className="px-0">
+            {/* field-sizing-fixed defeats the shadcn default of growing to fit
+                content: a 600-line resume would otherwise make the page itself
+                scroll and leave the panel beside it stranded at the top. */}
+            <Textarea
+              aria-label="Resume Markdown"
+              spellCheck={false}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              className="field-sizing-fixed h-[70vh] resize-none rounded-none border-0 bg-transparent font-mono text-xs focus-visible:ring-0 dark:bg-transparent"
+            />
+          </CardContent>
         </Card>
 
-        <div className="min-w-0 space-y-4">
-          <Card className="min-w-0">
-            <div className="flex gap-1 border-b border-[var(--color-line)] p-1">
-              {(
-                [
-                  ["validation", `Rules${findings.length ? ` (${findings.length})` : ""}`],
-                  ["ats", "ATS report"],
-                  ["ledger", "Ledger"],
-                  ["flags", "Prep"],
-                ] as [Panel, string][]
-              ).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setPanel(key)}
-                  className={`flex-1 rounded-md px-2 py-1.5 text-xs transition-colors ${
-                    panel === key
-                      ? "bg-[var(--color-brand-soft)] font-medium text-[var(--color-brand)]"
-                      : "text-[var(--color-ink-soft)] hover:bg-[var(--color-canvas)]"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            {panel === "validation" && <FindingsList findings={findings} />}
-            {panel === "ats" && <AtsPanel report={data.ats_report} />}
-            {panel === "ledger" && <JsonPanel value={data.ledger} empty="No scenario ledger — this resume was uploaded, not generated." />}
-            {panel === "flags" && (
+        <Card className="min-w-0 gap-0 self-start overflow-hidden py-0">
+          <Tabs defaultValue="validation" className="gap-0">
+            <TabsList className="w-full rounded-none border-b p-1">
+              <TabsTrigger value="validation" className="text-xs">
+                Rules{findings.length ? ` (${findings.length})` : ""}
+              </TabsTrigger>
+              <TabsTrigger value="ats" className="text-xs">
+                ATS report
+              </TabsTrigger>
+              <TabsTrigger value="ledger" className="text-xs">
+                Ledger
+              </TabsTrigger>
+              <TabsTrigger value="flags" className="text-xs">
+                Prep
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="validation">
+              <FindingsList findings={findings} />
+            </TabsContent>
+            <TabsContent value="ats">
+              <AtsPanel report={data.ats_report} />
+            </TabsContent>
+            <TabsContent value="ledger">
+              <JsonPanel
+                value={data.ledger}
+                empty="No scenario ledger — this resume was uploaded, not generated."
+              />
+            </TabsContent>
+            <TabsContent value="flags">
               <PrepPanel
                 value={data.flags as Flags | null}
                 empty="No interview-prep block for this resume."
               />
-            )}
-          </Card>
-        </div>
+            </TabsContent>
+          </Tabs>
+        </Card>
       </div>
     </div>
   );
 }
 
+function PanelNote({ children }: { children: React.ReactNode }) {
+  return <p className="text-muted-foreground px-4 py-6 text-sm">{children}</p>;
+}
+
 function AtsPanel({ report }: { report: Record<string, unknown> | null }) {
   if (!report) {
     return (
-      <p className="px-4 py-6 text-sm text-[var(--color-ink-soft)]">
-        No ATS report — generate or tailor this resume against a job description
-        to get one.
-      </p>
+      <PanelNote>
+        No ATS report — generate or tailor this resume against a job description to get one.
+      </PanelNote>
     );
   }
   const rows = (report.keywords as Array<Record<string, unknown>>) ?? [];
   const stat = (k: string) => String(report[k] ?? "—");
 
   return (
-    <div>
-      <dl className="grid grid-cols-2 gap-px bg-[var(--color-line)] text-sm">
+    <div className="min-w-0">
+      <dl className="bg-border grid grid-cols-2 gap-px border-b text-sm">
         {[
-          ["MUST-HAVE coverage", `${stat("must_have_covered")}/${stat("must_have_total")} · ${stat("must_have_coverage_percent")}%`],
+          [
+            "MUST-HAVE coverage",
+            `${stat("must_have_covered")}/${stat("must_have_total")} · ${stat("must_have_coverage_percent")}%`,
+          ],
           ["Nice-to-have", `${stat("nice_to_have_coverage_percent")}%`],
           ["Years required / shown", `${stat("years_required")} / ${stat("years_shown")}`],
-          ["Scenario gate", `${stat("scenario_gate_passed")}/${stat("scenario_gate_total")}`],
+          [
+            "Scenario gate",
+            `${stat("scenario_gate_passed")}/${stat("scenario_gate_total")}`,
+          ],
           ["Parse integrity", stat("parse_integrity")],
           ["Companies · categories", `${stat("companies")} · ${stat("skill_categories")}`],
         ].map(([label, value]) => (
-          <div key={label} className="bg-[var(--color-surface)] px-4 py-3">
-            <dt className="text-xs text-[var(--color-ink-soft)]">{label}</dt>
-            <dd className="mt-0.5 font-medium">{value}</dd>
+          <div key={label} className="bg-card px-4 py-3">
+            <dt className="text-muted-foreground text-xs">{label}</dt>
+            <dd className="mt-0.5 font-medium tabular-nums">{value}</dd>
           </div>
         ))}
       </dl>
+
       {rows.length > 0 && (
-        <div className="max-h-72 min-w-0 overflow-auto">
-          <table className="w-full text-xs">
-            <thead className="sticky top-0 bg-[var(--color-canvas)] text-[var(--color-ink-soft)]">
-              <tr>
+        <ScrollArea className="h-72">
+          <Table className="text-xs">
+            <TableHeader className="bg-muted sticky top-0 z-10">
+              <TableRow>
                 {["Keyword", "Priority", "Skills", "Experience", "Summary"].map((h) => (
-                  <th key={h} className="px-3 py-2 text-left font-medium">{h}</th>
+                  <TableHead key={h} className="h-8">
+                    {h}
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--color-line)]">
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((row, i) => (
-                <tr key={i} className={row.covered ? "" : "bg-red-50/50"}>
-                  <td className="px-3 py-1.5">{String(row.keyword)}</td>
-                  <td className="px-3 py-1.5">{String(row.priority)}</td>
+                <TableRow key={i} className={row.covered ? undefined : "bg-destructive/5"}>
+                  <TableCell className="py-1.5">{String(row.keyword)}</TableCell>
+                  <TableCell className="py-1.5">{String(row.priority)}</TableCell>
                   {(["skills", "experience", "summary"] as const).map((k) => (
-                    <td key={k} className="px-3 py-1.5">{row[k] ? "yes" : "—"}</td>
+                    <TableCell key={k} className="py-1.5">
+                      {row[k] ? "yes" : "—"}
+                    </TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </ScrollArea>
       )}
-      <p className="border-t border-[var(--color-line)] px-4 py-2 text-xs text-[var(--color-ink-soft)]">
-        Every count here is computed from the parsed resume, not written by the
-        model — so it cannot disagree with the document.
+
+      <p className="text-muted-foreground border-t px-4 py-2 text-xs">
+        Every count here is computed from the parsed resume, not written by the model — so
+        it cannot disagree with the document.
       </p>
     </div>
   );
 }
 
 function JsonPanel({ value, empty }: { value: unknown; empty: string }) {
-  if (!value) {
-    return <p className="px-4 py-6 text-sm text-[var(--color-ink-soft)]">{empty}</p>;
-  }
+  if (!value) return <PanelNote>{empty}</PanelNote>;
   return (
-    <pre className="mono max-h-96 min-w-0 overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-[11px] leading-relaxed">
-      {JSON.stringify(value, null, 2)}
-    </pre>
+    <ScrollArea className="h-96">
+      <pre className="min-w-0 px-4 py-3 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    </ScrollArea>
   );
 }
 
@@ -281,9 +353,7 @@ interface Flags {
  * does not cover.
  */
 function PrepPanel({ value, empty }: { value: Flags | null; empty: string }) {
-  if (!value) {
-    return <p className="px-4 py-6 text-sm text-[var(--color-ink-soft)]">{empty}</p>;
-  }
+  if (!value) return <PanelNote>{empty}</PanelNote>;
 
   const sections: [string, React.ReactNode][] = [];
 
@@ -292,7 +362,9 @@ function PrepPanel({ value, empty }: { value: Flags | null; empty: string }) {
       "Verify before sending",
       <ul key="verify" className="list-disc space-y-1 pl-5">
         {value.must_verify.map((item, i) => (
-          <li key={i} className="break-words">{item}</li>
+          <li key={i} className="break-words">
+            {item}
+          </li>
         ))}
       </ul>,
     ]);
@@ -305,7 +377,7 @@ function PrepPanel({ value, empty }: { value: Flags | null; empty: string }) {
         {value.interview_probes.map((probe, i) => (
           <div key={i}>
             <dt className="font-medium break-words">{probe.question}</dt>
-            <dd className="mt-0.5 break-words text-[var(--color-ink-soft)]">
+            <dd className="text-muted-foreground mt-0.5 break-words">
               {probe.suggested_answer}
             </dd>
           </div>
@@ -320,14 +392,12 @@ function PrepPanel({ value, empty }: { value: Flags | null; empty: string }) {
       <ul key="figures" className="space-y-2">
         {value.estimated_figures.map((figure, i) => (
           <li key={i} className="break-words">
-            <span className="mono font-medium">{figure.figure}</span>
+            <span className="font-mono font-medium">{figure.figure}</span>
             {figure.where && (
-              <span className="text-[var(--color-ink-soft)]"> · {figure.where}</span>
+              <span className="text-muted-foreground"> · {figure.where}</span>
             )}
             {figure.derivation && (
-              <span className="block text-[var(--color-ink-soft)]">
-                {figure.derivation}
-              </span>
+              <span className="text-muted-foreground block">{figure.derivation}</span>
             )}
           </li>
         ))}
@@ -343,9 +413,7 @@ function PrepPanel({ value, empty }: { value: Flags | null; empty: string }) {
           <li key={i} className="break-words">
             {gap.requirement}
             {gap.how_to_close && (
-              <span className="block text-[var(--color-ink-soft)]">
-                {gap.how_to_close}
-              </span>
+              <span className="text-muted-foreground block">{gap.how_to_close}</span>
             )}
           </li>
         ))}
@@ -356,26 +424,34 @@ function PrepPanel({ value, empty }: { value: Flags | null; empty: string }) {
   if (!sections.length) return <JsonPanel value={value} empty={empty} />;
 
   return (
-    <div className="max-h-[32rem] min-w-0 overflow-y-auto">
-      {sections.map(([heading, body]) => (
-        <section key={heading} className="border-b border-[var(--color-line)] px-4 py-3 last:border-0">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-ink-soft)]">
-            {heading}
-          </h3>
-          <div className="space-y-1 text-sm">{body}</div>
-        </section>
-      ))}
-      {value.notes && (
-        <p className="break-words px-4 py-3 text-sm text-[var(--color-ink-soft)]">
-          {value.notes}
-        </p>
-      )}
-      <details className="border-t border-[var(--color-line)] px-4 py-2">
-        <summary className="cursor-pointer text-xs text-[var(--color-ink-soft)]">
-          Raw data
-        </summary>
-        <JsonPanel value={value} empty={empty} />
-      </details>
-    </div>
+    <ScrollArea className="h-[32rem]">
+      <div className="min-w-0">
+        {sections.map(([heading, body]) => (
+          <section key={heading} className="border-b px-4 py-3 last:border-0">
+            <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
+              {heading}
+            </h3>
+            <div className="space-y-1 text-sm">{body}</div>
+          </section>
+        ))}
+        {value.notes && (
+          <p className="text-muted-foreground border-t px-4 py-3 text-sm break-words">
+            {value.notes}
+          </p>
+        )}
+        <Collapsible className="border-t px-2 py-1">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="xs" className="text-muted-foreground">
+              Raw data
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <pre className="min-w-0 px-2 py-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">
+              {JSON.stringify(value, null, 2)}
+            </pre>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
+    </ScrollArea>
   );
 }

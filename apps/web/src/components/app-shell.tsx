@@ -1,19 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { AppSidebar } from "@/components/app-sidebar";
+import { ModeToggle } from "@/components/mode-toggle";
+import { NotificationsMenu } from "@/components/notifications-menu";
+import { UserMenu } from "@/components/user-menu";
+import { Separator } from "@/components/ui/separator";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { tokens } from "@/lib/api";
-
-const NAV = [
-  { href: "/resumes", label: "Resumes" },
-  { href: "/tailor", label: "Tailor" },
-  { href: "/applications", label: "Applications" },
-  { href: "/calendar", label: "Calendar" },
-  { href: "/maintenance", label: "Maintenance" },
-  { href: "/settings", label: "Settings" },
-];
 
 const PUBLIC = ["/login", "/register"];
 
@@ -33,47 +30,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setReady(true);
   }, [isPublic, pathname, router]);
 
-  if (isPublic) return <main className="min-h-screen">{children}</main>;
-  if (!ready) return <div className="min-h-screen" aria-busy />;
+  if (isPublic) return <main className="min-h-svh">{children}</main>;
+
+  if (!ready) {
+    return (
+      <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-8" aria-busy>
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-72 w-full" />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-20 border-b border-[var(--color-line)] bg-[var(--color-surface)]">
-        <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4">
-          <Link href="/resumes" className="font-semibold tracking-tight">
-            Resume<span className="text-[var(--color-brand)]">Assist</span>
-          </Link>
-          <nav className="flex flex-1 items-center gap-1">
-            {NAV.map((item) => {
-              const active = pathname.startsWith(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
-                    active
-                      ? "bg-[var(--color-brand-soft)] font-medium text-[var(--color-brand)]"
-                      : "text-[var(--color-ink-soft)] hover:bg-[var(--color-canvas)]"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-          <button
-            onClick={() => {
-              tokens.clear();
-              router.replace("/login");
-            }}
-            className="text-sm text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]"
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">{children}</main>
-    </div>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset className="bg-background min-w-0">
+        <header className="bg-background/85 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-20 flex h-16 shrink-0 items-center gap-2 border-b px-4 backdrop-blur md:px-6">
+          <SidebarTrigger className="-ml-1 md:hidden" />
+          <div className="ml-auto flex items-center gap-1">
+            <ModeToggle />
+            <NotificationsMenu />
+            <Separator orientation="vertical" className="mx-1 !h-6" />
+            <UserMenu />
+          </div>
+        </header>
+
+        <main
+          // Keyed on the route so each navigation replays the entrance rather
+          // than animating only on first mount.
+          key={pathname}
+          className="page-enter mx-auto w-full max-w-7xl flex-1 px-4 py-6 md:px-6 md:py-8"
+        >
+          {children}
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

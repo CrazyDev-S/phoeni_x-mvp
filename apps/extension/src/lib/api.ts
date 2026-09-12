@@ -6,21 +6,31 @@
  * page context, and its fetches are exempt from CORS because the extension
  * holds host permissions.
  */
-import { API_BASE_KEY, DEFAULT_API_BASE, TOKEN_KEY } from "./constants";
+import {
+  API_BASE_KEY,
+  DEFAULT_API_BASE,
+  DEFAULT_PORTAL_URL,
+  PORTAL_URL_KEY,
+  TOKEN_KEY,
+} from "./constants";
 
 export interface Settings {
   apiBase: string;
   token: string;
+  /** Where the web portal lives, for the "open in portal" links. */
+  portalUrl: string;
 }
 
 export async function getSettings(): Promise<Settings> {
-  const local = (await chrome.storage.local.get([API_BASE_KEY, TOKEN_KEY])) as Record<
-    string,
-    string | undefined
-  >;
+  const local = (await chrome.storage.local.get([
+    API_BASE_KEY,
+    TOKEN_KEY,
+    PORTAL_URL_KEY,
+  ])) as Record<string, string | undefined>;
   return {
     apiBase: local[API_BASE_KEY] ?? DEFAULT_API_BASE,
     token: local[TOKEN_KEY] ?? "",
+    portalUrl: local[PORTAL_URL_KEY] ?? DEFAULT_PORTAL_URL,
   };
 }
 
@@ -28,6 +38,9 @@ export async function saveSettings(settings: Partial<Settings>): Promise<void> {
   const payload: Record<string, unknown> = {};
   if (settings.apiBase !== undefined) payload[API_BASE_KEY] = settings.apiBase.replace(/\/$/, "");
   if (settings.token !== undefined) payload[TOKEN_KEY] = settings.token;
+  if (settings.portalUrl !== undefined) {
+    payload[PORTAL_URL_KEY] = settings.portalUrl.replace(/\/$/, "");
+  }
   await chrome.storage.local.set(payload);
 }
 

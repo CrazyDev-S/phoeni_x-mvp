@@ -1,8 +1,17 @@
+import { Download, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
 import { api, downloadDocx, waitForGeneration } from "@/lib/api";
 import { DRAFT_KEY } from "@/lib/constants";
-import { ErrorNote, Field, Progress } from "../components";
+import { Section } from "../chrome-shell";
+import { ErrorNote, PanelField, Progress } from "../components";
 
 /**
  * Generate a new resume without leaving the browser.
@@ -64,7 +73,9 @@ export function GenerateTab() {
             : { skill_count: skills ? Number(skills) : undefined }),
         }),
       });
-      const done = await waitForGeneration(accepted.id, (label, percent) => setPhase({ label, percent }));
+      const done = await waitForGeneration(accepted.id, (label, percent) =>
+        setPhase({ label, percent }),
+      );
       setResultId((done.result_id as string) ?? null);
       setPhase({ label: "Done", percent: 100 });
       await chrome.storage.local.remove(DRAFT_KEY);
@@ -74,66 +85,100 @@ export function GenerateTab() {
     }
   }
 
+  const running = Boolean(phase && phase.percent < 100);
+
   return (
-    <div className="card">
-      <Field label="Target title">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Senior Software Engineer – AI Fullstack"
-        />
-      </Field>
+    <div className="flex flex-col gap-3">
+      <Section title="New resume">
+      <Card className="py-3">
+      <CardContent className="px-3">
+        <FieldGroup className="gap-3">
+          <PanelField label="Target title">
+            {(control) => (
+              <Input
+                {...control}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Senior Software Engineer – AI Fullstack"
+              />
+            )}
+          </PanelField>
 
-      <label className="row small" style={{ marginBottom: 8 }}>
-        <input
-          type="checkbox"
-          checked={useJd}
-          onChange={(e) => setUseJd(e.target.checked)}
-          style={{ width: "auto" }}
-        />
-        <span>Base it on a job description</span>
-      </label>
+          <Field orientation="horizontal">
+            <Checkbox
+              id="use-jd"
+              checked={useJd}
+              onCheckedChange={(checked) => setUseJd(checked === true)}
+            />
+            <FieldLabel htmlFor="use-jd" className="text-xs font-normal">
+              Base it on a job description
+            </FieldLabel>
+          </Field>
 
-      {useJd ? (
-        <Field label="Job description">
-          <textarea rows={7} value={jd} onChange={(e) => setJd(e.target.value)} />
-        </Field>
-      ) : (
-        <Field label="How many technologies?">
-          <input
-            type="number"
-            min={4}
-            max={40}
-            value={skills}
-            onChange={(e) => setSkills(e.target.value)}
-          />
-        </Field>
-      )}
+          {useJd ? (
+            <PanelField label="Job description">
+              {(control) => (
+                <Textarea
+                  {...control}
+                  rows={7}
+                  value={jd}
+                  onChange={(e) => setJd(e.target.value)}
+                />
+              )}
+            </PanelField>
+          ) : (
+            <PanelField label="How many technologies?">
+              {(control) => (
+                <Input
+                  {...control}
+                  type="number"
+                  min={4}
+                  max={40}
+                  value={skills}
+                  onChange={(e) => setSkills(e.target.value)}
+                />
+              )}
+            </PanelField>
+          )}
 
-      <Field label="Anything else?">
-        <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-      </Field>
+          <PanelField label="Anything else?">
+            {(control) => (
+              <Textarea
+                {...control}
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            )}
+          </PanelField>
 
-      <button
-        className="btn primary block"
-        disabled={!title || Boolean(phase && phase.percent < 100)}
-        onClick={generate}
-      >
-        Generate
-      </button>
+          <Button className="h-10 w-full" disabled={!title || running} onClick={generate}>
+            {running ? <Spinner /> : <Sparkles />}
+            {running ? phase?.label || "Working…" : "Generate"}
+          </Button>
 
-      {phase && <div style={{ marginTop: 10 }}><Progress label={phase.label} percent={phase.percent} /></div>}
-      {error && <div style={{ marginTop: 8 }}><ErrorNote>{error}</ErrorNote></div>}
+          {phase && <Progress label={phase.label} percent={phase.percent} />}
+          {error && <ErrorNote>{error}</ErrorNote>}
 
-      {resultId && (
-        <button
-          className="btn block"
-          style={{ marginTop: 8 }}
-          onClick={() => downloadDocx({ resume_id: resultId, kind: "base" }, `${title}.docx`)}
-        >
-          Download .docx
-        </button>
-      )}
+          {resultId && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => downloadDocx({ resume_id: resultId, kind: "base" }, `${title}.docx`)}
+            >
+              <Download />
+              Download .docx
+            </Button>
+          )}
+        </FieldGroup>
+      </CardContent>
+      </Card>
+      </Section>
+
+      <p className="text-subtle px-1 text-[10px] leading-relaxed">
+        Your draft is saved as you type — the panel is destroyed when it closes, so nothing
+        here is held only in memory.
+      </p>
     </div>
   );
 }

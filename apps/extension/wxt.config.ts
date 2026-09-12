@@ -1,7 +1,13 @@
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "wxt";
 
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
+  // Tailwind v4 is a Vite plugin rather than a PostCSS step; WXT hands its own
+  // Vite config through this hook.
+  vite: () => ({ plugins: [tailwindcss()] }),
+  // Without this the archive is named after the package ("resume-assistextension").
+  zip: { name: "resume-assist" },
   // Conventional layout: entrypoints live under srcDir, and WXT's default
   // "@" alias resolves to srcDir, so "@/lib/..." just works.
   srcDir: "src",

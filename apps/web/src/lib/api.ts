@@ -9,8 +9,7 @@
  */
 import { createApi, toApiError, type TokenStore } from "@resume-assist/api-types";
 
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
 const ACCESS_KEY = "ra.access";
 const REFRESH_KEY = "ra.refresh";

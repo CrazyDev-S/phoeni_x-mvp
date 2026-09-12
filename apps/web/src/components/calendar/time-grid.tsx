@@ -17,6 +17,7 @@ import {
   type DayKey,
   type Meeting,
 } from "@/lib/calendar";
+import { cn } from "@/lib/utils";
 
 const HOUR_HEIGHT = 48;
 const HEADER_HEIGHT = 56;
@@ -24,7 +25,9 @@ const SNAP_MINUTES = 15;
 const MIN_COLUMN_WIDTH = 110;
 const GUTTER_WIDTH = 56;
 const HOURS = Array.from({ length: 23 }, (_, index) => index + 1);
-const NOW_RED = "#d93025";
+// The "you are here" line. Red by convention in every calendar, and the
+// destructive token is the one red the theme already defines for both modes.
+const NOW_LINE = "var(--destructive)";
 
 interface Drag {
   meeting: Meeting;
@@ -90,13 +93,16 @@ export function TimeGrid({
   useEffect(() => {
     // Open on the working day rather than at midnight.
     const element = scrollRef.current;
-    if (element) element.scrollTop = (Math.max(currentMinutes() - 90, 7 * 60) / 60) * HOUR_HEIGHT - 12;
+    if (element)
+      element.scrollTop = (Math.max(currentMinutes() - 90, 7 * 60) / 60) * HOUR_HEIGHT - 12;
   }, []);
 
   const spanOf = useMemo(() => {
     return (meeting: Meeting) => {
       const start =
-        preview?.meeting.id === meeting.id ? preview.targetMinutes : minutesInto(meeting.starts_at);
+        preview?.meeting.id === meeting.id
+          ? preview.targetMinutes
+          : minutesInto(meeting.starts_at);
       return { start, end: Math.min(start + durationMinutes(meeting), MINUTES_PER_DAY) };
     };
   }, [preview]);
@@ -106,14 +112,20 @@ export function TimeGrid({
     const buckets: Meeting[][] = days.map(() => []);
     for (const meeting of meetings) {
       const position =
-        preview?.meeting.id === meeting.id ? preview.targetDayIndex : index.get(dayOf(meeting));
+        preview?.meeting.id === meeting.id
+          ? preview.targetDayIndex
+          : index.get(dayOf(meeting));
       if (position === undefined) continue;
       buckets[position].push(meeting);
     }
     return buckets.map((bucket) => placeDay(bucket, spanOf));
   }, [days, meetings, preview, spanOf]);
 
-  function beginDrag(event: React.PointerEvent<HTMLButtonElement>, meeting: Meeting, dayIndex: number) {
+  function beginDrag(
+    event: React.PointerEvent<HTMLButtonElement>,
+    meeting: Meeting,
+    dayIndex: number,
+  ) {
     // Touch keeps the scroll gesture; dragging a meeting is a mouse action.
     if (event.pointerType !== "mouse" || event.button !== 0) return;
     event.preventDefault();
@@ -143,12 +155,17 @@ export function TimeGrid({
       const deltaY = event.clientY - current.originY;
       if (!current.active && Math.abs(deltaX) < 4 && Math.abs(deltaY) < 4) return;
 
-      const columnWidth = (columnsRef.current?.clientWidth ?? MIN_COLUMN_WIDTH) / days.length;
+      const columnWidth =
+        (columnsRef.current?.clientWidth ?? MIN_COLUMN_WIDTH) / days.length;
       const start = minutesInto(current.meeting.starts_at) + (deltaY / HOUR_HEIGHT) * 60;
       const next: Drag = {
         ...current,
         active: true,
-        targetDayIndex: clamp(current.dayIndex + Math.round(deltaX / columnWidth), 0, days.length - 1),
+        targetDayIndex: clamp(
+          current.dayIndex + Math.round(deltaX / columnWidth),
+          0,
+          days.length - 1,
+        ),
         targetMinutes: clamp(
           Math.round(start / SNAP_MINUTES) * SNAP_MINUTES,
           0,
@@ -191,22 +208,25 @@ export function TimeGrid({
   return (
     <div
       ref={scrollRef}
-      className="relative max-h-[calc(100vh-15rem)] min-h-96 overflow-auto rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)]"
+      className="bg-card relative max-h-[calc(100vh-15rem)] min-h-96 overflow-auto rounded-xl border"
     >
       <div className="flex">
-        <div className="sticky left-0 z-50 shrink-0 bg-[var(--color-surface)]" style={{ width: GUTTER_WIDTH }}>
+        <div
+          className="bg-card sticky left-0 z-50 shrink-0"
+          style={{ width: GUTTER_WIDTH }}
+        >
           <div
-            className="sticky top-0 z-10 flex items-end justify-end border-b border-r border-[var(--color-line)] bg-[var(--color-surface)] px-2 pb-1.5 text-[10px] font-medium tracking-wide text-[var(--color-ink-soft)] uppercase"
+            className="bg-card text-muted-foreground sticky top-0 z-10 flex items-end justify-end border-r border-b px-2 pb-1.5 text-[10px] font-medium tracking-wide uppercase"
             style={{ height: HEADER_HEIGHT }}
             title={`Times shown in ${days[0] ? zoneAbbreviation(days[0]) : ""}`}
           >
             {days[0] ? zoneAbbreviation(days[0]) : ""}
           </div>
-          <div className="relative border-r border-[var(--color-line)]" style={{ height: 24 * HOUR_HEIGHT }}>
+          <div className="relative border-r" style={{ height: 24 * HOUR_HEIGHT }}>
             {HOURS.map((hour) => (
               <span
                 key={hour}
-                className="absolute right-2 -translate-y-1/2 text-[11px] tabular-nums text-[var(--color-ink-soft)]"
+                className="text-muted-foreground absolute right-2 -translate-y-1/2 text-[11px] tabular-nums"
                 style={{ top: hour * HOUR_HEIGHT }}
               >
                 {minutesLabel(hour * 60)}
@@ -217,8 +237,11 @@ export function TimeGrid({
 
         <div className="flex-1" style={{ minWidth: days.length * MIN_COLUMN_WIDTH }}>
           <div
-            className="sticky top-0 z-40 grid border-b border-[var(--color-line)] bg-[var(--color-surface)]"
-            style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`, height: HEADER_HEIGHT }}
+            className="bg-card sticky top-0 z-40 grid border-b"
+            style={{
+              gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`,
+              height: HEADER_HEIGHT,
+            }}
           >
             {days.map((day) => {
               const isToday = day === today;
@@ -227,19 +250,21 @@ export function TimeGrid({
                   key={day}
                   type="button"
                   onClick={() => onPickDay(day)}
-                  className="flex flex-col items-center justify-center gap-0.5 transition-colors hover:bg-[var(--color-canvas)]"
+                  className="hover:bg-muted flex flex-col items-center justify-center gap-0.5 transition-colors"
                 >
                   <span
-                    className={`text-[11px] font-medium tracking-wide uppercase ${
-                      isToday ? "text-[var(--color-brand)]" : "text-[var(--color-ink-soft)]"
-                    }`}
+                    className={cn(
+                      "text-[11px] font-medium tracking-wide uppercase",
+                      isToday ? "text-foreground" : "text-muted-foreground",
+                    )}
                   >
                     {dayLabel(day, days.length === 1 ? "EEEE" : "EEE")}
                   </span>
                   <span
-                    className={`flex size-7 items-center justify-center rounded-full text-base ${
-                      isToday ? "bg-[var(--color-brand)] font-medium text-white" : ""
-                    }`}
+                    className={cn(
+                      "flex size-7 items-center justify-center rounded-full text-base",
+                      isToday && "bg-primary text-primary-foreground font-medium",
+                    )}
                   >
                     {dayLabel(day, "d")}
                   </span>
@@ -259,10 +284,10 @@ export function TimeGrid({
             {days.map((day, dayIndex) => (
               <div
                 key={day}
-                className="relative border-r border-[var(--color-line)] last:border-r-0"
+                className="relative border-r last:border-r-0"
                 style={{
                   backgroundImage:
-                    "linear-gradient(to bottom, var(--color-line) 1px, transparent 1px)",
+                    "linear-gradient(to bottom, var(--border) 1px, transparent 1px)",
                   backgroundSize: `100% ${HOUR_HEIGHT}px`,
                 }}
               >
@@ -290,33 +315,44 @@ export function TimeGrid({
                         }
                         onSelect(meeting, event.currentTarget.getBoundingClientRect());
                       }}
-                      className={`absolute overflow-hidden rounded-md border px-1.5 py-0.5 text-left text-[11px] leading-tight transition-shadow select-none ${
-                        dragging ? "cursor-grabbing shadow-lg" : "cursor-pointer hover:shadow-md"
-                      } ${cancelled ? "line-through" : ""}`}
+                      className={cn(
+                        "absolute overflow-hidden rounded-md border px-1.5 py-0.5 text-left text-[11px] leading-tight transition-shadow select-none",
+                        dragging
+                          ? "cursor-grabbing shadow-lg"
+                          : "cursor-pointer hover:shadow-md",
+                        cancelled && "line-through",
+                      )}
                       style={{
                         top: (placement.startMinutes / 60) * HOUR_HEIGHT,
                         height,
                         left: `calc(${placement.column * width}% + 2px)`,
                         width: `calc(${width}% - 4px)`,
                         zIndex: dragging ? 30 : selectedId === meeting.id ? 20 : 10,
-                        backgroundColor: cancelled ? "var(--color-surface)" : color.fill,
+                        backgroundColor: cancelled ? "var(--card)" : color.fill,
                         borderColor: cancelled ? color.fill : "transparent",
-                        color: cancelled ? color.ink : "#ffffff",
-                        outline: selectedId === meeting.id ? `2px solid ${color.ink}` : undefined,
+                        color: cancelled ? color.ink : color.foreground,
+                        outline:
+                          selectedId === meeting.id ? `2px solid ${color.ink}` : undefined,
                         outlineOffset: 1,
                       }}
                     >
                       {compact ? (
                         <span className="flex gap-1 truncate">
-                          <span className="font-medium">{minutesLabel(placement.startMinutes)}</span>
+                          <span className="font-medium">
+                            {minutesLabel(placement.startMinutes)}
+                          </span>
                           <span className="truncate">{meeting.title}</span>
                         </span>
                       ) : (
                         <>
-                          <span className="block truncate font-medium">{meeting.title}</span>
+                          <span className="block truncate font-medium">
+                            {meeting.title}
+                          </span>
                           <span className="block truncate opacity-80">
                             {minutesLabel(placement.startMinutes)} –{" "}
-                            {minutesLabel(placement.startMinutes + durationMinutes(meeting))}
+                            {minutesLabel(
+                              placement.startMinutes + durationMinutes(meeting),
+                            )}
                           </span>
                         </>
                       )}
@@ -332,11 +368,11 @@ export function TimeGrid({
                 className="pointer-events-none absolute inset-x-0 z-[25]"
                 style={{ top: (nowMinutes / 60) * HOUR_HEIGHT }}
               >
-                <div className="h-px w-full" style={{ backgroundColor: NOW_RED }} />
+                <div className="h-px w-full" style={{ backgroundColor: NOW_LINE }} />
                 <div
                   className="absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
                   style={{
-                    backgroundColor: NOW_RED,
+                    backgroundColor: NOW_LINE,
                     left: `${(todayIndex / days.length) * 100}%`,
                   }}
                 />

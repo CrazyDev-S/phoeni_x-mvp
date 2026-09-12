@@ -12,7 +12,8 @@
     "build:web": "npm run build -w @resume-assist/web",
     "build:ext": "npm run build -w @resume-assist/extension",
     "types": "npm run generate -w @resume-assist/api-types",
-    "lint": "npm run lint --workspaces --if-present"
+    "lint": "npm run lint --workspaces --if-present",
+    "zip:ext": "npm run zip -w @resume-assist/extension"
   },
   "engines": {
     "node": ">=22"

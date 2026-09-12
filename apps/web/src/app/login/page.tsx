@@ -3,8 +3,22 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Brand } from "@/components/brand";
+import { ErrorAlert } from "@/components/error-alert";
+import { FormField } from "@/components/form-field";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { FieldGroup } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { API_URL, tokens } from "@/lib/api";
-import { Button, Card, ErrorNote, Field, Input } from "@/components/ui";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -45,57 +59,93 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md items-center px-4">
-      <Card className="w-full p-6">
-        <h1 className="text-lg font-semibold">
-          {mode === "login" ? "Sign in" : "Create an account"}
-        </h1>
-        <p className="mt-1 text-sm text-[var(--color-ink-soft)]">
-          Tailor, track and follow through on every application.
-        </p>
+    <div className="bg-background flex min-h-svh flex-col items-center justify-center px-4 py-12">
+      <div className="page-enter w-full max-w-md space-y-6">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Brand size="lg" />
+          <p className="text-muted-foreground max-w-sm text-sm text-balance">
+            Tailor, track and follow through on every application.
+          </p>
+        </div>
 
-        <form onSubmit={submit} className="mt-6 space-y-4">
-          <Field label="Email">
-            <Input
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </Field>
-          <Field
-            label="Password"
-            hint={mode === "register" ? "At least 10 characters." : undefined}
-          >
-            <Input
-              type="password"
-              required
-              minLength={mode === "register" ? 10 : undefined}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </Field>
-          {error && <ErrorNote>{error}</ErrorNote>}
-          <Button type="submit" variant="primary" loading={busy} className="w-full">
-            {mode === "login" ? "Sign in" : "Create account"}
-          </Button>
-        </form>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl">
+              {mode === "login" ? "Sign in" : "Create an account"}
+            </CardTitle>
+            <CardDescription>
+              {mode === "login"
+                ? "Welcome back — pick up where you left off."
+                : "It takes an email and a password. Nothing else."}
+            </CardDescription>
+          </CardHeader>
 
-        <button
-          type="button"
-          onClick={() => {
-            setMode(mode === "login" ? "register" : "login");
-            setError(null);
-          }}
-          className="mt-4 text-sm text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]"
-        >
-          {mode === "login"
-            ? "No account? Create one"
-            : "Already have an account? Sign in"}
-        </button>
-      </Card>
+          <CardContent>
+            <form id="auth" onSubmit={submit}>
+              <FieldGroup>
+                <FormField label="Email">
+                  {(control) => (
+                    <Input
+                      {...control}
+                      type="email"
+                      required
+                      autoComplete="email"
+                      className="h-11"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  )}
+                </FormField>
+                <FormField
+                  label="Password"
+                  hint={mode === "register" ? "At least 10 characters." : undefined}
+                >
+                  {(control) => (
+                    <Input
+                      {...control}
+                      type="password"
+                      required
+                      minLength={mode === "register" ? 10 : undefined}
+                      autoComplete={mode === "login" ? "current-password" : "new-password"}
+                      className="h-11"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  )}
+                </FormField>
+                {error && <ErrorAlert>{error}</ErrorAlert>}
+              </FieldGroup>
+            </form>
+          </CardContent>
+
+          <CardFooter className="flex-col gap-3">
+            <Button
+              type="submit"
+              form="auth"
+              size="lg"
+              className="h-11 w-full"
+              disabled={busy}
+            >
+              {busy && <Spinner />}
+              {mode === "login" ? "Sign in" : "Create account"}
+            </Button>
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              onClick={() => {
+                setMode(mode === "login" ? "register" : "login");
+                setError(null);
+              }}
+            >
+              {mode === "login"
+                ? "No account? Create one"
+                : "Already have an account? Sign in"}
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   );
 }
