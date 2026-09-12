@@ -35,7 +35,7 @@ interface ModelRow {
 }
 
 export default function SettingsPage() {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
   const [keyInput, setKeyInput] = useState("");
   const [keyProvider, setKeyProvider] = useState("anthropic");
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -52,7 +52,7 @@ export default function SettingsPage() {
   const patch = useMutation({
     mutationFn: (body: Partial<Settings>) =>
       request<Settings>("/api/v1/settings", { method: "PATCH", body: JSON.stringify(body) }),
-    onSuccess: (s) => qc.setQueryData(["settings"], s),
+    onSuccess: (s) => queryClient.setQueryData(["settings"], s),
   });
 
   const saveKey = useMutation({
@@ -63,7 +63,7 @@ export default function SettingsPage() {
       }),
     onSuccess: () => {
       setKeyInput("");
-      qc.invalidateQueries({ queryKey: ["settings"] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
     },
   });
 
@@ -75,7 +75,7 @@ export default function SettingsPage() {
       ),
     onSuccess: (r) => {
       setTestResult(r.ok ? `Connected to ${r.model}` : r.detail);
-      qc.invalidateQueries({ queryKey: ["settings"] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
     },
     onError: (e) => setTestResult((e as Error).message),
   });
@@ -242,7 +242,7 @@ interface TokenRow {
 
 /** Long-lived tokens for the browser side panel, which cannot share a session. */
 function ExtensionTokens() {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
   const [name, setName] = useState("Chrome side panel");
   const [fresh, setFresh] = useState<string | null>(null);
 
@@ -259,14 +259,14 @@ function ExtensionTokens() {
       }),
     onSuccess: (row) => {
       setFresh(row.token);
-      qc.invalidateQueries({ queryKey: ["api-tokens"] });
+      queryClient.invalidateQueries({ queryKey: ["api-tokens"] });
     },
   });
 
   const revoke = useMutation({
     mutationFn: (id: string) =>
       request(`/api/v1/auth/tokens/${id}`, { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["api-tokens"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["api-tokens"] }),
   });
 
   return (

@@ -79,7 +79,7 @@ async def update_maintained_job(
 ) -> MaintainedJob:
     row = await _owned(session, user, job_id)
     for field in ("employer_name", "role_title", "manager_name", "team",
-                  "notes_md", "onboarding_notes", "status", "end_date"):
+                  "notes_markdown", "onboarding_notes", "status", "end_date"):
         if field in body:
             setattr(row, field, body[field])
     return row
@@ -106,23 +106,23 @@ async def create_series(
     """Create a recurring meeting and materialise its first 90 days."""
     await _owned(session, user, job_id)
     settings = await session.get(UserSettings, user.id)
-    hh, mm = body.dtstart_local.split(":")
+    hh, mm = body.start_time_local.split(":")
 
     row = MeetingSeries(
         user_id=user.id,
         maintained_job_id=job_id,
         title=body.title,
         meeting_type=body.meeting_type,
-        rrule=body.rrule,
-        dtstart_date=body.dtstart_date,
-        dtstart_local=time(int(hh), int(mm)),
-        tz=settings.display_timezone if settings else "America/New_York",
+        recurrence_rule=body.recurrence_rule,
+        start_date=body.start_date,
+        start_time_local=time(int(hh), int(mm)),
+        timezone_name=settings.display_timezone if settings else "America/New_York",
         duration_min=body.duration_min,
         conferencing_url=body.conferencing_url,
         agenda_template=body.agenda_template,
         preparation_template=body.preparation_template,
         until_date=body.until_date,
-        exdates=[],
+        excluded_dates=[],
     )
     session.add(row)
     await session.flush()
@@ -143,14 +143,14 @@ async def update_series(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 
     rule_changed = False
-    for field in ("title", "rrule", "duration_min", "is_active", "conferencing_url",
+    for field in ("title", "recurrence_rule", "duration_min", "is_active", "conferencing_url",
                   "agenda_template", "preparation_template", "until_date"):
         if field in body:
-            rule_changed |= field in ("rrule", "duration_min", "until_date")
+            rule_changed |= field in ("recurrence_rule", "duration_min", "until_date")
             setattr(row, field, body[field])
-    if "dtstart_local" in body:
-        hh, mm = str(body["dtstart_local"]).split(":")
-        row.dtstart_local = time(int(hh), int(mm))
+    if "start_time_local" in body:
+        hh, mm = str(body["start_time_local"]).split(":")
+        row.start_time_local = time(int(hh), int(mm))
         rule_changed = True
 
     await session.flush()

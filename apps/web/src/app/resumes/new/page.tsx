@@ -63,7 +63,7 @@ function UploadForm() {
         body: JSON.stringify({
           display_name: displayName,
           target_title: targetTitle,
-          content_md: content,
+          content_markdown: content,
         }),
       });
       router.push(`/resumes/${created.id}`);
@@ -197,12 +197,12 @@ export function ProgressPanel({
     <div className="space-y-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-canvas)] p-4">
       <div className="flex items-center justify-between text-sm">
         <span>{state.label || "Working…"}</span>
-        <span className="text-[var(--color-ink-soft)]">{state.pct}%</span>
+        <span className="text-[var(--color-ink-soft)]">{state.percent}%</span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-line)]">
         <div
           className="h-full bg-[var(--color-brand)] transition-[width] duration-500"
-          style={{ width: `${state.pct}%` }}
+          style={{ width: `${state.percent}%` }}
         />
       </div>
       {state.thinking && (

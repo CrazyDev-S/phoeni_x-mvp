@@ -20,7 +20,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, Timestamps, UUIDPk
+from app.db.base import Base, PrimaryKey, Timestamps
 from app.models.enums import GenerationKind, GenerationStatus, LLMProvider, pg_enum
 from app.models.user import PROVIDER_ENUM
 
@@ -28,7 +28,7 @@ GENERATION_KIND_ENUM = pg_enum(GenerationKind, "generation_kind")
 GENERATION_STATUS_ENUM = pg_enum(GenerationStatus, "generation_status")
 
 
-class Generation(UUIDPk, Timestamps, Base):
+class Generation(PrimaryKey, Timestamps, Base):
     """The durable record of one generation request.
 
     Worker pickup uses ``FOR UPDATE SKIP LOCKED`` against this table, which is
@@ -66,7 +66,7 @@ class Generation(UUIDPk, Timestamps, Base):
     prompt_version: Mapped[str] = mapped_column(Text, nullable=False, server_default="v1")
 
     phase: Mapped[str | None] = mapped_column(Text)
-    progress_pct: Mapped[int] = mapped_column(
+    progress_percent: Mapped[int] = mapped_column(
         SmallInteger, nullable=False, server_default="0"
     )
 
@@ -111,7 +111,7 @@ class GenerationEvent(Base):
     )
 
 
-class LLMCall(UUIDPk, Base):
+class LLMCall(PrimaryKey, Base):
     """One row per HTTP call to a provider.
 
     ``cache_read_tokens`` is asserted in tests: cache regressions are silent

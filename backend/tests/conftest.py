@@ -15,4 +15,4 @@ TODAY = date(2026, 9, 11)
 
 @pytest.fixture
 def aran_md() -> str:
-    return (FIXTURES / "aran.crm.md").read_text()
+    return (FIXTURES / "aran.resume.md").read_text()

@@ -25,7 +25,7 @@ from app.schemas.tracking import MeetingCreate, MeetingOut, MeetingPatch, Upcomi
 router = APIRouter(prefix="/meetings", tags=["calendar"])
 
 
-async def _tz(session: Session, user: CurrentUser) -> str:
+async def _display_timezone(session: Session, user: CurrentUser) -> str:
     row = await session.get(UserSettings, user.id)
     return row.display_timezone if row else "America/New_York"
 
@@ -48,7 +48,7 @@ def _parse_hhmm(value: str) -> time:
 async def create_meeting(
     body: MeetingCreate, user: CurrentUser, session: Session
 ) -> Meeting:
-    tz = await _tz(session, user)
+    timezone_name = await _display_timezone(session, user)
 
     if body.stage_id:
         owns = await session.scalar(
@@ -68,7 +68,7 @@ async def create_meeting(
         if owns is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
 
-    starts_at = local_to_utc(body.local_date, _parse_hhmm(body.local_time), tz)
+    starts_at = local_to_utc(body.local_date, _parse_hhmm(body.local_time), timezone_name)
     row = Meeting(
         user_id=user.id,
         stage_id=body.stage_id,
@@ -77,7 +77,7 @@ async def create_meeting(
         meeting_type=body.meeting_type,
         starts_at=starts_at,
         ends_at=starts_at + timedelta(minutes=body.duration_min),
-        display_tz=tz,
+        display_timezone=timezone_name,
         location=body.location,
         conferencing_url=body.conferencing_url,
         agenda=body.agenda,
@@ -111,9 +111,9 @@ async def list_meetings(
     STABLE, not IMMUTABLE, so it cannot be used in an index expression - a
     plain btree range scan on ``starts_at`` is both correct and fast.
     """
-    tz = await _tz(session, user)
-    start, _ = local_day_bounds(from_, tz)
-    _, end = local_day_bounds(to, tz)
+    timezone_name = await _display_timezone(session, user)
+    start, _ = local_day_bounds(from_, timezone_name)
+    _, end = local_day_bounds(to, timezone_name)
     return list(
         await session.scalars(
             select(Meeting)
@@ -201,7 +201,7 @@ async def update_meeting(
     data = body.model_dump(exclude_unset=True)
 
     if "local_date" in data or "local_time" in data or "duration_min" in data:
-        current_local = to_display(row.starts_at, row.display_tz)
+        current_local = to_display(row.starts_at, row.display_timezone)
         new_date = data.get("local_date") or current_local.date()
         new_time = (
             _parse_hhmm(data["local_time"])
@@ -211,7 +211,7 @@ async def update_meeting(
         duration = data.get("duration_min") or int(
             (row.ends_at - row.starts_at).total_seconds() // 60
         )
-        row.starts_at = local_to_utc(new_date, new_time, row.display_tz)
+        row.starts_at = local_to_utc(new_date, new_time, row.display_timezone)
         row.ends_at = row.starts_at + timedelta(minutes=duration)
         if row.series_id:
             # An edited occurrence is protected from series regeneration: the
@@ -253,5 +253,5 @@ async def delete_meeting(
 
         series = await session.get(MeetingSeries, row.series_id)
         if series is not None:
-            series.exdates = [*(series.exdates or []), row.occurrence_local_date]
+            series.excluded_dates = [*(series.excluded_dates or []), row.occurrence_local_date]
     await session.delete(row)

@@ -157,13 +157,13 @@ async def list_applications(
                 app_id = stage_to_app[m.stage_id]
                 next_meetings.setdefault(app_id, m)
 
-        for app_id, pct in await session.execute(
-            select(JobApplication.id, TailoredResume.must_have_coverage_pct).join(
+        for app_id, percent in await session.execute(
+            select(JobApplication.id, TailoredResume.must_have_coverage_percent).join(
                 TailoredResume, JobApplication.tailored_resume_id == TailoredResume.id
             ).where(JobApplication.id.in_(app_ids))
         ):
-            if pct is not None:
-                coverage[app_id] = float(pct)
+            if percent is not None:
+                coverage[app_id] = float(percent)
 
     items = []
     for r in rows:
@@ -178,7 +178,7 @@ async def list_applications(
             ApplicationRow(
                 **ApplicationRow.model_validate(r).model_dump(
                     exclude={"current_stage", "next_meeting", "stage_count",
-                             "stages_passed", "must_have_coverage_pct"}
+                             "stages_passed", "must_have_coverage_percent"}
                 ),
                 current_stage=StageOut.model_validate(current) if current else None,
                 next_meeting=(
@@ -188,7 +188,7 @@ async def list_applications(
                 ),
                 stage_count=len(stages),
                 stages_passed=sum(1 for s in stages if s.status == StageStatus.PASSED),
-                must_have_coverage_pct=coverage.get(r.id),
+                must_have_coverage_percent=coverage.get(r.id),
             )
         )
 

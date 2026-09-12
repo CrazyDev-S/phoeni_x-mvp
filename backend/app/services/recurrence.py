@@ -31,12 +31,12 @@ HORIZON_DAYS = 90
 
 def occurrences(series: MeetingSeries, *, through: date) -> list[date]:
     """Local dates the rule fires on, up to and including ``through``."""
-    start = datetime.combine(series.dtstart_date, time(0, 0))
+    start = datetime.combine(series.start_date, time(0, 0))
     end = datetime.combine(min(through, series.until_date or through), time(23, 59))
     if end < start:
         return []
-    rule = rrulestr(series.rrule, dtstart=start)
-    excluded = set(series.exdates or [])
+    rule = rrulestr(series.recurrence_rule, dtstart=start)
+    excluded = set(series.excluded_dates or [])
     return [d.date() for d in rule.between(start, end, inc=True) if d.date() not in excluded]
 
 
@@ -51,7 +51,7 @@ async def materialize(
     if not series.is_active:
         return 0
 
-    through = app_today(series.tz) + timedelta(days=horizon_days)
+    through = app_today(series.timezone_name) + timedelta(days=horizon_days)
     wanted = occurrences(series, through=through)
     if not wanted:
         series.materialized_through = through
@@ -63,12 +63,12 @@ async def materialize(
         )
     )
 
-    hh, mm = (series.dtstart_local.hour, series.dtstart_local.minute)
+    hh, mm = (series.start_time_local.hour, series.start_time_local.minute)
     created = 0
     for day in wanted:
         if day in existing:
             continue
-        starts_at = local_to_utc(day, time(hh, mm), series.tz)
+        starts_at = local_to_utc(day, time(hh, mm), series.timezone_name)
         session.add(
             Meeting(
                 user_id=series.user_id,
@@ -79,7 +79,7 @@ async def materialize(
                 meeting_type=series.meeting_type,
                 starts_at=starts_at,
                 ends_at=starts_at + timedelta(minutes=series.duration_min),
-                display_tz=series.tz,
+                display_timezone=series.timezone_name,
                 conferencing_url=series.conferencing_url,
                 agenda=series.agenda_template,
                 preparation_notes=series.preparation_template,
@@ -99,7 +99,7 @@ async def rematerialize(session: AsyncSession, series: MeetingSeries) -> int:
     and status are real work, and silently regenerating over them would be data
     loss.
     """
-    today = app_today(series.tz)
+    today = app_today(series.timezone_name)
     candidates = list(
         await session.scalars(
             select(Meeting).where(

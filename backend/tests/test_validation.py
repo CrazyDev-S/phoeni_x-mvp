@@ -11,16 +11,16 @@ from app.validation.rules import Context, blocks_autodownload, validate
 from tests.conftest import TODAY
 
 
-def ctx(md: str, **kw) -> Context:
+def context(md: str, **kw) -> Context:
     return Context(resume=parse(md), today=TODAY, **kw)
 
 
 def ids(md: str, **kw) -> set[str]:
-    return {f.rule_id for f in validate(ctx(md, **kw))}
+    return {f.rule_id for f in validate(context(md, **kw))}
 
 
 def test_reference_resume_is_clean(aran_md: str) -> None:
-    assert validate(ctx(aran_md, claimed_yoe=9)) == []
+    assert validate(context(aran_md, claimed_years=9)) == []
 
 
 def test_catches_templated_percentage(aran_md: str) -> None:
@@ -61,8 +61,8 @@ def test_catches_missing_promotion(aran_md: str) -> None:
 
 
 def test_catches_yoe_mismatch(aran_md: str) -> None:
-    assert "TENURE_ARITHMETIC" in ids(aran_md, claimed_yoe=15)
-    assert "TENURE_ARITHMETIC" not in ids(aran_md, claimed_yoe=9)
+    assert "TENURE_ARITHMETIC" in ids(aran_md, claimed_years=15)
+    assert "TENURE_ARITHMETIC" not in ids(aran_md, claimed_years=9)
 
 
 def test_catches_employment_gap(aran_md: str) -> None:
@@ -107,8 +107,8 @@ def test_mode_b_requires_sourced_dossiers(aran_md: str) -> None:
 def test_placeholder_hard_blocks_extension_autodownload(aran_md: str) -> None:
     """A defective resume must never reach a real application in one click."""
     bad = aran_md.replace("Mentored 4 engineers", "Mentored several engineers")
-    assert blocks_autodownload(validate(ctx(bad))) is True
-    assert blocks_autodownload(validate(ctx(aran_md))) is False
+    assert blocks_autodownload(validate(context(bad))) is True
+    assert blocks_autodownload(validate(context(aran_md))) is False
 
 
 def test_gap_warning_does_not_block_autodownload(aran_md: str) -> None:
@@ -116,6 +116,6 @@ def test_gap_warning_does_not_block_autodownload(aran_md: str) -> None:
         "#### Software Engineer · Aug 2020 – Sep 2022",
         "#### Software Engineer · Jan 2022 – Sep 2022",
     )
-    findings = validate(ctx(gapped))
+    findings = validate(context(gapped))
     assert any(f.rule_id == "EMPLOYMENT_GAP" for f in findings)
     assert blocks_autodownload(findings) is False

@@ -12,7 +12,7 @@ class GenerationOut(ORMModel):
     kind: GenerationKind
     status: GenerationStatus
     phase: str | None
-    progress_pct: int
+    progress_percent: int
     provider: LLMProvider | None
     model: str | None
     result_kind: str | None

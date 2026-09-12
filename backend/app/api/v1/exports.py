@@ -60,8 +60,8 @@ async def export_docx(
     The extension's tailor-and-download flow uses the raw-markdown path: at
     that point nothing has been saved, by design.
     """
-    if body.content_md:
-        content_md = body.content_md
+    if body.content_markdown:
+        content_markdown = body.content_markdown
         default_name = "Resume"
     elif body.resume_id:
         model = BaseResume if body.kind == "base" else TailoredResume
@@ -72,15 +72,15 @@ async def export_docx(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Resume not found"
             )
-        content_md = row.content_md
+        content_markdown = row.content_markdown
         default_name = row.display_name
     else:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Supply either resume_id or content_md",
+            detail="Supply either resume_id or content_markdown",
         )
 
-    ast = parse_or_422(content_md)
+    ast = parse_or_422(content_markdown)
     data = render_docx(
         ast,
         ExportOptions(

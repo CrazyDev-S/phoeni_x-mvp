@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { api, downloadDocx, waitForGeneration } from "@/lib/api";
 import { DRAFT_KEY } from "@/lib/constants";
-import { Err, Field, Progress } from "../components";
+import { ErrorNote, Field, Progress } from "../components";
 
 /**
  * Generate a new resume without leaving the browser.
@@ -24,7 +24,7 @@ export function GenerateTab() {
   const [notes, setNotes] = useState("");
   const [jd, setJd] = useState("");
   const [useJd, setUseJd] = useState(false);
-  const [phase, setPhase] = useState<{ label: string; pct: number } | null>(null);
+  const [phase, setPhase] = useState<{ label: string; percent: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [resultId, setResultId] = useState<string | null>(null);
 
@@ -51,7 +51,7 @@ export function GenerateTab() {
   async function generate() {
     setError(null);
     setResultId(null);
-    setPhase({ label: "Starting", pct: 2 });
+    setPhase({ label: "Starting", percent: 2 });
     try {
       const path = useJd ? "/api/v1/resumes/generate/job" : "/api/v1/resumes/generate/story";
       const accepted = await api<{ id: string }>(path, {
@@ -64,9 +64,9 @@ export function GenerateTab() {
             : { skill_count: skills ? Number(skills) : undefined }),
         }),
       });
-      const done = await waitForGeneration(accepted.id, (label, pct) => setPhase({ label, pct }));
+      const done = await waitForGeneration(accepted.id, (label, percent) => setPhase({ label, percent }));
       setResultId((done.result_id as string) ?? null);
-      setPhase({ label: "Done", pct: 100 });
+      setPhase({ label: "Done", percent: 100 });
       await chrome.storage.local.remove(DRAFT_KEY);
     } catch (e) {
       setError((e as Error).message);
@@ -116,14 +116,14 @@ export function GenerateTab() {
 
       <button
         className="btn primary block"
-        disabled={!title || Boolean(phase && phase.pct < 100)}
+        disabled={!title || Boolean(phase && phase.percent < 100)}
         onClick={generate}
       >
         Generate
       </button>
 
-      {phase && <div style={{ marginTop: 10 }}><Progress label={phase.label} pct={phase.pct} /></div>}
-      {error && <div style={{ marginTop: 8 }}><Err>{error}</Err></div>}
+      {phase && <div style={{ marginTop: 10 }}><Progress label={phase.label} percent={phase.percent} /></div>}
+      {error && <div style={{ marginTop: 8 }}><ErrorNote>{error}</ErrorNote></div>}
 
       {resultId && (
         <button

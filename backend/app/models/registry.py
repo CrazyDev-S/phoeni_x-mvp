@@ -1,4 +1,10 @@
-"""All ORM models. Importing this module registers every table on Base.metadata."""
+"""Imports every model so the tables register themselves on Base.metadata.
+
+SQLAlchemy only knows about a table once its class has been imported, so
+anything that reads the metadata - schema creation, most obviously - has to
+import this module first. It exists to make that dependency explicit and
+greppable rather than a side effect of importing a package.
+"""
 
 from app.db.base import Base
 from app.models.application import (

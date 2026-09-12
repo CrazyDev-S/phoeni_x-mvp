@@ -26,13 +26,13 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, Timestamps, UUIDPk
+from app.db.base import Base, PrimaryKey, Timestamps
 from app.models.enums import MeetingStatus, pg_enum
 
 MEETING_STATUS_ENUM = pg_enum(MeetingStatus, "meeting_status")
 
 
-class MeetingSeries(UUIDPk, Timestamps, Base):
+class MeetingSeries(PrimaryKey, Timestamps, Base):
     """A recurring meeting rule.
 
     The RRULE is the rule of record; occurrences are materialised into
@@ -61,16 +61,16 @@ class MeetingSeries(UUIDPk, Timestamps, Base):
     meeting_type: Mapped[str] = mapped_column(
         Text, nullable=False, server_default="team_sync"
     )
-    rrule: Mapped[str] = mapped_column(Text, nullable=False)
+    recurrence_rule: Mapped[str] = mapped_column(Text, nullable=False)
 
-    dtstart_date: Mapped[date] = mapped_column(Date, nullable=False)
-    dtstart_local: Mapped[time] = mapped_column(Time, nullable=False)
-    tz: Mapped[str] = mapped_column(
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    start_time_local: Mapped[time] = mapped_column(Time, nullable=False)
+    timezone_name: Mapped[str] = mapped_column(
         Text, nullable=False, server_default="America/New_York"
     )
     duration_min: Mapped[int] = mapped_column(Integer, nullable=False, server_default="30")
 
-    exdates: Mapped[list[date]] = mapped_column(
+    excluded_dates: Mapped[list[date]] = mapped_column(
         ARRAY(Date), nullable=False, server_default="{}"
     )
     until_date: Mapped[date | None] = mapped_column(Date)
@@ -85,7 +85,7 @@ class MeetingSeries(UUIDPk, Timestamps, Base):
     )
 
 
-class Meeting(UUIDPk, Timestamps, Base):
+class Meeting(PrimaryKey, Timestamps, Base):
     __tablename__ = "meetings"
     __table_args__ = (
         # Exactly one owner: an interview stage, or a maintained job.
@@ -134,7 +134,7 @@ class Meeting(UUIDPk, Timestamps, Base):
 
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    display_tz: Mapped[str] = mapped_column(
+    display_timezone: Mapped[str] = mapped_column(
         Text, nullable=False, server_default="America/New_York"
     )
 

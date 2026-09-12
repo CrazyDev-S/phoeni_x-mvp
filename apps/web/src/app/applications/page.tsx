@@ -7,7 +7,7 @@ import { useState } from "react";
 import { NextCallBanner } from "@/components/next-call";
 import { Badge, Button, Card, Empty, Select, Spinner } from "@/components/ui";
 import { request } from "@/lib/api";
-import { fmt, IMMINENT_MINUTES } from "@/lib/format";
+import { formatDateTime, IMMINENT_MINUTES } from "@/lib/format";
 
 interface Stage {
   id: string;
@@ -26,7 +26,7 @@ interface Row {
   status: string;
   stage_count: number;
   stages_passed: number;
-  must_have_coverage_pct: number | null;
+  must_have_coverage_percent: number | null;
   current_stage: Stage | null;
   next_meeting: { id: string; starts_at: string; title: string } | null;
 }
@@ -37,7 +37,7 @@ const STATUS_TONE: Record<string, "neutral" | "ok" | "warn" | "bad" | "brand"> =
 };
 
 export default function ApplicationsPage() {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useState("");
 
   const { data, isLoading } = useQuery({
@@ -55,8 +55,8 @@ export default function ApplicationsPage() {
         { method: "PATCH", body: JSON.stringify({ status }) },
       ),
     onSuccess: (res) => {
-      qc.invalidateQueries({ queryKey: ["applications"] });
-      qc.invalidateQueries({ queryKey: ["next-call"] });
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      queryClient.invalidateQueries({ queryKey: ["next-call"] });
       if (res.suggested_next_stage) {
         setPrompt(`Passed. Next up: ${res.suggested_next_stage.name} — schedule it?`);
       }
@@ -141,14 +141,14 @@ export default function ApplicationsPage() {
                       <td className="px-4 py-3">
                         {r.next_meeting ? (
                           <span className={soon ? "font-medium text-[var(--color-brand)]" : ""}>
-                            {fmt(r.next_meeting.starts_at, "d MMM HH:mm zzz")}
+                            {formatDateTime(r.next_meeting.starts_at, "d MMM HH:mm zzz")}
                           </span>
                         ) : (
                           <span className="text-[var(--color-ink-soft)]">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-[var(--color-ink-soft)]">
-                        {r.must_have_coverage_pct != null ? `${r.must_have_coverage_pct}%` : "—"}
+                        {r.must_have_coverage_percent != null ? `${r.must_have_coverage_percent}%` : "—"}
                       </td>
                       <td className="px-4 py-3">
                         {r.current_stage && (

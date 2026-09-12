@@ -6,7 +6,7 @@ Decisions that are cheap now and expensive later, with the reasoning attached.
 
 `backend/prompts/resume_generator_v1.md` ships verbatim. An output contract is
 appended to it (inside the same frozen string, so it costs nothing extra) that
-replaces its 4-block text output with: a JSON ledger, the resume as CRM
+replaces its 4-block text output with: a JSON ledger, the resume as Resume Markdown
 markdown, and a JSON flags report - delivered across three turns.
 
 **Why three turns rather than one call.** A single call asking for all four
@@ -26,9 +26,9 @@ document it describes.
 ## Markdown is canonical, so the dialect is strict
 
 Storing markdown means the exporter has to read it back. That is only safe
-against one unambiguous grammar - see `docs/crm-dialect.md`. The round-trip
+against one unambiguous grammar - see `docs/resume-markdown.md`. The round-trip
 property (`parse -> render -> parse` is a fixed point) is asserted in
-`tests/test_crm.py` and is what makes editing in the portal non-destructive.
+`tests/test_resume_markdown.py` and is what makes editing in the portal non-destructive.
 
 Validation runs on the parsed AST, not with regexes over prose. That is what
 makes rules like "tenure arithmetic agrees with the claimed years" tractable at
@@ -112,3 +112,27 @@ status, race/ethnicity, criminal history, salary expectation. These return
 - LinkedIn Easy Apply is deliberately not auto-filled.
 - OpenAI pricing is not in this project's authoritative reference, so cost for
   that provider is reported as unknown rather than guessed.
+
+## Naming
+
+Names are spelled out. The rule is that a reader who has never seen the file
+should not have to decode anything:
+
+- No abbreviations in identifiers, columns or API fields:
+  `content_markdown` not `content_md`, `job_description_hash` not `jd_hash`,
+  `years_required` not `yoe_required`, `recurrence_rule` not `rrule`,
+  `search_vector` not `tsv`, `display_timezone` not `display_tz`.
+- **No "CRM".** The resume format is Resume Markdown. In a product about job
+  applications, "CRM" reads as Customer Relationship Management.
+- Standard terms stay as they are, because expanding them would be *less*
+  clear: ATS, LLM, UTC, DST, URL, ID, API, HTTP, JWT, OXML, DOCX, UUID.
+- Third-party names are never "corrected": `date-fns-tz`, `dateutil.rrule`, and
+  dateutil's `dtstart=` keyword are their APIs, not ours.
+- No `__init__.py`. Packages are namespace packages, and the one file that did
+  real work is now `app/models/registry.py`, named for what it does.
+
+The single exception is the constraint prefixes in `app/db/base.py`
+(`fk_`, `pk_`, `ix_`, `uq_`, `ck_`). PostgreSQL truncates identifiers at 63
+characters and the longest foreign key here already reaches 60; spelling them
+out would truncate and risk two constraints colliding on one name. The comment
+in that file says so, and expands each prefix in words.

@@ -13,7 +13,7 @@ from datetime import date
 
 from app.core.timezone import app_today
 from app.llm.schemas import ScenarioLedger
-from app.resume.ast import Resume
+from app.resume.document import Resume
 
 SECTION_SUMMARY = "Summary"
 SECTION_SKILLS = "Skills"
@@ -103,7 +103,7 @@ def build(
             }
         )
 
-    yoe_shown = round(total_months(resume, today) / 12, 1)
+    years_shown = round(total_months(resume, today) / 12, 1)
     gate = ledger.gate if ledger else []
     gate_passed = sum(1 for g in gate if g.result.upper() == "PASS")
 
@@ -116,12 +116,12 @@ def build(
         "parse_integrity": "PASS",
         "must_have_covered": must_covered,
         "must_have_total": must_total,
-        "must_have_coverage_pct": _pct(must_covered, must_total),
+        "must_have_coverage_percent": _percent(must_covered, must_total),
         "nice_to_have_covered": nice_covered,
         "nice_to_have_total": nice_total,
-        "nice_to_have_coverage_pct": _pct(nice_covered, nice_total),
-        "yoe_required": ledger.jd_required_yoe if ledger else 0,
-        "yoe_shown": yoe_shown,
+        "nice_to_have_coverage_percent": _percent(nice_covered, nice_total),
+        "years_required": ledger.job_required_years if ledger else 0,
+        "years_shown": years_shown,
         "scenario_gate_passed": gate_passed,
         "scenario_gate_total": len(gate),
         "validation_findings": findings_count,
@@ -132,7 +132,7 @@ def build(
     }
 
 
-def _pct(covered: int, total: int) -> float:
+def _percent(covered: int, total: int) -> float:
     return round(100.0 * covered / total, 1) if total else 0.0
 
 

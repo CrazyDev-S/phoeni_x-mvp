@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { request } from "@/lib/api";
-import { fmt, relative, IMMINENT_MINUTES } from "@/lib/format";
+import { formatDateTime, relative, IMMINENT_MINUTES } from "@/lib/format";
 import { Badge } from "./ui";
 
 export interface Upcoming {
@@ -43,7 +43,7 @@ export function NextCallBanner() {
         </span>
       )}
       <span className="ml-auto flex items-center gap-3">
-        <span className="text-[var(--color-ink-soft)]">{fmt(data.meeting.starts_at)}</span>
+        <span className="text-[var(--color-ink-soft)]">{formatDateTime(data.meeting.starts_at)}</span>
         <strong>{relative(data.starts_in_minutes)}</strong>
         {data.meeting.conferencing_url && (
           <a

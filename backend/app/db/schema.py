@@ -19,10 +19,11 @@ import sys
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-# Imported for the side effect of registering every table on Base.metadata.
-import app.models  # noqa: F401
 from app.db.base import Base
 from app.db.session import engine
+
+# Registers every table on Base.metadata. Required before create_all.
+from app.models import registry  # noqa: F401
 
 EXTENSIONS = ("citext",)
 
@@ -31,13 +32,13 @@ CREATE OR REPLACE VIEW all_resumes AS
     SELECT id, user_id, 'base'::text AS kind, display_name, target_title,
            source::text AS source, status::text AS status, content_text,
            NULL::uuid AS base_resume_id, NULL::text AS company_name,
-           NULL::text AS job_url, NULL::numeric AS must_have_coverage_pct,
+           NULL::text AS job_url, NULL::numeric AS must_have_coverage_percent,
            is_archived, created_at, updated_at
     FROM base_resumes
     UNION ALL
     SELECT id, user_id, 'tailored'::text, display_name, job_title,
            'tailored'::text, status::text, content_text,
-           base_resume_id, company_name, job_url, must_have_coverage_pct,
+           base_resume_id, company_name, job_url, must_have_coverage_percent,
            false, created_at, updated_at
     FROM tailored_resumes
 """

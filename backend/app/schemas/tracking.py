@@ -23,7 +23,7 @@ class StageOut(ORMModel):
     status: StageStatus
     scheduled_for: datetime | None
     outcome_notes: str | None
-    preparation_md: str | None
+    preparation_markdown: str | None
     decided_at: datetime | None
 
 
@@ -33,7 +33,7 @@ class MeetingOut(ORMModel):
     meeting_type: str
     starts_at: datetime
     ends_at: datetime
-    display_tz: str
+    display_timezone: str
     status: MeetingStatus
     location: str | None
     conferencing_url: str | None
@@ -58,7 +58,7 @@ class ApplicationOut(ORMModel):
     origin: str
     applied_at: datetime | None
     next_action_at: datetime | None
-    notes_md: str | None
+    notes_markdown: str | None
     tailored_resume_id: uuid.UUID | None
     created_at: datetime
 
@@ -75,7 +75,7 @@ class ApplicationRow(ApplicationOut):
     next_meeting: MeetingOut | None = None
     stage_count: int = 0
     stages_passed: int = 0
-    must_have_coverage_pct: float | None = None
+    must_have_coverage_percent: float | None = None
 
 
 class ApplicationCreate(BaseModel):
@@ -91,7 +91,7 @@ class ApplicationCreate(BaseModel):
     tailored_resume_id: uuid.UUID | None = None
     status: ApplicationStatus = ApplicationStatus.APPLIED
     origin: str = "web"
-    notes_md: str | None = None
+    notes_markdown: str | None = None
     stage_template_id: uuid.UUID | None = None
 
 
@@ -102,7 +102,7 @@ class ApplicationPatch(BaseModel):
     location: str | None = None
     work_mode: WorkMode | None = None
     status: ApplicationStatus | None = None
-    notes_md: str | None = None
+    notes_markdown: str | None = None
     next_action_at: datetime | None = None
 
 
@@ -116,7 +116,7 @@ class StagePatch(BaseModel):
     name: str | None = None
     status: StageStatus | None = None
     outcome_notes: str | None = None
-    preparation_md: str | None = None
+    preparation_markdown: str | None = None
     reason: str | None = None
 
 
@@ -183,7 +183,7 @@ class MaintainedJobOut(ORMModel):
     manager_name: str | None
     team: str | None
     status: MaintainedJobStatus
-    notes_md: str | None
+    notes_markdown: str | None
     onboarding_notes: str | None
 
 
@@ -200,9 +200,9 @@ class MaintainedJobCreate(BaseModel):
 
 class SeriesCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
-    rrule: str = Field(min_length=6, max_length=400)
-    dtstart_date: date
-    dtstart_local: str = Field(pattern=r"^\d{2}:\d{2}$")
+    recurrence_rule: str = Field(min_length=6, max_length=400)
+    start_date: date
+    start_time_local: str = Field(pattern=r"^\d{2}:\d{2}$")
     duration_min: int = Field(default=30, ge=5, le=600)
     meeting_type: str = "team_sync"
     conferencing_url: str | None = None
@@ -214,17 +214,17 @@ class SeriesCreate(BaseModel):
 class SeriesOut(ORMModel):
     id: uuid.UUID
     title: str
-    rrule: str
-    dtstart_date: date
+    recurrence_rule: str
+    start_date: date
     # Stored as a `time`; rendered as HH:MM so the client can round-trip it
     # straight back into an <input type="time">.
-    dtstart_local: str
+    start_time_local: str
 
-    @field_validator("dtstart_local", mode="before")
+    @field_validator("start_time_local", mode="before")
     @classmethod
     def _hhmm(cls, v: object) -> str:
         return v.strftime("%H:%M") if isinstance(v, time) else str(v)[:5]
-    tz: str
+    timezone_name: str
     duration_min: int
     meeting_type: str
     is_active: bool

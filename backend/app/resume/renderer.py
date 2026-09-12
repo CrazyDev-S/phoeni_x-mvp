@@ -1,10 +1,10 @@
-"""Render the AST back to CRM markdown and to flat plain text.
+"""Render the AST back to Resume Markdown markdown and to flat plain text.
 
-``to_crm`` must be the exact inverse of ``parser.parse`` - the round-trip
+``render_resume_markdown`` must be the exact inverse of ``parser.parse`` - the round-trip
 property test in tests/test_crm_roundtrip.py depends on it, and so does every
 "edit in the portal, re-export" flow.
 
-``to_plain_text`` produces the string a naive ATS extractor should see. It is
+``render_plain_text`` produces the string a naive ATS extractor should see. It is
 used for full-text search, keyword coverage scoring, and as a test oracle for
 the docx exporter.
 """
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import yaml
 
-from app.resume.ast import Resume
+from app.resume.document import Resume
 
 SECTION_ORDER = [
     ("summary", "PROFESSIONAL SUMMARY"),
@@ -31,7 +31,7 @@ HEADER_FIELDS = [
 ]
 
 
-def to_crm(r: Resume) -> str:
+def render_resume_markdown(r: Resume) -> str:
     out: list[str] = ["---"]
 
     meta: dict[str, object] = {}
@@ -139,7 +139,7 @@ def _section_lines(r: Resume, key: str) -> list[str]:
     return []
 
 
-def to_plain_text(r: Resume) -> str:
+def render_plain_text(r: Resume) -> str:
     """Flat text: what a naive extractor should see, and what we index."""
     h = r.header
     out: list[str] = [h.name, h.title, h.location]

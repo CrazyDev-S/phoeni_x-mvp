@@ -106,7 +106,7 @@ async def put_api_key(
 
     row.key_ciphertext = sealed.ciphertext
     row.key_nonce = sealed.nonce
-    row.kek_version = sealed.kek_version
+    row.encryption_key_version = sealed.encryption_key_version
     row.key_last4 = sealed.last4
     row.key_fingerprint = sealed.fingerprint
     row.status = CredentialStatus.UNVERIFIED

@@ -7,11 +7,11 @@ export interface Upcoming {
   starts_in_minutes: number;
 }
 
-const TZ = "America/New_York";
+const DISPLAY_TIME_ZONE = "America/New_York";
 
-export function fmt(iso: string): string {
+export function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-US", {
-    timeZone: TZ,
+    timeZone: DISPLAY_TIME_ZONE,
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -21,9 +21,9 @@ export function fmt(iso: string): string {
   });
 }
 
-export function fmtTime(iso: string): string {
+export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("en-US", {
-    timeZone: TZ,
+    timeZone: DISPLAY_TIME_ZONE,
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -51,7 +51,7 @@ export function NextCall({ upcoming }: { upcoming: Upcoming | null }) {
       <div className="small muted" style={{ marginTop: 3 }}>
         {[upcoming.company_name, upcoming.stage_name].filter(Boolean).join(" · ")}
         {upcoming.company_name && " — "}
-        {fmt(upcoming.meeting.starts_at)}
+        {formatDateTime(upcoming.meeting.starts_at)}
       </div>
       {upcoming.meeting.conferencing_url && (
         <a
@@ -76,20 +76,20 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-export function Progress({ label, pct }: { label: string; pct: number }) {
+export function Progress({ label, percent }: { label: string; percent: number }) {
   return (
     <div>
       <div className="row small" style={{ justifyContent: "space-between", marginBottom: 4 }}>
         <span>{label}</span>
-        <span className="muted">{pct}%</span>
+        <span className="muted">{percent}%</span>
       </div>
       <div className="bar">
-        <div style={{ width: `${pct}%` }} />
+        <div style={{ width: `${percent}%` }} />
       </div>
     </div>
   );
 }
 
-export function Err({ children }: { children: ReactNode }) {
+export function ErrorNote({ children }: { children: ReactNode }) {
   return <p className="err small">{children}</p>;
 }

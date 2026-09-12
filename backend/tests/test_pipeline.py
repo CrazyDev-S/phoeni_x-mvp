@@ -11,13 +11,13 @@ from datetime import date
 
 import pytest
 
-from app.llm.ports import LLMRequest, LLMResponse, Usage
+from app.llm.provider import LLMRequest, LLMResponse, Usage
 from app.orchestration.resume_pipeline import (
     MAX_REPAIRS,
     PipelineInput,
     ResumePipeline,
 )
-from app.resume.parser import CrmParseError
+from app.resume.parser import ResumeMarkdownError
 
 
 class StubProvider:
@@ -58,7 +58,7 @@ def _maybe_json(text: str):
         return None
 
 
-LEDGER_JSON = """{"mode":"grounded","total_yoe":9,"jd_required_yoe":7,
+LEDGER_JSON = """{"mode":"grounded","total_years":9,"job_required_years":7,
 "keyword_plan":[{"keyword":"FastAPI","priority":"MUST","planned_sections":["Skills"]},
 {"keyword":"Rust","priority":"MUST","planned_sections":["Skills"]}],
 "gate":[{"id":1,"name":"Arithmetic","result":"PASS","evidence":"sums"}],
@@ -89,7 +89,7 @@ async def test_happy_path_produces_a_result(aran_md: str) -> None:
 
     assert events[-1].type == "done"
     assert result.resume.header.name == "Aran Thammasiri"
-    assert result.ledger.total_yoe == 9
+    assert result.ledger.total_years == 9
     assert result.flags.must_verify == ["Confirm the Veeva backlog figure"]
     assert result.report["must_have_total"] == 2
     assert result.report["must_have_covered"] == 1  # Rust genuinely absent
@@ -181,7 +181,7 @@ async def test_repairs_are_bounded_and_the_result_is_flagged(aran_md: str) -> No
 async def test_unparseable_after_all_repairs_raises(aran_md: str) -> None:
     garbage = "---\nname: A\ntitle: B\nlocation: C\n---\n\n## TECHNICAL SKILLS\n\n- nope\n"
     provider = StubProvider([LEDGER_JSON, garbage, garbage, garbage, FLAGS_JSON])
-    with pytest.raises(CrmParseError):
+    with pytest.raises(ResumeMarkdownError):
         await drain(
             ResumePipeline(provider).generate(PipelineInput(target_title="X"))
         )
@@ -198,7 +198,7 @@ async def test_code_fences_are_stripped(aran_md: str) -> None:
             )
         )
     )[-1].data["result"]
-    assert result.content_md.startswith("---")
+    assert result.content_markdown.startswith("---")
     assert result.resume.header.name == "Aran Thammasiri"
 
 

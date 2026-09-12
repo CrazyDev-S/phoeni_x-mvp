@@ -19,7 +19,7 @@ All three surfaces build and run.
 |---|---|
 | PostgreSQL schema (22 tables, 12 enums, `all_resumes` view) | Done |
 | Auth: register/login/refresh, JWT + extension tokens | Done |
-| Canonical Resume Markdown (CRM v1): parser, renderer, round-trip property | Done |
+| Resume Markdown v1: parser, renderer, round-trip property | Done |
 | Validation registry (10 hard rules, every one negative-tested) | Done |
 | DOCX export, `designed` + `ats_plain` profiles | Done |
 | LLM layer: Anthropic + OpenAI adapters, model catalog, prompt caching | Done |
@@ -114,7 +114,7 @@ cd backend && .venv/bin/python -m pytest tests/ -q
 
 The suite deliberately covers the things that fail silently:
 
-- **CRM round-trip is a fixed point** (`parse → render → parse` is identity).
+- **Resume Markdown round-trip is a fixed point** (`parse → render → parse` is identity).
   This property is what makes storing markdown as the canonical form safe.
 - **Every validation rule has a negative test.** A rule that never fires is
   worse than no rule.
@@ -132,10 +132,10 @@ The suite deliberately covers the things that fail silently:
 backend/app/
   core/           config, security, crypto (AES-GCM), timezone, deps
   models/         SQLAlchemy 2.0 tables + native PG enums
-  resume/         CRM dialect: ast.py, parser.py, renderer.py
+  resume/         Resume Markdown: document.py, parser.py, renderer.py
   validation/     the hard-rule registry
   export/         oxml.py, carrier.py, profiles.py, docx_renderer.py
-  llm/            ports, anthropic/openai adapters, catalog, prompts
+  llm/            provider, anthropic/openai adapters, catalog, prompts
   orchestration/  resume_pipeline.py, form_pipeline.py, ats_report.py
   worker/         the queue poller
   api/v1/         auth, settings, resumes, tailoring, generations, exports,
@@ -160,6 +160,8 @@ packages/api-types/  generated OpenAPI types, shared by both clients
   at the top of `app/export/oxml.py`.
 - **Stage names are `text` plus a lookup table, not an enum**, because users
   configure their own interview pipelines.
+- **Names are spelled out** - `content_markdown`, not `content_md`. See
+  `docs/architecture.md` for the rule and its one exception.
 - **The system prompt is byte-frozen.** Nothing is interpolated into it - not
   the date, not the mode, not the user. Interpolating anything invalidates the
   whole ~17k-token cached prefix on every request. Volatile values go in the

@@ -1,10 +1,10 @@
-# Canonical Resume Markdown (CRM) v1
+# Resume Markdown v1
 
 Resumes are stored as markdown. Because the `.docx` exporter has to read that
 markdown back, the format is a **strict, versioned dialect** rather than
 free-form prose: exactly one line shape per construct, so the parser never
 guesses. The LLM is instructed to emit this; `app/resume/parser.py` validates
-it; the `dialect_version` column records which grammar a row was written under.
+it; the `markdown_version` column records which grammar a row was written under.
 
 ## Grammar
 
@@ -41,14 +41,14 @@ Allowed section headings, in this order: `PROFESSIONAL SUMMARY`,
 
 ## The round-trip property
 
-`parse(render(parse(md))) == parse(md)`, asserted in `tests/test_crm.py`. Any
+`parse(render(parse(md))) == parse(md)`, asserted in `tests/test_resume_markdown.py`. Any
 change to the grammar must keep this true — it is the guarantee that editing a
 resume in the portal and re-exporting it cannot corrupt the document.
 
 ## On parse failure
 
-`CrmParseError` carries the line number, the section being read, and the
-offending line. The API surfaces this as a `422 CRM_PARSE_ERROR` so the editor
+`ResumeMarkdownError` carries the line number, the section being read, and the
+offending line. The API surfaces this as a `422 RESUME_MARKDOWN_PARSE_ERROR` so the editor
 can point at the problem, and the generation pipeline uses it to drive a single
 bounded repair turn. The exporter never attempts a best-effort render of a
 document it could not parse — a mangled resume is worse than an error.

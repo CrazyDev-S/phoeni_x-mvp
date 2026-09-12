@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
-import { Err, fmtTime } from "../components";
+import { ErrorNote, formatTime } from "../components";
 
 interface Meeting {
   id: string;
@@ -67,7 +67,7 @@ export function CalendarTab() {
         All times US Eastern.
       </p>
 
-      {error && <Err>{error}</Err>}
+      {error && <ErrorNote>{error}</ErrorNote>}
       {busy && <p className="small muted">Loading…</p>}
       {!busy && !items.length && <p className="small muted">Nothing scheduled.</p>}
 
@@ -75,7 +75,7 @@ export function CalendarTab() {
         {items.map((m) => (
           <li key={m.id} style={{ padding: "8px 0" }}>
             <div className="row">
-              <strong>{fmtTime(m.starts_at)}</strong>
+              <strong>{formatTime(m.starts_at)}</strong>
               <span className="truncate" style={{ flex: 1 }}>{m.title}</span>
             </div>
             <div className="row small" style={{ marginTop: 4 }}>

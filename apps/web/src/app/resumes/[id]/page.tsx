@@ -14,7 +14,7 @@ interface Resume {
   target_title: string;
   status: string;
   mode: string;
-  content_md: string;
+  content_markdown: string;
   ats_report: Record<string, unknown> | null;
   ledger: Record<string, unknown> | null;
   flags: Record<string, unknown> | null;
@@ -25,7 +25,7 @@ type Panel = "validation" | "ats" | "ledger" | "flags";
 
 export default function ResumeDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
   const [draft, setDraft] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel>("validation");
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -36,19 +36,19 @@ export default function ResumeDetailPage() {
   });
 
   useEffect(() => {
-    if (data && draft === null) setDraft(data.content_md);
+    if (data && draft === null) setDraft(data.content_markdown);
   }, [data, draft]);
 
   const save = useMutation({
-    mutationFn: (content_md: string) =>
+    mutationFn: (content_markdown: string) =>
       request<Resume & { findings: Finding[] }>(`/api/v1/resumes/${id}`, {
         method: "PATCH",
-        body: JSON.stringify({ content_md }),
+        body: JSON.stringify({ content_markdown }),
       }),
     onSuccess: (updated) => {
       setSaveError(null);
-      qc.setQueryData(["resume", id], updated);
-      qc.invalidateQueries({ queryKey: ["resumes"] });
+      queryClient.setQueryData(["resume", id], updated);
+      queryClient.invalidateQueries({ queryKey: ["resumes"] });
     },
     onError: (err) => {
       const e = err as { message?: string; detail?: Record<string, unknown> };
@@ -69,7 +69,7 @@ export default function ResumeDetailPage() {
   }
 
   const findings = data.validation?.findings ?? [];
-  const dirty = draft !== data.content_md;
+  const dirty = draft !== data.content_markdown;
 
   return (
     <div className="space-y-4">
@@ -185,9 +185,9 @@ function AtsPanel({ report }: { report: Record<string, unknown> | null }) {
     <div>
       <dl className="grid grid-cols-2 gap-px bg-[var(--color-line)] text-sm">
         {[
-          ["MUST-HAVE coverage", `${stat("must_have_covered")}/${stat("must_have_total")} · ${stat("must_have_coverage_pct")}%`],
-          ["Nice-to-have", `${stat("nice_to_have_coverage_pct")}%`],
-          ["Years required / shown", `${stat("yoe_required")} / ${stat("yoe_shown")}`],
+          ["MUST-HAVE coverage", `${stat("must_have_covered")}/${stat("must_have_total")} · ${stat("must_have_coverage_percent")}%`],
+          ["Nice-to-have", `${stat("nice_to_have_coverage_percent")}%`],
+          ["Years required / shown", `${stat("years_required")} / ${stat("years_shown")}`],
           ["Scenario gate", `${stat("scenario_gate_passed")}/${stat("scenario_gate_total")}`],
           ["Parse integrity", stat("parse_integrity")],
           ["Companies · categories", `${stat("companies")} · ${stat("skill_categories")}`],

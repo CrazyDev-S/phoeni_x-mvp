@@ -20,8 +20,8 @@ from datetime import date
 from itertools import pairwise
 from typing import Any
 
-from app.resume.ast import Resume
-from app.resume.renderer import to_plain_text
+from app.resume.document import Resume
+from app.resume.renderer import render_plain_text
 
 Severity = str  # "error" | "warning" | "info"
 
@@ -53,7 +53,7 @@ class Context:
     resume: Resume
     raw_md: str = ""
     jd_keywords: dict[str, list[str]] = field(default_factory=dict)  # must/nice
-    claimed_yoe: int | None = None
+    claimed_years: int | None = None
     mode: str = "grounded"
     strict_dossier: bool = False
     ledger: dict[str, Any] = field(default_factory=dict)
@@ -113,9 +113,9 @@ def _text_fields(r: Resume) -> list[tuple[str, str]]:
 
 
 @rule
-def placeholder_token(ctx: Context) -> list[Finding]:
+def placeholder_token(context: Context) -> list[Finding]:
     findings: list[Finding] = []
-    for path, text in _text_fields(ctx.resume):
+    for path, text in _text_fields(context.resume):
         for label, pattern in PLACEHOLDER_PATTERNS:
             for m in pattern.finditer(text):
                 findings.append(
@@ -148,8 +148,8 @@ def _excerpt(text: str, at: int, width: int = 60) -> str:
 # --------------------------------------------------------------------------
 
 @rule
-def skill_category_count(ctx: Context) -> list[Finding]:
-    n = len(ctx.resume.skills)
+def skill_category_count(context: Context) -> list[Finding]:
+    n = len(context.resume.skills)
     if n == 4:
         return []
     return [
@@ -162,8 +162,8 @@ def skill_category_count(ctx: Context) -> list[Finding]:
 
 
 @rule
-def company_count(ctx: Context) -> list[Finding]:
-    names = {e.company for e in ctx.resume.experience}
+def company_count(context: Context) -> list[Finding]:
+    names = {e.company for e in context.resume.experience}
     if len(names) <= 3:
         return []
     return [
@@ -177,8 +177,8 @@ def company_count(ctx: Context) -> list[Finding]:
 
 
 @rule
-def promotion_present(ctx: Context) -> list[Finding]:
-    if any(len(e.titles) == 2 for e in ctx.resume.experience):
+def promotion_present(context: Context) -> list[Finding]:
+    if any(len(e.titles) == 2 for e in context.resume.experience):
         return []
     return [
         Finding(
@@ -191,33 +191,33 @@ def promotion_present(ctx: Context) -> list[Finding]:
 
 
 @rule
-def tenure_arithmetic(ctx: Context) -> list[Finding]:
-    if ctx.claimed_yoe is None:
+def tenure_arithmetic(context: Context) -> list[Finding]:
+    if context.claimed_years is None:
         return []
-    months = _merged_months(ctx)
+    months = _merged_months(context)
     shown = months / 12
-    if abs(shown - ctx.claimed_yoe) <= 0.25:
+    if abs(shown - context.claimed_years) <= 0.25:
         return []
     return [
         Finding(
             "TENURE_ARITHMETIC", "error",
-            f"summary claims {ctx.claimed_yoe} years but the roles sum to {shown:.1f}",
+            f"summary claims {context.claimed_years} years but the roles sum to {shown:.1f}",
             "experience", "",
             "Adjust the claimed years or the role dates so they agree.",
         )
     ]
 
 
-def _merged_months(ctx: Context) -> int:
+def _merged_months(context: Context) -> int:
     """Total months employed, with overlapping roles counted once."""
     spans = [
         (
             e.total_tenure.start.ordinal,
-            ctx.today_ordinal
+            context.today_ordinal
             if e.total_tenure.is_current
             else e.total_tenure.end.ordinal,  # type: ignore[union-attr]
         )
-        for e in ctx.resume.experience
+        for e in context.resume.experience
     ]
     if not spans:
         return 0
@@ -232,16 +232,16 @@ def _merged_months(ctx: Context) -> int:
 
 
 @rule
-def employment_gap(ctx: Context) -> list[Finding]:
+def employment_gap(context: Context) -> list[Finding]:
     spans = sorted(
         (
             e.total_tenure.start.ordinal,
-            ctx.today_ordinal
+            context.today_ordinal
             if e.total_tenure.is_current
             else e.total_tenure.end.ordinal,  # type: ignore[union-attr]
             e.company,
         )
-        for e in ctx.resume.experience
+        for e in context.resume.experience
     )
     findings = []
     for (_, prev_end, prev_co), (next_start, _, next_co) in pairwise(spans):
@@ -259,10 +259,10 @@ def employment_gap(ctx: Context) -> list[Finding]:
 
 
 @rule
-def date_format(ctx: Context) -> list[Finding]:
+def date_format(context: Context) -> list[Finding]:
     findings = []
-    today = ctx.today_ordinal
-    for i, e in enumerate(ctx.resume.experience):
+    today = context.today_ordinal
+    for i, e in enumerate(context.resume.experience):
         ranges = [("total_tenure", e.total_tenure)] + [
             (f"titles[{j}]", t.dates) for j, t in enumerate(e.titles)
         ]
@@ -291,7 +291,7 @@ def date_format(ctx: Context) -> list[Finding]:
                     )
                 )
     # Chronological order, newest first.
-    starts = [e.total_tenure.start.ordinal for e in ctx.resume.experience]
+    starts = [e.total_tenure.start.ordinal for e in context.resume.experience]
     if starts != sorted(starts, reverse=True):
         findings.append(
             Finding(
@@ -304,11 +304,11 @@ def date_format(ctx: Context) -> list[Finding]:
 
 
 @rule
-def must_have_coverage(ctx: Context) -> list[Finding]:
-    must = ctx.jd_keywords.get("must", [])
+def must_have_coverage(context: Context) -> list[Finding]:
+    must = context.jd_keywords.get("must", [])
     if not must:
         return []
-    text = to_plain_text(ctx.resume).lower()
+    text = render_plain_text(context.resume).lower()
     missing = [k for k in must if k.lower() not in text]
     if not missing:
         return []
@@ -323,13 +323,13 @@ def must_have_coverage(ctx: Context) -> list[Finding]:
 
 
 @rule
-def dossier_provenance(ctx: Context) -> list[Finding]:
+def dossier_provenance(context: Context) -> list[Finding]:
     """Mode B may not name a company without a searched, sourced dossier."""
-    if ctx.mode != "constructed" or not ctx.strict_dossier:
+    if context.mode != "constructed" or not context.strict_dossier:
         return []
-    dossiers = {d.get("employer"): d for d in ctx.ledger.get("dossiers", [])}
+    dossiers = {d.get("employer"): d for d in context.ledger.get("dossiers", [])}
     findings = []
-    for e in ctx.resume.experience:
+    for e in context.resume.experience:
         d = dossiers.get(e.company)
         if d is None:
             findings.append(
@@ -359,10 +359,10 @@ def dossier_provenance(ctx: Context) -> list[Finding]:
 HARD_BLOCK_RULES = frozenset({"PLACEHOLDER_TOKEN", "DOSSIER_PROVENANCE"})
 
 
-def validate(ctx: Context) -> list[Finding]:
+def validate(context: Context) -> list[Finding]:
     findings: list[Finding] = []
     for fn in REGISTRY.values():
-        findings.extend(fn(ctx))
+        findings.extend(fn(context))
     order = {"error": 0, "warning": 1, "info": 2}
     return sorted(findings, key=lambda f: (order[f.severity], f.rule_id))
 

@@ -15,12 +15,12 @@ ET = ZoneInfo("America/New_York")
 def series(**kw) -> MeetingSeries:
     defaults = dict(
         title="Standup",
-        rrule="FREQ=WEEKLY;BYDAY=MO",
-        dtstart_date=date(2026, 10, 5),
-        dtstart_local=time(10, 0),
-        tz="America/New_York",
+        recurrence_rule="FREQ=WEEKLY;BYDAY=MO",
+        start_date=date(2026, 10, 5),
+        start_time_local=time(10, 0),
+        timezone_name="America/New_York",
         duration_min=30,
-        exdates=[],
+        excluded_dates=[],
         until_date=None,
     )
     return MeetingSeries(**{**defaults, **kw})
@@ -33,7 +33,7 @@ def test_weekly_rule_expands_on_the_right_weekday() -> None:
 
 
 def test_exdates_are_skipped() -> None:
-    s = series(exdates=[date(2026, 10, 12)])
+    s = series(excluded_dates=[date(2026, 10, 12)])
     assert date(2026, 10, 12) not in occurrences(s, through=date(2026, 11, 2))
 
 

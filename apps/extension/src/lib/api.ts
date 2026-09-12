@@ -125,7 +125,7 @@ export interface GenerationEvent {
 /** Poll a generation to completion. The panel can hold this open; a worker cannot. */
 export async function waitForGeneration(
   id: string,
-  onPhase: (label: string, pct: number) => void,
+  onPhase: (label: string, percent: number) => void,
   signal?: AbortSignal,
 ): Promise<Record<string, unknown>> {
   let seq = -1;
@@ -139,7 +139,7 @@ export async function waitForGeneration(
       for (const event of events) {
         seq = event.seq;
         if (event.type === "phase") {
-          onPhase(String(event.payload.label ?? ""), Number(event.payload.pct ?? 0));
+          onPhase(String(event.payload.label ?? ""), Number(event.payload.percent ?? 0));
         }
         if (event.type === "complete") return event.payload;
         if (event.type === "error") {
@@ -148,10 +148,10 @@ export async function waitForGeneration(
       }
     } else {
       // Fall back to polling the row if the events endpoint is unavailable.
-      const gen = await api<{ status: string; phase: string | null; progress_pct: number; error_detail: string | null }>(
+      const gen = await api<{ status: string; phase: string | null; progress_percent: number; error_detail: string | null }>(
         `/api/v1/generations/${id}`,
       );
-      onPhase(gen.phase ?? "Working", gen.progress_pct);
+      onPhase(gen.phase ?? "Working", gen.progress_percent);
       if (gen.status === "failed") throw new ApiError(500, "FAILED", gen.error_detail ?? "Failed");
       if (gen.status === "succeeded" || gen.status === "needs_review") return {};
     }

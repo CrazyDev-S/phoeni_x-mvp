@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { api, getSettings, saveSettings } from "@/lib/api";
 import { DEFAULT_API_BASE } from "@/lib/constants";
-import { Err, Field } from "../components";
+import { ErrorNote, Field } from "../components";
 
 export function SettingsTab({ onSaved }: { onSaved: () => void }) {
   const [apiBase, setApiBase] = useState(DEFAULT_API_BASE);
@@ -49,7 +49,7 @@ export function SettingsTab({ onSaved }: { onSaved: () => void }) {
       </p>
       <button className="btn primary block" onClick={save}>Save &amp; test</button>
       {status && <p className="small ok" style={{ marginTop: 8 }}>{status}</p>}
-      {error && <div style={{ marginTop: 8 }}><Err>{error}</Err></div>}
+      {error && <div style={{ marginTop: 8 }}><ErrorNote>{error}</ErrorNote></div>}
     </div>
   );
 }

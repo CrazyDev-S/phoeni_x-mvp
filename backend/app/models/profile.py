@@ -19,13 +19,13 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, Timestamps, UUIDPk
+from app.db.base import Base, PrimaryKey, Timestamps
 from app.models.enums import WorkMode, pg_enum
 
 WORK_MODE_ENUM = pg_enum(WorkMode, "work_mode")
 
 
-class CandidateProfile(UUIDPk, Timestamps, Base):
+class CandidateProfile(PrimaryKey, Timestamps, Base):
     __tablename__ = "candidate_profiles"
     __table_args__ = (
         # One default profile per user, enforced by a partial unique index.
@@ -61,9 +61,9 @@ class CandidateProfile(UUIDPk, Timestamps, Base):
     certifications: Mapped[list | None] = mapped_column(JSONB, server_default="[]")
     languages: Mapped[list | None] = mapped_column(JSONB, server_default="[]")
 
-    total_yoe_months: Mapped[int | None] = mapped_column(Integer)
+    total_experience_months: Mapped[int | None] = mapped_column(Integer)
     summary: Mapped[str | None] = mapped_column(Text)
-    raw_profile_md: Mapped[str | None] = mapped_column(Text)
+    raw_profile_markdown: Mapped[str | None] = mapped_column(Text)
 
     employments: Mapped[list[ProfileEmployment]] = relationship(
         back_populates="profile",
@@ -72,7 +72,7 @@ class CandidateProfile(UUIDPk, Timestamps, Base):
     )
 
 
-class ProfileEmployment(UUIDPk, Timestamps, Base):
+class ProfileEmployment(PrimaryKey, Timestamps, Base):
     """Normalised, not JSONB.
 
     The tenure / gap / promotion validators do arithmetic over these rows, so
@@ -126,10 +126,10 @@ class AutofillProfile(Timestamps, Base):
         PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
     fields: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
-    extra_notes_md: Mapped[str | None] = mapped_column(Text)
+    extra_notes_markdown: Mapped[str | None] = mapped_column(Text)
 
 
-class ApplicationFormAnswer(UUIDPk, Timestamps, Base):
+class ApplicationFormAnswer(PrimaryKey, Timestamps, Base):
     """Cache of answers keyed by form shape, so a repeat ATS form is free."""
 
     __tablename__ = "application_form_answers"

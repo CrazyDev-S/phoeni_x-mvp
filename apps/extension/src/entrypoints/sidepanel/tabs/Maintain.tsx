@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
-import { Err } from "../components";
+import { ErrorNote } from "../components";
 
 interface Job {
   id: string;
@@ -9,14 +9,14 @@ interface Job {
   role_title: string;
   start_date: string;
   status: string;
-  notes_md: string | null;
+  notes_markdown: string | null;
 }
 
 interface Series {
   id: string;
   title: string;
-  rrule: string;
-  dtstart_local: string;
+  recurrence_rule: string;
+  start_time_local: string;
   is_active: boolean;
 }
 
@@ -49,14 +49,14 @@ export function MaintainTab() {
     try {
       await api(`/api/v1/maintained-jobs/${id}`, {
         method: "PATCH",
-        body: JSON.stringify({ notes_md: notes }),
+        body: JSON.stringify({ notes_markdown: notes }),
       });
     } catch (e) {
       setError((e as Error).message);
     }
   }
 
-  if (error) return <div className="card"><Err>{error}</Err></div>;
+  if (error) return <div className="card"><ErrorNote>{error}</ErrorNote></div>;
   if (!jobs.length) {
     return (
       <div className="card small muted">
@@ -89,7 +89,7 @@ export function MaintainTab() {
                 {series.map((s) => (
                   <li key={s.id} className="row" style={{ padding: "4px 0" }}>
                     <span className="truncate" style={{ flex: 1 }}>{s.title}</span>
-                    <span className="muted">{s.dtstart_local}</span>
+                    <span className="muted">{s.start_time_local}</span>
                     {!s.is_active && <span className="badge">paused</span>}
                   </li>
                 ))}
@@ -97,7 +97,7 @@ export function MaintainTab() {
               <textarea
                 rows={3}
                 placeholder="Notes for this job…"
-                defaultValue={job.notes_md ?? ""}
+                defaultValue={job.notes_markdown ?? ""}
                 onBlur={(e) => saveNotes(job.id, e.target.value)}
                 style={{ marginTop: 6 }}
               />

@@ -25,7 +25,7 @@ from app.schemas.extension import (
 )
 from app.schemas.generation import GenerationAccepted
 from app.schemas.tracking import ApplicationDetail
-from app.services.generation import enqueue, idempotency_key, jd_hash
+from app.services.generation import enqueue, idempotency_key, job_description_hash
 
 router = APIRouter(prefix="/extension", tags=["extension"])
 
@@ -57,7 +57,7 @@ async def extension_tailor(
         select(TailoredResume).where(
             TailoredResume.user_id == user.id,
             TailoredResume.base_resume_id == base.id,
-            TailoredResume.jd_hash == jd_hash(body.job.description_text),
+            TailoredResume.job_description_hash == job_description_hash(body.job.description_text),
         )
     )
     if cached is not None:
@@ -76,7 +76,7 @@ async def extension_tailor(
         kind=GenerationKind.TAILOR_JOB,
         payload={
             "base_resume_id": str(base.id),
-            "base_resume_md": base.content_md,
+            "base_resume_md": base.content_markdown,
             "job_description": body.job.description_text,
             "job_url": body.job.url,
             "company_name": body.job.company,
@@ -118,17 +118,17 @@ async def extension_autofill(
     autofill = await session.get(AutofillProfile, user.id)
     fields = autofill.fields if autofill else {}
 
-    fp = fingerprint(body)
+    fingerprint_value = fingerprint(body)
     cached = await session.scalar(
         select(ApplicationFormAnswer).where(
             ApplicationFormAnswer.user_id == user.id,
-            ApplicationFormAnswer.form_fingerprint == fp,
+            ApplicationFormAnswer.form_fingerprint == fingerprint_value,
         )
     )
     if cached is not None:
         cached.hit_count += 1
         return AutofillResponse.model_validate(
-            {**cached.answers, "cached": True, "form_fingerprint": fp}
+            {**cached.answers, "cached": True, "form_fingerprint": fingerprint_value}
         )
 
     provider = await get_provider(session, user.id, "fast")
@@ -139,7 +139,7 @@ async def extension_autofill(
     session.add(
         ApplicationFormAnswer(
             user_id=user.id,
-            form_fingerprint=fp,
+            form_fingerprint=fingerprint_value,
             ats=body.job.ats if body.job else None,
             source_url=body.job.url if body.job else None,
             answers=result.model_dump(exclude={"cached", "form_fingerprint"}),
@@ -177,7 +177,7 @@ async def extension_save_application(
         job_url=body.job_url,
         job_description_text=body.job_description_text,
         location=body.location,
-        notes_md=body.notes_md,
+        notes_markdown=body.notes_markdown,
         status=ApplicationStatus.APPLIED,
         origin="extension",
         applied_at=utc_now(),

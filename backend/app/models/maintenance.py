@@ -9,13 +9,13 @@ from sqlalchemy import Date, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, Timestamps, UUIDPk
+from app.db.base import Base, PrimaryKey, Timestamps
 from app.models.enums import MaintainedJobStatus, pg_enum
 
 MAINTAINED_STATUS_ENUM = pg_enum(MaintainedJobStatus, "maintained_job_status")
 
 
-class MaintainedJob(UUIDPk, Timestamps, Base):
+class MaintainedJob(PrimaryKey, Timestamps, Base):
     __tablename__ = "maintained_jobs"
 
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -44,4 +44,4 @@ class MaintainedJob(UUIDPk, Timestamps, Base):
         server_default=MaintainedJobStatus.ACTIVE.value,
     )
     onboarding_notes: Mapped[str | None] = mapped_column(Text)
-    notes_md: Mapped[str | None] = mapped_column(Text)
+    notes_markdown: Mapped[str | None] = mapped_column(Text)

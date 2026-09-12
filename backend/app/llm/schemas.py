@@ -57,8 +57,8 @@ class ScenarioLedger(BaseModel):
 
     education: str = ""
     career_start: str = ""
-    total_yoe: int = 0
-    jd_required_yoe: int = 0
+    total_years: int = 0
+    job_required_years: int = 0
     size_arc: str = ""
     industry_arc: str = ""
     employer_country_arc: str = ""

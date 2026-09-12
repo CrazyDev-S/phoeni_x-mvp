@@ -27,7 +27,7 @@ from app.schemas.tailoring import (
     TailorByInstruction,
     TailorToJob,
 )
-from app.services.generation import enqueue, idempotency_key, jd_hash
+from app.services.generation import enqueue, idempotency_key, job_description_hash
 
 router = APIRouter(tags=["generation"])
 
@@ -41,7 +41,7 @@ async def _profile_text(session: Session, user_id: uuid.UUID) -> str | None:
         .order_by(CandidateProfile.is_default.desc())
         .limit(1)
     )
-    return row.raw_profile_md if row else None
+    return row.raw_profile_markdown if row else None
 
 
 async def _mode(session: Session, user_id: uuid.UUID, requested: str | None) -> str:
@@ -147,7 +147,7 @@ async def tailor_to_job(
         kind=GenerationKind.TAILOR_JOB,
         payload={
             "base_resume_id": str(base.id),
-            "base_resume_md": base.content_md,
+            "base_resume_md": base.content_markdown,
             "job_description": body.job_description,
             "job_url": body.job_url,
             "company_name": body.company_name,
@@ -178,7 +178,7 @@ async def tailor_by_instruction(
         kind=GenerationKind.TAILOR_INSTRUCTION,
         payload={
             "base_resume_id": str(base.id),
-            "base_resume_md": base.content_md,
+            "base_resume_md": base.content_markdown,
             "instructions": body.instructions,
             "target_title": base.target_title,
             "display_name": body.display_name or f"{base.display_name} (edited)",
@@ -197,7 +197,7 @@ async def _instant_path(
         select(TailoredResume).where(
             TailoredResume.user_id == user_id,
             TailoredResume.base_resume_id == base_id,
-            TailoredResume.jd_hash == jd_hash(jd),
+            TailoredResume.job_description_hash == job_description_hash(jd),
             TailoredResume.status != ResumeStatus.DRAFT,
             TailoredResume.created_at > utc_now() - INSTANT_PATH_WINDOW,
         )

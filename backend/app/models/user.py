@@ -21,14 +21,14 @@ from sqlalchemy.dialects.postgresql import CITEXT, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, Timestamps, UUIDPk
+from app.db.base import Base, PrimaryKey, Timestamps
 from app.models.enums import CredentialStatus, LLMProvider, pg_enum
 
 PROVIDER_ENUM = pg_enum(LLMProvider, "llm_provider")
 CRED_STATUS_ENUM = pg_enum(CredentialStatus, "credential_status")
 
 
-class User(UUIDPk, Timestamps, Base):
+class User(PrimaryKey, Timestamps, Base):
     __tablename__ = "users"
 
     email: Mapped[str] = mapped_column(CITEXT, unique=True, nullable=False)
@@ -89,7 +89,7 @@ class UserSettings(Timestamps, Base):
     user: Mapped[User] = relationship(back_populates="settings")
 
 
-class LLMCredential(UUIDPk, Timestamps, Base):
+class LLMCredential(PrimaryKey, Timestamps, Base):
     __tablename__ = "llm_credentials"
     __table_args__ = (UniqueConstraint("user_id", "provider", "label"),)
 
@@ -104,7 +104,7 @@ class LLMCredential(UUIDPk, Timestamps, Base):
 
     key_ciphertext: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     key_nonce: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    kek_version: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    encryption_key_version: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     key_last4: Mapped[str] = mapped_column(String(8), nullable=False)
     key_fingerprint: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
 
@@ -115,7 +115,7 @@ class LLMCredential(UUIDPk, Timestamps, Base):
     last_error: Mapped[str | None] = mapped_column(Text)
 
 
-class ApiToken(UUIDPk, Timestamps, Base):
+class ApiToken(PrimaryKey, Timestamps, Base):
     """Long-lived personal access token used by the browser extension."""
 
     __tablename__ = "api_tokens"

@@ -30,7 +30,7 @@ Produce exactly what the current turn asks for, and nothing else. Do not
 restate a previous block, do not add commentary, do not wrap output in prose.
 
 TURN 1 - BLOCK 1, the scenario ledger, as JSON matching the supplied schema.
-TURN 2 - BLOCK 2, the resume, as Canonical Resume Markdown (CRM v1) - the exact
+TURN 2 - BLOCK 2, the resume, as Resume Markdown v1 - the exact
          grammar below, and nothing else. No code fence, no preamble.
 TURN 3 - BLOCK 4, flags and next actions, as JSON matching the supplied schema.
 
@@ -40,7 +40,7 @@ the finished resume, so they can never disagree with the document. Supply the
 keyword plan in Turn 1 and the arithmetic is handled for you.
 
 -------------------------------------------------------------------------------
-CANONICAL RESUME MARKDOWN (CRM v1) - the exact grammar for TURN 2
+CANONICAL RESUME MARKDOWN (Resume Markdown v1) - the exact grammar for TURN 2
 -------------------------------------------------------------------------------
 
 A parser reads this back to build the .docx, so there is exactly one valid way
@@ -219,7 +219,7 @@ def scenario_turn(
 
 DRAFT_TURN = (
     "PHASE 4-5. The ledger above is validated. Draft the resume now.\n\n"
-    "Reply with BLOCK 2 ONLY, as Canonical Resume Markdown v1 exactly as the "
+    "Reply with BLOCK 2 ONLY, as Resume Markdown v1 exactly as the "
     "output contract specifies. Start with the `---` frontmatter fence and end "
     "with the last line of the last section. No code fence, no commentary."
 )
@@ -237,7 +237,7 @@ def repair_turn(findings: list[dict], raw_error: str | None = None) -> str:
     lines = [
         (
             "The document failed machine validation. Fix ONLY these issues and "
-            "re-emit the complete resume in CRM v1. Change nothing else."
+            "re-emit the complete resume in Resume Markdown v1. Change nothing else."
         ),
         "",
     ]
@@ -269,9 +269,9 @@ def tailor_turn(
             f"TODAY: {today}",
             f"TARGET COMPANY: {company or 'unstated'}",
             "",
-            "Reply with BLOCK 2 ONLY: the complete tailored resume in CRM v1.",
+            "Reply with BLOCK 2 ONLY: the complete tailored resume in Resume Markdown v1.",
             "",
-            "=== EXISTING RESUME (CRM v1) ===",
+            "=== EXISTING RESUME (Resume Markdown v1) ===",
             base_resume_md.strip(),
             "",
             "=== JOB DESCRIPTION ===",
@@ -290,12 +290,12 @@ def instruction_turn(*, base_resume_md: str, instructions: str, today: str) -> s
             "",
             f"TODAY: {today}",
             "",
-            "Reply with BLOCK 2 ONLY: the complete updated resume in CRM v1.",
+            "Reply with BLOCK 2 ONLY: the complete updated resume in Resume Markdown v1.",
             "",
             "=== INSTRUCTIONS ===",
             instructions.strip(),
             "",
-            "=== EXISTING RESUME (CRM v1) ===",
+            "=== EXISTING RESUME (Resume Markdown v1) ===",
             base_resume_md.strip(),
         ]
     )

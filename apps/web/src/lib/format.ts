@@ -1,18 +1,18 @@
 import { formatInTimeZone } from "date-fns-tz";
 
 /** Everything the user sees is rendered in their display zone, never the browser's. */
-export const APP_TZ = "America/New_York";
+export const DISPLAY_TIME_ZONE = "America/New_York";
 
-export function fmt(iso: string, pattern = "EEE d MMM, HH:mm zzz", tz = APP_TZ) {
-  return formatInTimeZone(new Date(iso), tz, pattern);
+export function formatDateTime(iso: string, pattern = "EEE d MMM, HH:mm zzz", timeZone = DISPLAY_TIME_ZONE) {
+  return formatInTimeZone(new Date(iso), timeZone, pattern);
 }
 
-export function fmtDay(iso: string, tz = APP_TZ) {
-  return formatInTimeZone(new Date(iso), tz, "yyyy-MM-dd");
+export function formatDay(iso: string, timeZone = DISPLAY_TIME_ZONE) {
+  return formatInTimeZone(new Date(iso), timeZone, "yyyy-MM-dd");
 }
 
-export function fmtTime(iso: string, tz = APP_TZ) {
-  return formatInTimeZone(new Date(iso), tz, "HH:mm");
+export function formatTime(iso: string, timeZone = DISPLAY_TIME_ZONE) {
+  return formatInTimeZone(new Date(iso), timeZone, "HH:mm");
 }
 
 export function relative(minutes: number): string {

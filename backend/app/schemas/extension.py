@@ -91,4 +91,4 @@ class SaveApplicationRequest(BaseModel):
     job_url: str | None = None
     job_description_text: str | None = None
     location: str | None = None
-    notes_md: str | None = None
+    notes_markdown: str | None = None

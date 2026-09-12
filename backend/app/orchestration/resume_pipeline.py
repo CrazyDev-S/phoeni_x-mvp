@@ -20,14 +20,6 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.core.timezone import app_today
-from app.llm.ports import (
-    CacheTTL,
-    LLMEvent,
-    LLMProviderPort,
-    LLMRequest,
-    LLMResponse,
-    SystemBlock,
-)
 from app.llm.prompts import (
     DRAFT_TURN,
     FLAGS_TURN,
@@ -37,11 +29,19 @@ from app.llm.prompts import (
     scenario_turn,
     tailor_turn,
 )
+from app.llm.provider import (
+    CacheTTL,
+    LLMEvent,
+    LLMProviderPort,
+    LLMRequest,
+    LLMResponse,
+    SystemBlock,
+)
 from app.llm.schemas import FlagsReport, ScenarioLedger
 from app.orchestration import ats_report
-from app.resume.ast import Resume
-from app.resume.parser import CrmParseError, parse
-from app.resume.renderer import to_plain_text
+from app.resume.document import Resume
+from app.resume.parser import ResumeMarkdownError, parse
+from app.resume.renderer import render_plain_text
 from app.validation.rules import Context, Finding, validate
 
 MAX_REPAIRS = 2
@@ -49,7 +49,7 @@ MAX_REPAIRS = 2
 
 @dataclass
 class GenerationResult:
-    content_md: str
+    content_markdown: str
     content_text: str
     resume: Resume
     ledger: ScenarioLedger | None = None
@@ -92,7 +92,7 @@ class ResumePipeline:
         today = spec.today or app_today()
         messages: list[dict[str, Any]] = []
 
-        yield LLMEvent("phase", {"phase": "scenario", "label": "Building career scenario", "pct": 5})
+        yield LLMEvent("phase", {"phase": "scenario", "label": "Building career scenario", "percent": 5})
         messages.append(
             {
                 "role": "user",
@@ -115,19 +115,19 @@ class ResumePipeline:
         ledger = _coerce(ScenarioLedger, ledger_resp)
         messages.append({"role": "assistant", "content": ledger_resp.text})
 
-        yield LLMEvent("phase", {"phase": "draft", "label": "Drafting the resume", "pct": 45})
+        yield LLMEvent("phase", {"phase": "draft", "label": "Drafting the resume", "percent": 45})
         messages.append({"role": "user", "content": DRAFT_TURN})
-        resume, content_md, findings = await self._draft_and_repair(
+        resume, content_markdown, findings = await self._draft_and_repair(
             messages, spec, ledger, today
         )
 
-        yield LLMEvent("phase", {"phase": "validate", "label": "Checking hard rules", "pct": 80})
+        yield LLMEvent("phase", {"phase": "validate", "label": "Checking hard rules", "percent": 80})
         yield LLMEvent(
             "usage",
             {"findings": [f.as_dict() for f in findings]},
         )
 
-        yield LLMEvent("phase", {"phase": "flags", "label": "Writing interview prep", "pct": 90})
+        yield LLMEvent("phase", {"phase": "flags", "label": "Writing interview prep", "percent": 90})
         messages.append({"role": "user", "content": FLAGS_TURN})
         flags_resp = await self._call(
             "flags", messages, output_schema=FlagsReport, max_tokens=12_000, effort="low"
@@ -146,8 +146,8 @@ class ResumePipeline:
             "done",
             {
                 "result": GenerationResult(
-                    content_md=content_md,
-                    content_text=to_plain_text(resume),
+                    content_markdown=content_markdown,
+                    content_text=render_plain_text(resume),
                     resume=resume,
                     ledger=ledger,
                     flags=flags,
@@ -169,7 +169,7 @@ class ResumePipeline:
     ) -> AsyncIterator[LLMEvent]:
         """Job-based tailoring: a reframing, not a new scenario."""
         today = spec.today or app_today()
-        yield LLMEvent("phase", {"phase": "draft", "label": "Tailoring to the job", "pct": 20})
+        yield LLMEvent("phase", {"phase": "draft", "label": "Tailoring to the job", "percent": 20})
         messages: list[dict[str, Any]] = [
             {
                 "role": "user",
@@ -181,14 +181,14 @@ class ResumePipeline:
                 ),
             }
         ]
-        resume, content_md, findings = await self._draft_and_repair(
+        resume, content_markdown, findings = await self._draft_and_repair(
             messages, spec, None, today
         )
 
-        yield LLMEvent("phase", {"phase": "validate", "label": "Checking hard rules", "pct": 75})
+        yield LLMEvent("phase", {"phase": "validate", "label": "Checking hard rules", "percent": 75})
         # No ledger on this path, so the keyword plan is extracted from the JD
         # directly rather than asked for again.
-        yield LLMEvent("phase", {"phase": "report", "label": "Scoring coverage", "pct": 90})
+        yield LLMEvent("phase", {"phase": "report", "label": "Scoring coverage", "percent": 90})
         report = ats_report.build(
             resume,
             None,
@@ -200,8 +200,8 @@ class ResumePipeline:
             "done",
             {
                 "result": GenerationResult(
-                    content_md=content_md,
-                    content_text=to_plain_text(resume),
+                    content_markdown=content_markdown,
+                    content_text=render_plain_text(resume),
                     resume=resume,
                     report=report,
                     findings=findings,
@@ -215,7 +215,7 @@ class ResumePipeline:
         self, *, base_resume_md: str, instructions: str, spec: PipelineInput
     ) -> AsyncIterator[LLMEvent]:
         today = spec.today or app_today()
-        yield LLMEvent("phase", {"phase": "draft", "label": "Applying your edits", "pct": 25})
+        yield LLMEvent("phase", {"phase": "draft", "label": "Applying your edits", "percent": 25})
         messages: list[dict[str, Any]] = [
             {
                 "role": "user",
@@ -226,15 +226,15 @@ class ResumePipeline:
                 ),
             }
         ]
-        resume, content_md, findings = await self._draft_and_repair(
+        resume, content_markdown, findings = await self._draft_and_repair(
             messages, spec, None, today
         )
         yield LLMEvent(
             "done",
             {
                 "result": GenerationResult(
-                    content_md=content_md,
-                    content_text=to_plain_text(resume),
+                    content_markdown=content_markdown,
+                    content_text=render_plain_text(resume),
                     resume=resume,
                     findings=findings,
                     usage=self._totals(),
@@ -264,12 +264,12 @@ class ResumePipeline:
 
         while True:
             resp = await self._call("draft", messages, max_tokens=32_000)
-            content_md = _strip_fences(resp.text)
+            content_markdown = _strip_fences(resp.text)
             messages.append({"role": "assistant", "content": resp.text})
 
             try:
-                resume = parse(content_md)
-            except CrmParseError as exc:
+                resume = parse(content_markdown)
+            except ResumeMarkdownError as exc:
                 last_error = str(exc)
                 attempt += 1
                 if attempt > MAX_REPAIRS:
@@ -282,8 +282,8 @@ class ResumePipeline:
             findings = validate(
                 Context(
                     resume=resume,
-                    raw_md=content_md,
-                    claimed_yoe=_claimed_yoe(resume, ledger),
+                    raw_md=content_markdown,
+                    claimed_years=_claimed_yoe(resume, ledger),
                     mode=spec.mode,
                     strict_dossier=spec.strict_dossier and spec.mode == "constructed",
                     ledger=ledger.model_dump() if ledger else {},
@@ -292,7 +292,7 @@ class ResumePipeline:
             )
             errors = [f for f in findings if f.severity == "error"]
             if not errors or attempt >= MAX_REPAIRS:
-                return resume, content_md, findings
+                return resume, content_markdown, findings
 
             attempt += 1
             messages.append(
@@ -364,8 +364,8 @@ def _coerce(model: type, resp: LLMResponse):
 
 
 def _claimed_yoe(resume: Resume, ledger: ScenarioLedger | None) -> int | None:
-    if ledger and ledger.total_yoe:
-        return ledger.total_yoe
+    if ledger and ledger.total_years:
+        return ledger.total_years
     import re
 
     m = re.search(r"(\d{1,2})\+?\s*years?", resume.summary, re.IGNORECASE)

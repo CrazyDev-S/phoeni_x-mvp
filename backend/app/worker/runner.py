@@ -14,7 +14,7 @@ import logging
 from app.core.timezone import app_today, utc_now
 from app.db.session import SessionLocal
 from app.llm.factory import get_provider
-from app.llm.ports import LLMError
+from app.llm.provider import LLMError
 from app.models.enums import (
     GenerationKind,
     GenerationStatus,
@@ -22,15 +22,15 @@ from app.models.enums import (
     ResumeStatus,
 )
 from app.models.generation import Generation
-from app.models.resume import CURRENT_DIALECT_VERSION, BaseResume, TailoredResume
+from app.models.resume import CURRENT_MARKDOWN_VERSION, BaseResume, TailoredResume
 from app.models.user import UserSettings
 from app.orchestration.resume_pipeline import (
     GenerationResult,
     PipelineInput,
     ResumePipeline,
 )
-from app.resume.parser import CrmParseError
-from app.services.generation import claim_next, emit, jd_hash, record_calls
+from app.resume.parser import ResumeMarkdownError
+from app.services.generation import claim_next, emit, job_description_hash, record_calls
 
 log = logging.getLogger("worker")
 POLL_SECONDS = 1.0
@@ -115,10 +115,10 @@ async def _process(session, generation: Generation) -> None:
                 break
             if event.type == "phase":
                 generation.phase = event.data.get("phase")
-                generation.progress_pct = event.data.get("pct", generation.progress_pct)
+                generation.progress_percent = event.data.get("percent", generation.progress_percent)
             await emit(session, generation.id, event.type, event.data)
             await session.flush()
-    except CrmParseError as exc:
+    except ResumeMarkdownError as exc:
         raise LLMError("CRM_UNPARSEABLE", str(exc)) from exc
 
     assert result is not None
@@ -129,7 +129,7 @@ async def _process(session, generation: Generation) -> None:
         GenerationStatus.NEEDS_REVIEW if result.needs_review else GenerationStatus.SUCCEEDED
     )
     generation.finished_at = utc_now()
-    generation.progress_pct = 100
+    generation.progress_percent = 100
     await emit(
         session, generation.id, "complete",
         {
@@ -152,9 +152,9 @@ async def _persist(session, generation: Generation, payload: dict, result) -> No
     """
     common = {
         "user_id": generation.user_id,
-        "content_md": result.content_md,
+        "content_markdown": result.content_markdown,
         "content_text": result.content_text,
-        "dialect_version": CURRENT_DIALECT_VERSION,
+        "markdown_version": CURRENT_MARKDOWN_VERSION,
         "ledger": result.ledger.model_dump() if result.ledger else None,
         "ats_report": result.report or None,
         "flags": result.flags.model_dump() if result.flags else None,
@@ -173,15 +173,15 @@ async def _persist(session, generation: Generation, payload: dict, result) -> No
             job_url=payload.get("job_url"),
             job_source=payload.get("job_source", "web"),
             job_description_text=payload.get("job_description", ""),
-            jd_hash=jd_hash(payload.get("job_description", "")),
+            job_description_hash=job_description_hash(payload.get("job_description", "")),
             status=status,
             generation_id=generation.id,
             must_have_covered=result.report.get("must_have_covered"),
             must_have_total=result.report.get("must_have_total"),
-            must_have_coverage_pct=result.report.get("must_have_coverage_pct"),
-            nice_to_have_coverage_pct=result.report.get("nice_to_have_coverage_pct"),
-            yoe_required=result.report.get("yoe_required"),
-            yoe_shown=result.report.get("yoe_shown"),
+            must_have_coverage_percent=result.report.get("must_have_coverage_percent"),
+            nice_to_have_coverage_percent=result.report.get("nice_to_have_coverage_percent"),
+            years_required=result.report.get("years_required"),
+            years_shown=result.report.get("years_shown"),
             **common,
         )
         generation.result_kind = "tailored_resume"

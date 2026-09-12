@@ -22,7 +22,7 @@ from typing import Any
 import openai
 
 from app.llm.catalog import cost_micros, spec_for
-from app.llm.ports import LLMError, LLMEvent, LLMRequest, LLMResponse, Usage
+from app.llm.provider import LLMError, LLMEvent, LLMRequest, LLMResponse, Usage
 from app.models.enums import LLMProvider
 
 EFFORT_MAP = {

@@ -29,7 +29,7 @@ def idempotency_key(*parts: Any) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
-def jd_hash(job_description: str) -> bytes:
+def job_description_hash(job_description: str) -> bytes:
     """Normalised so trivial whitespace edits still hit the instant path."""
     normalised = " ".join(job_description.split()).lower()
     return hashlib.sha256(normalised.encode()).digest()
@@ -62,7 +62,7 @@ async def enqueue(
     )
     session.add(row)
     await session.flush()
-    await emit(session, row.id, "phase", {"phase": "queued", "label": "Queued", "pct": 0})
+    await emit(session, row.id, "phase", {"phase": "queued", "label": "Queued", "percent": 0})
     return row
 
 

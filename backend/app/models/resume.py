@@ -1,7 +1,7 @@
 """Resume storage.
 
-The canonical form is Canonical Resume Markdown (CRM), stored in
-``content_md``. ``content_text`` is a derived flattening used for full-text
+The canonical form is Resume Markdown, stored in
+``content_markdown``. ``content_text`` is a derived flattening used for full-text
 search and ATS keyword scanning; it is never the source of truth.
 
 ``base_resumes`` and ``tailored_resumes`` are deliberately separate tables.
@@ -29,26 +29,26 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, Timestamps, UUIDPk
+from app.db.base import Base, PrimaryKey, Timestamps
 from app.models.enums import ResumeMode, ResumeSource, ResumeStatus, pg_enum
 
 RESUME_SOURCE_ENUM = pg_enum(ResumeSource, "resume_source")
 RESUME_MODE_ENUM = pg_enum(ResumeMode, "resume_mode")
 RESUME_STATUS_ENUM = pg_enum(ResumeStatus, "resume_status")
 
-CURRENT_DIALECT_VERSION = 1
+CURRENT_MARKDOWN_VERSION = 1
 
-TSV_EXPR = (
+SEARCH_VECTOR_EXPRESSION = (
     "to_tsvector('english', "
     "coalesce(display_name,'') || ' ' || coalesce(content_text,''))"
 )
 
 
-class BaseResume(UUIDPk, Timestamps, Base):
+class BaseResume(PrimaryKey, Timestamps, Base):
     __tablename__ = "base_resumes"
     __table_args__ = (
         Index("ix_base_resumes_user_created", "user_id", text("created_at DESC")),
-        Index("ix_base_resumes_tsv", "tsv", postgresql_using="gin"),
+        Index("ix_base_resumes_tsv", "search_vector", postgresql_using="gin"),
         Index(
             "uq_base_resumes_user_display_name",
             "user_id",
@@ -79,10 +79,10 @@ class BaseResume(UUIDPk, Timestamps, Base):
     )
 
     # Canonical.
-    content_md: Mapped[str] = mapped_column(Text, nullable=False)
+    content_markdown: Mapped[str] = mapped_column(Text, nullable=False)
     content_text: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
-    dialect_version: Mapped[int] = mapped_column(
-        Integer, nullable=False, server_default=str(CURRENT_DIALECT_VERSION)
+    markdown_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=str(CURRENT_MARKDOWN_VERSION)
     )
 
     # BLOCK 1 / BLOCK 3 / BLOCK 4 of the generator prompt's output contract.
@@ -102,20 +102,20 @@ class BaseResume(UUIDPk, Timestamps, Base):
         Boolean, nullable=False, server_default="false"
     )
 
-    tsv: Mapped[str | None] = mapped_column(TSVECTOR, Computed(TSV_EXPR, persisted=True))
+    search_vector: Mapped[str | None] = mapped_column(TSVECTOR, Computed(SEARCH_VECTOR_EXPRESSION, persisted=True))
 
 
-class TailoredResume(UUIDPk, Timestamps, Base):
+class TailoredResume(PrimaryKey, Timestamps, Base):
     __tablename__ = "tailored_resumes"
     __table_args__ = (
         Index("ix_tailored_resumes_user_created", "user_id", text("created_at DESC")),
-        Index("ix_tailored_resumes_tsv", "tsv", postgresql_using="gin"),
+        Index("ix_tailored_resumes_tsv", "search_vector", postgresql_using="gin"),
         # The instant path: an identical (base, JD) pair returns the saved copy
         # instead of re-spending 90 seconds and real money.
         Index(
             "uq_tailored_resumes_base_jd",
             "base_resume_id",
-            "jd_hash",
+            "job_description_hash",
             unique=True,
             postgresql_where=text("status <> 'draft'"),
         ),
@@ -150,13 +150,13 @@ class TailoredResume(UUIDPk, Timestamps, Base):
     )  # manual | web | extension
 
     job_description_text: Mapped[str] = mapped_column(Text, nullable=False)
-    jd_hash: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    jd_parsed: Mapped[dict | None] = mapped_column(JSONB)
+    job_description_hash: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    job_description_parsed: Mapped[dict | None] = mapped_column(JSONB)
 
-    content_md: Mapped[str] = mapped_column(Text, nullable=False)
+    content_markdown: Mapped[str] = mapped_column(Text, nullable=False)
     content_text: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
-    dialect_version: Mapped[int] = mapped_column(
-        Integer, nullable=False, server_default=str(CURRENT_DIALECT_VERSION)
+    markdown_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=str(CURRENT_MARKDOWN_VERSION)
     )
 
     ledger: Mapped[dict | None] = mapped_column(JSONB)
@@ -167,10 +167,10 @@ class TailoredResume(UUIDPk, Timestamps, Base):
     # Materialised from ats_report because the pipeline table sorts on them.
     must_have_covered: Mapped[int | None] = mapped_column(Integer)
     must_have_total: Mapped[int | None] = mapped_column(Integer)
-    must_have_coverage_pct: Mapped[float | None] = mapped_column(Numeric(5, 2))
-    nice_to_have_coverage_pct: Mapped[float | None] = mapped_column(Numeric(5, 2))
-    yoe_required: Mapped[int | None] = mapped_column(Integer)
-    yoe_shown: Mapped[float | None] = mapped_column(Numeric(4, 1))
+    must_have_coverage_percent: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    nice_to_have_coverage_percent: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    years_required: Mapped[int | None] = mapped_column(Integer)
+    years_shown: Mapped[float | None] = mapped_column(Numeric(4, 1))
 
     status: Mapped[ResumeStatus] = mapped_column(
         RESUME_STATUS_ENUM, nullable=False, server_default=ResumeStatus.DRAFT.value
@@ -178,4 +178,4 @@ class TailoredResume(UUIDPk, Timestamps, Base):
     generation_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
     generation_meta: Mapped[dict | None] = mapped_column(JSONB, server_default="{}")
 
-    tsv: Mapped[str | None] = mapped_column(TSVECTOR, Computed(TSV_EXPR, persisted=True))
+    search_vector: Mapped[str | None] = mapped_column(TSVECTOR, Computed(SEARCH_VECTOR_EXPRESSION, persisted=True))

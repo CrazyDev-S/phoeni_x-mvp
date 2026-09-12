@@ -1,11 +1,11 @@
-"""CRM dialect: parsing, the round-trip property, and parse-failure behaviour."""
+"""Resume Markdown dialect: parsing, the round-trip property, and parse-failure behaviour."""
 
 from __future__ import annotations
 
 import pytest
 
-from app.resume.parser import CrmParseError, parse
-from app.resume.renderer import to_crm, to_plain_text
+from app.resume.parser import ResumeMarkdownError, parse
+from app.resume.renderer import render_plain_text, render_resume_markdown
 
 
 def test_parses_reference_resume(aran_md: str) -> None:
@@ -42,14 +42,14 @@ def test_roundtrip_is_identity(aran_md: str) -> None:
     reads back exactly what the editor wrote.
     """
     a1 = parse(aran_md)
-    a2 = parse(to_crm(a1))
-    a3 = parse(to_crm(a2))
+    a2 = parse(render_resume_markdown(a1))
+    a3 = parse(render_resume_markdown(a2))
     assert a1 == a2 == a3
 
 
 def test_plain_text_contains_every_bullet(aran_md: str) -> None:
     r = parse(aran_md)
-    text = to_plain_text(r)
+    text = render_plain_text(r)
     for e in r.experience:
         assert e.company in text
         for t in e.titles:
@@ -70,7 +70,7 @@ def test_plain_text_contains_every_bullet(aran_md: str) -> None:
 )
 def test_malformed_sections_raise(aran_md: str, mutation: str, expect: str) -> None:
     head = aran_md.split("## PROFESSIONAL SUMMARY")[0]
-    with pytest.raises(CrmParseError) as exc:
+    with pytest.raises(ResumeMarkdownError) as exc:
         parse(head + mutation)
     assert expect in str(exc.value)
 
@@ -80,18 +80,18 @@ def test_parse_error_reports_line_and_state(aran_md: str) -> None:
         "#### Senior Software Engineer · Dec 2023 – Present",
         "#### Senior Software Engineer (Dec 2023 - Present)",
     )
-    with pytest.raises(CrmParseError) as exc:
+    with pytest.raises(ResumeMarkdownError) as exc:
         parse(broken)
     assert exc.value.line_no > 0
     assert exc.value.state == "PROFESSIONAL EXPERIENCE"
 
 
 def test_missing_frontmatter_is_rejected() -> None:
-    with pytest.raises(CrmParseError, match="missing '---' opener"):
+    with pytest.raises(ResumeMarkdownError, match="missing '---' opener"):
         parse("## PROFESSIONAL SUMMARY\n\nhello")
 
 
 def test_two_titles_require_a_company_tenure_line(aran_md: str) -> None:
     broken = aran_md.replace("**Aug 2020 – Oct 2023**\n", "")
-    with pytest.raises(CrmParseError, match="needs a '\\*\\*tenure\\*\\*' line"):
+    with pytest.raises(ResumeMarkdownError, match="needs a '\\*\\*tenure\\*\\*' line"):
         parse(broken)

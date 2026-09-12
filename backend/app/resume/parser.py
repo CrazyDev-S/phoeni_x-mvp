@@ -1,11 +1,11 @@
-"""Canonical Resume Markdown (CRM v1) parser.
+"""Resume Markdown v1 parser.
 
 A line-oriented state machine with one compiled regex per line shape. The
 grammar is deliberately rigid: because markdown is the stored canonical form,
 the exporter has to read it back, and that is only safe if there is exactly
 one way to write each construct.
 
-An unrecognised line raises ``CrmParseError`` carrying the line number and the
+An unrecognised line raises ``ResumeMarkdownError`` carrying the line number and the
 state the parser was in, so the repair prompt can name the exact problem.
 """
 
@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 import yaml
 from pydantic import ValidationError
 
-from app.resume.ast import (
+from app.resume.document import (
     MONTH_INDEX,
     Certification,
     ContactLink,
@@ -66,7 +66,7 @@ RE_DATE = re.compile(r"^(?P<mon>[A-Z][a-z]{2})?\s*(?P<year>\d{4})$")
 DASHES = "–—-"
 
 
-class CrmParseError(ValueError):
+class ResumeMarkdownError(ValueError):
     def __init__(self, line_no: int, state: str, line: str, reason: str = "") -> None:
         self.line_no = line_no
         self.state = state
@@ -74,17 +74,17 @@ class CrmParseError(ValueError):
         self.reason = reason
         detail = f" ({reason})" if reason else ""
         super().__init__(
-            f"CRM parse error at line {line_no} while reading {state}{detail}: {line!r}"
+            f"Resume Markdown parse error at line {line_no} while reading {state}{detail}: {line!r}"
         )
 
 
 def _parse_ym(token: str, line_no: int, state: str, raw: str) -> YearMonth:
     m = RE_DATE.match(token.strip())
     if not m:
-        raise CrmParseError(line_no, state, raw, f"unrecognised date {token!r}")
+        raise ResumeMarkdownError(line_no, state, raw, f"unrecognised date {token!r}")
     mon = m.group("mon")
     if mon and mon not in MONTH_INDEX:
-        raise CrmParseError(line_no, state, raw, f"unknown month {mon!r}")
+        raise ResumeMarkdownError(line_no, state, raw, f"unknown month {mon!r}")
     return YearMonth(
         year=int(m.group("year")), month=MONTH_INDEX[mon] if mon else None
     )
@@ -93,7 +93,7 @@ def _parse_ym(token: str, line_no: int, state: str, raw: str) -> YearMonth:
 def _parse_range(text: str, line_no: int, state: str, raw: str) -> DateRange:
     parts = re.split(rf"\s*[{DASHES}]\s*", text.strip(), maxsplit=1)
     if len(parts) != 2:
-        raise CrmParseError(
+        raise ResumeMarkdownError(
             line_no, state, raw, f"expected 'Mon YYYY – Mon YYYY|Present', got {text!r}"
         )
     start = _parse_ym(parts[0], line_no, state, raw)
@@ -119,18 +119,18 @@ class _Acc:
 def _split_frontmatter(text: str) -> tuple[dict, list[tuple[int, str]]]:
     lines = text.replace("\r\n", "\n").split("\n")
     if not lines or lines[0].strip() != "---":
-        raise CrmParseError(1, "header", lines[0] if lines else "", "missing '---' opener")
+        raise ResumeMarkdownError(1, "header", lines[0] if lines else "", "missing '---' opener")
     try:
         close = next(i for i in range(1, len(lines)) if lines[i].strip() == "---")
     except StopIteration as exc:
-        raise CrmParseError(1, "header", "---", "frontmatter is never closed") from exc
+        raise ResumeMarkdownError(1, "header", "---", "frontmatter is never closed") from exc
 
     try:
         meta = yaml.safe_load("\n".join(lines[1:close])) or {}
     except yaml.YAMLError as exc:
-        raise CrmParseError(2, "header", "<frontmatter>", f"invalid YAML: {exc}") from exc
+        raise ResumeMarkdownError(2, "header", "<frontmatter>", f"invalid YAML: {exc}") from exc
     if not isinstance(meta, dict):
-        raise CrmParseError(2, "header", "<frontmatter>", "frontmatter is not a mapping")
+        raise ResumeMarkdownError(2, "header", "<frontmatter>", "frontmatter is not a mapping")
 
     body = [(i + 1, lines[i]) for i in range(close + 1, len(lines))]
     return meta, body
@@ -154,9 +154,9 @@ def _build_header(meta: dict) -> Header:
             availability=_opt(meta, "availability"),
         )
     except KeyError as exc:
-        raise CrmParseError(2, "header", "<frontmatter>", f"missing field {exc}") from exc
+        raise ResumeMarkdownError(2, "header", "<frontmatter>", f"missing field {exc}") from exc
     except ValidationError as exc:
-        raise CrmParseError(2, "header", "<frontmatter>", str(exc)) from exc
+        raise ResumeMarkdownError(2, "header", "<frontmatter>", str(exc)) from exc
 
 
 def _opt(meta: dict, key: str) -> str | None:
@@ -165,7 +165,7 @@ def _opt(meta: dict, key: str) -> str | None:
 
 
 def parse(text: str) -> Resume:
-    """Parse CRM v1 markdown into the render AST."""
+    """Parse Resume Markdown v1 markdown into the render AST."""
     meta, body = _split_frontmatter(text)
     header = _build_header(meta)
     acc = _Acc()
@@ -212,7 +212,7 @@ def parse(text: str) -> Resume:
         if m := RE_SECTION.match(line):
             name = m.group("name").strip()
             if name not in SECTIONS:
-                raise CrmParseError(
+                raise ResumeMarkdownError(
                     line_no, section or "document", line,
                     f"unknown section; expected one of {sorted(SECTIONS)}",
                 )
@@ -224,7 +224,7 @@ def parse(text: str) -> Resume:
             continue
 
         if section is None:
-            raise CrmParseError(line_no, "document", line, "content before any '## SECTION'")
+            raise ResumeMarkdownError(line_no, "document", line, "content before any '## SECTION'")
 
         # --- summary ---
         if section == "summary":
@@ -234,7 +234,7 @@ def parse(text: str) -> Resume:
         elif section == "skills":
             m = RE_SKILL.match(line)
             if not m:
-                raise CrmParseError(
+                raise ResumeMarkdownError(
                     line_no, "TECHNICAL SKILLS", line,
                     "expected '- **Label**: item, item'",
                 )
@@ -247,7 +247,7 @@ def parse(text: str) -> Resume:
                 close_exp()
                 m = RE_COMPANY.match(line)
                 if not m:
-                    raise CrmParseError(line_no, "PROFESSIONAL EXPERIENCE", line,
+                    raise ResumeMarkdownError(line_no, "PROFESSIONAL EXPERIENCE", line,
                                         "expected '### Company — City, Country (Mode)'")
                 city = country = None
                 if loc := m.group("location"):
@@ -271,7 +271,7 @@ def parse(text: str) -> Resume:
                 expect_tenure = False
             elif m := RE_CONTEXT.match(line):
                 if exp is None:
-                    raise CrmParseError(line_no, "PROFESSIONAL EXPERIENCE", line,
+                    raise ResumeMarkdownError(line_no, "PROFESSIONAL EXPERIENCE", line,
                                         "context line before any company")
                 exp["context"] = m.group("text")
                 expect_tenure = False
@@ -279,7 +279,7 @@ def parse(text: str) -> Resume:
                 close_title()
                 m = RE_TITLE.match(line)
                 if not m:
-                    raise CrmParseError(line_no, "PROFESSIONAL EXPERIENCE", line,
+                    raise ResumeMarkdownError(line_no, "PROFESSIONAL EXPERIENCE", line,
                                         "expected '#### Title · Mon YYYY – Mon YYYY'")
                 title = {
                     "title": m.group("title").strip(),
@@ -292,11 +292,11 @@ def parse(text: str) -> Resume:
                 title["promotion_note"] = m.group("text").strip()
             elif m := RE_BULLET.match(line):
                 if title is None:
-                    raise CrmParseError(line_no, "PROFESSIONAL EXPERIENCE", line,
+                    raise ResumeMarkdownError(line_no, "PROFESSIONAL EXPERIENCE", line,
                                         "bullet before any '#### Title' line")
                 title["bullets"].append(m.group("text"))
             else:
-                raise CrmParseError(line_no, "PROFESSIONAL EXPERIENCE", line)
+                raise ResumeMarkdownError(line_no, "PROFESSIONAL EXPERIENCE", line)
 
         # --- projects ---
         elif section == "projects":
@@ -305,16 +305,16 @@ def parse(text: str) -> Resume:
                 proj = {"name": line[4:].strip(), "context": None, "bullets": []}
             elif m := RE_CONTEXT.match(line):
                 if proj is None:
-                    raise CrmParseError(line_no, "SELECTED PROJECTS", line,
+                    raise ResumeMarkdownError(line_no, "SELECTED PROJECTS", line,
                                         "context before any project")
                 proj["context"] = m.group("text")
             elif m := RE_BULLET.match(line):
                 if proj is None:
-                    raise CrmParseError(line_no, "SELECTED PROJECTS", line,
+                    raise ResumeMarkdownError(line_no, "SELECTED PROJECTS", line,
                                         "bullet before any project")
                 proj["bullets"].append(m.group("text"))
             else:
-                raise CrmParseError(line_no, "SELECTED PROJECTS", line)
+                raise ResumeMarkdownError(line_no, "SELECTED PROJECTS", line)
 
         # --- education ---
         elif section == "education":
@@ -324,11 +324,11 @@ def parse(text: str) -> Resume:
                 edu = {"degree": m.group("degree").strip()}
             else:
                 if edu is None:
-                    raise CrmParseError(line_no, "EDUCATION", line,
+                    raise ResumeMarkdownError(line_no, "EDUCATION", line,
                                         "institution line before any '### Degree'")
                 m = RE_EDU_INST.match(line)
                 if not m:
-                    raise CrmParseError(line_no, "EDUCATION", line)
+                    raise ResumeMarkdownError(line_no, "EDUCATION", line)
                 city = country = None
                 if loc := m.group("location"):
                     bits = [b.strip() for b in loc.split(",")]
@@ -345,7 +345,7 @@ def parse(text: str) -> Resume:
         elif section == "certifications":
             m = RE_CERT.match(line)
             if not m:
-                raise CrmParseError(line_no, "CERTIFICATIONS", line,
+                raise ResumeMarkdownError(line_no, "CERTIFICATIONS", line,
                                     "expected '- Name — Issuer, YYYY'")
             acc.certifications.append(
                 Certification(
@@ -359,7 +359,7 @@ def parse(text: str) -> Resume:
         elif section == "languages":
             m = RE_LANG.match(line)
             if not m:
-                raise CrmParseError(line_no, "LANGUAGES", line,
+                raise ResumeMarkdownError(line_no, "LANGUAGES", line,
                                     "expected '- Language — Proficiency'")
             acc.languages.append(
                 Language(name=m.group("name").strip(), proficiency=m.group("prof").strip())
@@ -373,11 +373,11 @@ def parse(text: str) -> Resume:
         if e["total_tenure"] is None:
             # Single-title roles may omit the company tenure line; derive it.
             if not e["titles"]:
-                raise CrmParseError(0, "PROFESSIONAL EXPERIENCE",
+                raise ResumeMarkdownError(0, "PROFESSIONAL EXPERIENCE",
                                     f"### {e['company']}", "company has no title blocks")
             e["total_tenure"] = e["titles"][-1]["dates"] if len(e["titles"]) == 1 else None
             if e["total_tenure"] is None:
-                raise CrmParseError(0, "PROFESSIONAL EXPERIENCE", f"### {e['company']}",
+                raise ResumeMarkdownError(0, "PROFESSIONAL EXPERIENCE", f"### {e['company']}",
                                     "a company with two titles needs a '**tenure**' line")
 
     try:
@@ -394,4 +394,4 @@ def parse(text: str) -> Resume:
     except ValidationError as exc:
         first = exc.errors()[0]
         loc = ".".join(str(p) for p in first["loc"])
-        raise CrmParseError(0, "document", loc, first["msg"]) from exc
+        raise ResumeMarkdownError(0, "document", loc, first["msg"]) from exc

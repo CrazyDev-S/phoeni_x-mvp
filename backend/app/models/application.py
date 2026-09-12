@@ -21,7 +21,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, Timestamps, UUIDPk
+from app.db.base import Base, PrimaryKey, Timestamps
 from app.models.enums import ApplicationStatus, StageStatus, WorkMode, pg_enum
 from app.models.profile import WORK_MODE_ENUM
 
@@ -29,7 +29,7 @@ APPLICATION_STATUS_ENUM = pg_enum(ApplicationStatus, "application_status")
 STAGE_STATUS_ENUM = pg_enum(StageStatus, "stage_status")
 
 
-class JobApplication(UUIDPk, Timestamps, Base):
+class JobApplication(PrimaryKey, Timestamps, Base):
     __tablename__ = "job_applications"
     __table_args__ = (
         Index("ix_job_applications_user_status", "user_id", "status", text("created_at DESC")),
@@ -72,7 +72,7 @@ class JobApplication(UUIDPk, Timestamps, Base):
     origin: Mapped[str] = mapped_column(Text, nullable=False, server_default="web")
     applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     next_action_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    notes_md: Mapped[str | None] = mapped_column(Text)
+    notes_markdown: Mapped[str | None] = mapped_column(Text)
 
     stages: Mapped[list[ApplicationStage]] = relationship(
         back_populates="application",
@@ -81,7 +81,7 @@ class JobApplication(UUIDPk, Timestamps, Base):
     )
 
 
-class StageTemplate(UUIDPk, Timestamps, Base):
+class StageTemplate(PrimaryKey, Timestamps, Base):
     """A reusable interview pipeline. ``user_id`` NULL means a system default."""
 
     __tablename__ = "stage_templates"
@@ -101,7 +101,7 @@ class StageTemplate(UUIDPk, Timestamps, Base):
     )
 
 
-class StageTemplateItem(UUIDPk, Base):
+class StageTemplateItem(PrimaryKey, Base):
     __tablename__ = "stage_template_items"
     __table_args__ = (UniqueConstraint("template_id", "seq"),)
 
@@ -120,7 +120,7 @@ class StageTemplateItem(UUIDPk, Base):
     template: Mapped[StageTemplate] = relationship(back_populates="items")
 
 
-class ApplicationStage(UUIDPk, Timestamps, Base):
+class ApplicationStage(PrimaryKey, Timestamps, Base):
     __tablename__ = "application_stages"
     __table_args__ = (UniqueConstraint("application_id", "seq"),)
 
@@ -141,7 +141,7 @@ class ApplicationStage(UUIDPk, Timestamps, Base):
     scheduled_for: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     interviewers: Mapped[list | None] = mapped_column(JSONB, server_default="[]")
     outcome_notes: Mapped[str | None] = mapped_column(Text)
-    preparation_md: Mapped[str | None] = mapped_column(Text)
+    preparation_markdown: Mapped[str | None] = mapped_column(Text)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     application: Mapped[JobApplication] = relationship(back_populates="stages")

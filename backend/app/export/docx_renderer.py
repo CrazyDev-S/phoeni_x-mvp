@@ -25,7 +25,7 @@ from app.export.profiles import (
     RenderProfile,
     StyleSpec,
 )
-from app.resume.ast import Resume
+from app.resume.document import Resume
 
 SECTION_TITLES = {
     "summary": "PROFESSIONAL SUMMARY",

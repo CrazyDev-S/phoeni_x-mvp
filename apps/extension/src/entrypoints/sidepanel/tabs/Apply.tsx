@@ -4,7 +4,7 @@ import { api, downloadDocx, waitForGeneration } from "@/lib/api";
 import { BASE_RESUME_KEY } from "@/lib/constants";
 import { activeTab, extractJob, fillForms, isInjectable, scanForms, type TargetTab } from "@/lib/page";
 import type { FillResult, JobExtract, ScanResult } from "@/lib/types";
-import { Err, Field, Progress } from "../components";
+import { ErrorNote, Field, Progress } from "../components";
 
 interface Resume { id: string; display_name: string }
 
@@ -28,7 +28,7 @@ export function ApplyTab() {
   // mid-run must not retarget a 90-second generation.
   const lockedTab = useRef<TargetTab | null>(null);
 
-  const [phase, setPhase] = useState<{ label: string; pct: number } | null>(null);
+  const [phase, setPhase] = useState<{ label: string; percent: number } | null>(null);
   const [tailored, setTailored] = useState<{ id: string; job: JobExtract } | null>(null);
 
   const [fillState, setFillState] = useState<{
@@ -90,7 +90,7 @@ export function ApplyTab() {
     lockedTab.current = tab;
 
     try {
-      setPhase({ label: "Reading the page", pct: 5 });
+      setPhase({ label: "Reading the page", percent: 5 });
       const job = await extractJob(tab.tabId);
       if (!job || job.description_text.length < 120) {
         setError("Could not find a job description on this page.");
@@ -98,7 +98,7 @@ export function ApplyTab() {
         return;
       }
 
-      setPhase({ label: "Sending to your backend", pct: 12 });
+      setPhase({ label: "Sending to your backend", percent: 12 });
       const accepted = await api<{
         id: string; reused?: boolean; result_id?: string | null;
       }>("/api/v1/extension/tailor", {
@@ -108,8 +108,8 @@ export function ApplyTab() {
 
       let resultId = accepted.result_id ?? null;
       if (!accepted.reused) {
-        const done = await waitForGeneration(accepted.id, (label, pct) =>
-          setPhase({ label, pct }),
+        const done = await waitForGeneration(accepted.id, (label, percent) =>
+          setPhase({ label, percent }),
         );
         resultId = (done.result_id as string) ?? null;
 
@@ -128,17 +128,17 @@ export function ApplyTab() {
           return;
         }
       } else {
-        setPhase({ label: "Reused an identical recent run", pct: 100 });
+        setPhase({ label: "Reused an identical recent run", percent: 100 });
       }
 
       if (!resultId) throw new Error("No result returned");
 
-      setPhase({ label: "Downloading", pct: 96 });
+      setPhase({ label: "Downloading", percent: 96 });
       const name = `${job.company ?? "Resume"} - ${job.title ?? "Application"}.docx`;
       await downloadDocx({ resume_id: resultId, kind: "tailored", profile: "designed" }, name);
 
       setTailored({ id: resultId, job });
-      setPhase({ label: "Downloaded to your Downloads folder", pct: 100 });
+      setPhase({ label: "Downloaded to your Downloads folder", percent: 100 });
     } catch (e) {
       setError((e as Error).message);
       setPhase(null);
@@ -151,7 +151,7 @@ export function ApplyTab() {
     if (!tab) return;
 
     try {
-      setPhase({ label: "Scanning the form", pct: 10 });
+      setPhase({ label: "Scanning the form", percent: 10 });
       const { frames, unreachableFrames } = await scanForms(tab.tabId);
       if (!frames.length) {
         setError(
@@ -163,7 +163,7 @@ export function ApplyTab() {
         return;
       }
 
-      setPhase({ label: "Working out the answers", pct: 40 });
+      setPhase({ label: "Working out the answers", percent: 40 });
       const job = tailored?.job ?? (await extractJob(tab.tabId));
       const response = await api<{ answers: Answer[]; unanswered: Answer[] }>(
         "/api/v1/extension/autofill",
@@ -181,7 +181,7 @@ export function ApplyTab() {
         },
       );
 
-      setPhase({ label: "Filling the page", pct: 70 });
+      setPhase({ label: "Filling the page", percent: 70 });
       const labels = new Map(
         frames.flatMap((f) => f.fields.map((x) => [x.id, x.label] as const)),
       );
@@ -252,7 +252,7 @@ export function ApplyTab() {
 
         <button
           className="btn primary block"
-          disabled={!baseId || !target || Boolean(phase && phase.pct < 100)}
+          disabled={!baseId || !target || Boolean(phase && phase.percent < 100)}
           onClick={tailor}
         >
           Tailor &amp; download
@@ -261,7 +261,7 @@ export function ApplyTab() {
         <button
           className="btn block"
           style={{ marginTop: 6 }}
-          disabled={!target || Boolean(phase && phase.pct < 100)}
+          disabled={!target || Boolean(phase && phase.percent < 100)}
           onClick={fillBlanks}
         >
           Fill the application form
@@ -269,10 +269,10 @@ export function ApplyTab() {
 
         {phase && (
           <div style={{ marginTop: 10 }}>
-            <Progress label={phase.label} pct={phase.pct} />
+            <Progress label={phase.label} percent={phase.percent} />
           </div>
         )}
-        {error && <div style={{ marginTop: 8 }}><Err>{error}</Err></div>}
+        {error && <div style={{ marginTop: 8 }}><ErrorNote>{error}</ErrorNote></div>}
       </div>
 
       {tailored && (

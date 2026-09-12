@@ -10,7 +10,7 @@ export interface GenerationState {
   id: string | null;
   phase: string;
   label: string;
-  pct: number;
+  percent: number;
   thinking: string;
   findings: Finding[];
   report: Record<string, unknown> | null;
@@ -22,7 +22,7 @@ export interface GenerationState {
 }
 
 const IDLE: GenerationState = {
-  id: null, phase: "", label: "", pct: 0, thinking: "", findings: [],
+  id: null, phase: "", label: "", percent: 0, thinking: "", findings: [],
   report: null, resultKind: null, resultId: null, needsReview: false,
   error: null, running: false,
 };
@@ -56,7 +56,7 @@ export function useGeneration() {
 
     if (accepted.reused) {
       setState({
-        ...IDLE, id: accepted.id, pct: 100, label: "Reused an identical recent run",
+        ...IDLE, id: accepted.id, percent: 100, label: "Reused an identical recent run",
         resultKind: accepted.result_kind ?? null, resultId: accepted.result_id ?? null,
       });
       return accepted;
@@ -69,14 +69,14 @@ export function useGeneration() {
           const d = event.data as Record<string, never>;
           switch (event.type) {
             case "phase":
-              return { ...s, phase: String(d.phase ?? ""), label: String(d.label ?? ""), pct: Number(d.pct ?? s.pct) };
+              return { ...s, phase: String(d.phase ?? ""), label: String(d.label ?? ""), percent: Number(d.percent ?? s.percent) };
             case "thinking":
               return { ...s, thinking: (s.thinking + String(d.text ?? "")).slice(-4000) };
             case "usage":
               return Array.isArray(d.findings) ? { ...s, findings: d.findings } : s;
             case "complete":
               return {
-                ...s, pct: 100, running: false, label: "Done",
+                ...s, percent: 100, running: false, label: "Done",
                 findings: (d.findings as Finding[]) ?? s.findings,
                 report: (d.report as Record<string, unknown>) ?? null,
                 resultKind: (d.result_kind as string) ?? null,

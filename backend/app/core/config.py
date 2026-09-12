@@ -50,7 +50,7 @@ class Settings(BaseSettings):
         return v
 
     @property
-    def kek_bytes(self) -> bytes:
+    def encryption_key_bytes(self) -> bytes:
         return base64.b64decode(self.app_kek)
 
     @property

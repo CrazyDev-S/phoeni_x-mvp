@@ -21,7 +21,7 @@ class ValidationFinding(BaseModel):
 class ResumeUpload(BaseModel):
     display_name: str = Field(min_length=1, max_length=160)
     target_title: str = Field(min_length=1, max_length=160)
-    content_md: str = Field(min_length=1)
+    content_markdown: str = Field(min_length=1)
     stack_label: str | None = Field(default=None, max_length=120)
     stack_tags: list[str] = Field(default_factory=list, max_length=20)
 
@@ -29,7 +29,7 @@ class ResumeUpload(BaseModel):
 class ResumePatch(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=160)
     target_title: str | None = Field(default=None, min_length=1, max_length=160)
-    content_md: str | None = None
+    content_markdown: str | None = None
     stack_label: str | None = None
     stack_tags: list[str] | None = None
     is_archived: bool | None = None
@@ -50,9 +50,9 @@ class ResumeSummaryOut(ORMModel):
 
 
 class ResumeOut(ResumeSummaryOut):
-    content_md: str
+    content_markdown: str
     content_text: str
-    dialect_version: int
+    markdown_version: int
     ledger: dict | None = None
     ats_report: dict | None = None
     flags: dict | None = None
@@ -72,7 +72,7 @@ class ExportRequest(BaseModel):
 
     resume_id: uuid.UUID | None = None
     kind: str = Field(default="base", pattern="^(base|tailored)$")
-    content_md: str | None = None
+    content_markdown: str | None = None
     profile: str = Field(default="designed", pattern="^(designed|ats_plain)$")
     page: str = Field(default="letter", pattern="^(letter|a4)$")
     filename: str | None = None

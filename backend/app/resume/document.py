@@ -162,7 +162,7 @@ class Language(Strict):
 
 
 class Resume(Strict):
-    dialect_version: int = 1
+    markdown_version: int = 1
     header: Header
     summary: Annotated[str, Field(min_length=1, max_length=1400)]
     skills: Annotated[list[SkillCategory], Field(max_length=8)]

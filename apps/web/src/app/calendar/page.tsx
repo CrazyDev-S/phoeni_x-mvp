@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { NextCallBanner } from "@/components/next-call";
 import { Badge, Button, Card, Empty, Field, Input, Select, Spinner, Textarea } from "@/components/ui";
 import { request } from "@/lib/api";
-import { APP_TZ, fmtDay, fmtTime } from "@/lib/format";
+import { DISPLAY_TIME_ZONE, formatDay, formatTime } from "@/lib/format";
 
 interface Meeting {
   id: string;
@@ -14,7 +14,7 @@ interface Meeting {
   meeting_type: string;
   starts_at: string;
   ends_at: string;
-  display_tz: string;
+  display_timezone: string;
   status: string;
   conferencing_url: string | null;
   agenda: string | null;
@@ -34,7 +34,7 @@ function startOfWeek(d: Date) {
 }
 
 export default function CalendarPage() {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
   const [anchor, setAnchor] = useState(() => startOfWeek(new Date()));
   const [selected, setSelected] = useState<Meeting | null>(null);
 
@@ -60,16 +60,16 @@ export default function CalendarPage() {
       request<Meeting>(`/api/v1/meetings/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
     onSuccess: (m) => {
       setSelected(m);
-      qc.invalidateQueries({ queryKey: ["meetings"] });
-      qc.invalidateQueries({ queryKey: ["next-call"] });
-      qc.invalidateQueries({ queryKey: ["applications"] });
+      queryClient.invalidateQueries({ queryKey: ["meetings"] });
+      queryClient.invalidateQueries({ queryKey: ["next-call"] });
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
     },
   });
 
   const byDay = useMemo(() => {
     const map = new Map<string, Meeting[]>();
     for (const m of data ?? []) {
-      const key = fmtDay(m.starts_at);
+      const key = formatDay(m.starts_at);
       map.set(key, [...(map.get(key) ?? []), m]);
     }
     return map;
@@ -83,7 +83,7 @@ export default function CalendarPage() {
         <div>
           <h1 className="text-xl font-semibold">Calendar</h1>
           <p className="text-sm text-[var(--color-ink-soft)]">
-            All times in US Eastern ({APP_TZ}) — the zone is derived from the
+            All times in US Eastern ({DISPLAY_TIME_ZONE}) — the zone is derived from the
             instant, so it reads EST in winter and EDT in summer.
           </p>
         </div>
@@ -131,7 +131,7 @@ export default function CalendarPage() {
                             : "border-[var(--color-brand)] bg-[var(--color-brand-soft)]"
                         }`}
                       >
-                        <span className="block font-medium">{fmtTime(m.starts_at)}</span>
+                        <span className="block font-medium">{formatTime(m.starts_at)}</span>
                         <span className="block truncate">{m.title}</span>
                       </button>
                     </li>
@@ -151,8 +151,8 @@ export default function CalendarPage() {
           <div className="grid gap-4 p-4 lg:grid-cols-2">
             <div className="space-y-3">
               <p className="text-sm text-[var(--color-ink-soft)]">
-                {fmtDay(selected.starts_at)} · {fmtTime(selected.starts_at)}–
-                {fmtTime(selected.ends_at)} ({selected.display_tz})
+                {formatDay(selected.starts_at)} · {formatTime(selected.starts_at)}–
+                {formatTime(selected.ends_at)} ({selected.display_timezone})
                 {selected.series_id && (
                   <> · recurring{selected.is_exception ? ", edited" : ""}</>
                 )}
@@ -161,7 +161,7 @@ export default function CalendarPage() {
                 <Field label="Move to date">
                   <Input
                     type="date"
-                    defaultValue={fmtDay(selected.starts_at)}
+                    defaultValue={formatDay(selected.starts_at)}
                     onChange={(e) =>
                       patch.mutate({ id: selected.id, body: { local_date: e.target.value } })
                     }
@@ -170,7 +170,7 @@ export default function CalendarPage() {
                 <Field label="Time (Eastern)">
                   <Input
                     type="time"
-                    defaultValue={fmtTime(selected.starts_at)}
+                    defaultValue={formatTime(selected.starts_at)}
                     onChange={(e) =>
                       patch.mutate({ id: selected.id, body: { local_time: e.target.value } })
                     }

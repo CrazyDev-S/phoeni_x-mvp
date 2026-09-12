@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 from app.core.deps import CurrentUser, Session
 from app.models.enums import ResumeSource
 from app.models.resume import BaseResume
-from app.resume.renderer import to_plain_text
+from app.resume.renderer import render_plain_text
 from app.schemas.common import Page
 from app.schemas.resume import (
     ResumeCreated,
@@ -39,7 +39,7 @@ async def _owned(session: Session, user: CurrentUser, resume_id: uuid.UUID) -> B
 async def upload_resume(
     body: ResumeUpload, user: CurrentUser, session: Session
 ) -> ResumeCreated:
-    """Store a resume the user pasted in, as Canonical Resume Markdown.
+    """Store a resume the user pasted in, as Resume Markdown.
 
     Parsing happens on the way in: a document that cannot be read back cannot
     be exported, so it is rejected at the boundary rather than at download time.
@@ -49,7 +49,7 @@ async def upload_resume(
         user.id,
         display_name=body.display_name,
         target_title=body.target_title,
-        content_md=body.content_md,
+        content_markdown=body.content_markdown,
         stack_label=body.stack_label,
         stack_tags=body.stack_tags,
         source=ResumeSource.UPLOAD,
@@ -73,7 +73,7 @@ async def list_resumes(
     if not include_archived:
         stmt = stmt.where(BaseResume.is_archived.is_(False))
     if q:
-        stmt = stmt.where(BaseResume.tsv.op("@@")(func.plainto_tsquery("english", q)))
+        stmt = stmt.where(BaseResume.search_vector.op("@@")(func.plainto_tsquery("english", q)))
 
     total = await session.scalar(
         select(func.count()).select_from(stmt.subquery())
@@ -103,11 +103,11 @@ async def update_resume(
     row = await _owned(session, user, resume_id)
     findings = []
 
-    if body.content_md is not None:
-        ast = parse_or_422(body.content_md)
+    if body.content_markdown is not None:
+        ast = parse_or_422(body.content_markdown)
         findings = run_validation(ast)
-        row.content_md = body.content_md
-        row.content_text = to_plain_text(ast)
+        row.content_markdown = body.content_markdown
+        row.content_text = render_plain_text(ast)
         row.validation = {"findings": [f.as_dict() for f in findings]}
 
     for field in ("display_name", "target_title", "stack_label", "stack_tags", "is_archived"):

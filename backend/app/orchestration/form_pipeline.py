@@ -17,7 +17,7 @@ import re
 from difflib import SequenceMatcher
 from typing import Any
 
-from app.llm.ports import LLMProviderPort, LLMRequest, SystemBlock
+from app.llm.provider import LLMProviderPort, LLMRequest, SystemBlock
 from app.schemas.extension import (
     AutofillAnswer,
     AutofillRequest,

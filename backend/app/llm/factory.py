@@ -12,7 +12,7 @@ from app.core.crypto import unseal
 from app.llm.anthropic_adapter import AnthropicAdapter
 from app.llm.catalog import DEFAULT_TIERS
 from app.llm.openai_adapter import OpenAIAdapter
-from app.llm.ports import LLMProviderPort, MissingCredentialError
+from app.llm.provider import LLMProviderPort, MissingCredentialError
 from app.models.enums import CredentialStatus, LLMProvider
 from app.models.user import LLMCredential, UserSettings
 
