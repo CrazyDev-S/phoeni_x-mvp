@@ -16,11 +16,12 @@ from sqlalchemy import select
 from app.core.deps import CurrentUser, Session
 from app.core.timezone import local_day_bounds, local_to_utc, to_display, utc_now
 from app.models.application import ApplicationStage, JobApplication
-from app.models.calendar import Meeting
-from app.models.enums import MeetingStatus, StageStatus
+from app.models.calendar import Meeting, MeetingSeries
+from app.models.enums import MeetingStatus
 from app.models.maintenance import MaintainedJob
 from app.models.user import UserSettings
-from app.schemas.tracking import MeetingCreate, MeetingOut, MeetingPatch, UpcomingOut
+from app.schemas.tracking import CalendarMeetingOut, MeetingCreate, MeetingPatch, UpcomingOut
+from app.services.tracking import describe_meetings, sync_stage
 
 router = APIRouter(prefix="/meetings", tags=["calendar"])
 
@@ -41,13 +42,24 @@ async def _owned(session: Session, user: CurrentUser, meeting_id: uuid.UUID) -> 
 
 def _parse_hhmm(value: str) -> time:
     hh, mm = value.split(":")
-    return time(int(hh), int(mm))
+    try:
+        return time(int(hh), int(mm))
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=f"Invalid time {value!r}"
+        ) from exc
 
 
-@router.post("", response_model=MeetingOut, status_code=status.HTTP_201_CREATED)
+async def _describe_one(session: Session, meeting: Meeting) -> CalendarMeetingOut:
+    await session.flush()
+    await session.refresh(meeting)
+    return (await describe_meetings(session, [meeting]))[0]
+
+
+@router.post("", response_model=CalendarMeetingOut, status_code=status.HTTP_201_CREATED)
 async def create_meeting(
     body: MeetingCreate, user: CurrentUser, session: Session
-) -> Meeting:
+) -> CalendarMeetingOut:
     timezone_name = await _display_timezone(session, user)
 
     if body.stage_id:
@@ -85,26 +97,22 @@ async def create_meeting(
         reminder_minutes=body.reminder_minutes,
     )
     session.add(row)
-    await session.flush()
 
-    # Scheduling a stage's meeting moves the stage out of "pending", and the
+    # Booking a stage's meeting moves the stage out of "pending", and the
     # denormalised column keeps the tracking table sortable without a join.
     if body.stage_id:
-        stage = await session.get(ApplicationStage, body.stage_id)
-        stage.scheduled_for = starts_at
-        if stage.status == StageStatus.PENDING:
-            stage.status = StageStatus.SCHEDULED
+        await sync_stage(session, body.stage_id)
 
-    return row
+    return await _describe_one(session, row)
 
 
-@router.get("", response_model=list[MeetingOut])
+@router.get("", response_model=list[CalendarMeetingOut])
 async def list_meetings(
     user: CurrentUser,
     session: Session,
     from_: date = Query(alias="from"),
     to: date = Query(),
-) -> list[Meeting]:
+) -> list[CalendarMeetingOut]:
     """Meetings overlapping a local date range.
 
     Bounds are computed in Python because ``timestamptz AT TIME ZONE`` is
@@ -114,7 +122,7 @@ async def list_meetings(
     timezone_name = await _display_timezone(session, user)
     start, _ = local_day_bounds(from_, timezone_name)
     _, end = local_day_bounds(to, timezone_name)
-    return list(
+    rows = list(
         await session.scalars(
             select(Meeting)
             .where(
@@ -125,6 +133,7 @@ async def list_meetings(
             .order_by(Meeting.starts_at)
         )
     )
+    return await describe_meetings(session, rows)
 
 
 @router.get("/upcoming", response_model=list[UpcomingOut])
@@ -145,45 +154,17 @@ async def upcoming(
             .limit(limit)
         )
     )
-
-    out: list[UpcomingOut] = []
-    for m in rows:
-        company = role = stage_name = None
-        kind = "maintained"
-        if m.stage_id:
-            kind = "application"
-            result = (
-                await session.execute(
-                    select(JobApplication.company_name, JobApplication.role_title,
-                           ApplicationStage.name)
-                    .join(ApplicationStage, ApplicationStage.application_id == JobApplication.id)
-                    .where(ApplicationStage.id == m.stage_id)
-                )
-            ).first()
-            if result:
-                company, role, stage_name = result
-        elif m.maintained_job_id:
-            result = (
-                await session.execute(
-                    select(MaintainedJob.employer_name, MaintainedJob.role_title).where(
-                        MaintainedJob.id == m.maintained_job_id
-                    )
-                )
-            ).first()
-            if result:
-                company, role = result
-
-        out.append(
-            UpcomingOut(
-                meeting=MeetingOut.model_validate(m),
-                company_name=company,
-                role_title=role,
-                stage_name=stage_name,
-                kind=kind,
-                starts_in_minutes=int((m.starts_at - now).total_seconds() // 60),
-            )
+    return [
+        UpcomingOut(
+            meeting=m,
+            company_name=m.company_name,
+            role_title=m.role_title,
+            stage_name=m.stage_name,
+            kind=m.kind,
+            starts_in_minutes=int((m.starts_at - now).total_seconds() // 60),
         )
-    return out
+        for m in await describe_meetings(session, rows)
+    ]
 
 
 @router.get("/next", response_model=UpcomingOut | None)
@@ -193,14 +174,15 @@ async def next_meeting(user: CurrentUser, session: Session) -> UpcomingOut | Non
     return rows[0] if rows else None
 
 
-@router.patch("/{meeting_id}", response_model=MeetingOut)
+@router.patch("/{meeting_id}", response_model=CalendarMeetingOut)
 async def update_meeting(
     meeting_id: uuid.UUID, body: MeetingPatch, user: CurrentUser, session: Session
-) -> Meeting:
+) -> CalendarMeetingOut:
     row = await _owned(session, user, meeting_id)
     data = body.model_dump(exclude_unset=True)
+    retimed = False
 
-    if "local_date" in data or "local_time" in data or "duration_min" in data:
+    if data.get("local_date") or data.get("local_time") or data.get("duration_min"):
         current_local = to_display(row.starts_at, row.display_timezone)
         new_date = data.get("local_date") or current_local.date()
         new_time = (
@@ -213,19 +195,19 @@ async def update_meeting(
         )
         row.starts_at = local_to_utc(new_date, new_time, row.display_timezone)
         row.ends_at = row.starts_at + timedelta(minutes=duration)
+        retimed = True
         if row.series_id:
             # An edited occurrence is protected from series regeneration: the
             # notes and timing on it are real work.
             row.is_exception = True
-        if row.stage_id:
-            stage = await session.get(ApplicationStage, row.stage_id)
-            stage.scheduled_for = row.starts_at
 
     for field in (
-        "title", "status", "location", "conferencing_url", "agenda",
+        "title", "meeting_type", "status", "location", "conferencing_url", "agenda",
         "preparation_notes", "notes", "reminder_minutes",
     ):
         if field in data:
+            if field in ("title", "meeting_type", "status", "reminder_minutes") and data[field] is None:
+                continue  # NOT NULL columns
             setattr(row, field, data[field])
             # Notes and prep are real user work, not just a reschedule. An
             # occurrence carrying them must survive a later change to the
@@ -234,11 +216,10 @@ async def update_meeting(
             if row.series_id and field in ("preparation_notes", "notes", "agenda", "title"):
                 row.is_exception = True
 
-    if data.get("status") is MeetingStatus.RESCHEDULED and row.stage_id:
-        stage = await session.get(ApplicationStage, row.stage_id)
-        stage.status = StageStatus.RESCHEDULED
+    if row.stage_id and (retimed or data.get("status")):
+        await sync_stage(session, row.stage_id, trigger=data.get("status"))
 
-    return row
+    return await _describe_one(session, row)
 
 
 @router.delete("/{meeting_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -249,9 +230,10 @@ async def delete_meeting(
     if row.series_id and row.occurrence_local_date:
         # Deleting one occurrence of a series is an EXDATE, not a row delete -
         # otherwise the next materialisation pass puts it straight back.
-        from app.models.calendar import MeetingSeries
-
         series = await session.get(MeetingSeries, row.series_id)
         if series is not None:
             series.excluded_dates = [*(series.excluded_dates or []), row.occurrence_local_date]
+    stage_id = row.stage_id
     await session.delete(row)
+    if stage_id:
+        await sync_stage(session, stage_id)

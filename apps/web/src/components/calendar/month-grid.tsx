@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus } from "lucide-react";
 import { useMemo } from "react";
 
 import {
@@ -24,6 +25,8 @@ export function MonthGrid({
   meetings,
   selectedId,
   onSelect,
+  onEdit,
+  onCreate,
   onPickDay,
 }: {
   anchor: DayKey;
@@ -31,6 +34,8 @@ export function MonthGrid({
   meetings: Meeting[];
   selectedId: string | null;
   onSelect: (meeting: Meeting, element: DOMRect) => void;
+  onEdit: (meeting: Meeting) => void;
+  onCreate: (day: DayKey) => void;
   onPickDay: (day: DayKey) => void;
 }) {
   const today = todayKey();
@@ -70,7 +75,7 @@ export function MonthGrid({
             <div
               key={day}
               className={cn(
-                "flex min-h-28 flex-col gap-0.5 p-1",
+                "group relative flex min-h-28 flex-col gap-0.5 p-1",
                 outside ? "bg-muted/40" : "bg-card",
               )}
             >
@@ -86,6 +91,14 @@ export function MonthGrid({
               >
                 {dayLabel(day, day.endsWith("-01") ? "d MMM" : "d")}
               </button>
+              <button
+                type="button"
+                aria-label={`Schedule on ${dayLabel(day, "EEEE d MMMM")}`}
+                onClick={() => onCreate(day)}
+                className="text-muted-foreground hover:bg-muted hover:text-foreground absolute top-1 right-1 flex size-6 items-center justify-center rounded-full opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+              >
+                <Plus className="size-3.5" />
+              </button>
 
               {items.slice(0, VISIBLE_PER_DAY).map((meeting) => {
                 const color = eventColor(meeting.meeting_type);
@@ -94,9 +107,11 @@ export function MonthGrid({
                   <button
                     key={meeting.id}
                     type="button"
+                    title={[meeting.title, meeting.company_name].filter(Boolean).join(" · ")}
                     onClick={(event) =>
                       onSelect(meeting, event.currentTarget.getBoundingClientRect())
                     }
+                    onDoubleClick={() => onEdit(meeting)}
                     className={cn(
                       "hover:bg-muted flex items-center gap-1.5 rounded px-1 py-0.5 text-left text-[11px] transition-colors",
                       cancelled && "line-through opacity-60",

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -37,6 +37,7 @@ export function Toolbar({
   onView,
   onToday,
   onStep,
+  onCreate,
 }: {
   view: CalendarView;
   title: string;
@@ -44,9 +45,20 @@ export function Toolbar({
   onView: (view: CalendarView) => void;
   onToday: () => void;
   onStep: (direction: -1 | 1) => void;
+  onCreate: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button onClick={onCreate}>
+            <Plus />
+            New meeting
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>New meeting (N)</TooltipContent>
+      </Tooltip>
+
       <Button variant="outline" onClick={onToday}>
         Today
       </Button>

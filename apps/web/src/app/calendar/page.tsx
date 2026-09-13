@@ -6,10 +6,17 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { CalendarDays, Globe, Keyboard } from "lucide-react";
+import { CalendarClock, CalendarDays, CalendarPlus, Keyboard, SlidersHorizontal } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import {
+  CLOSED_STATUSES,
+  currentStage,
+  type ApplicationRow,
+} from "@/components/applications/shared";
 import { EventPopover } from "@/components/calendar/event-popover";
+import { MeetingDialog, type MeetingDialogState } from "@/components/calendar/meeting-dialog";
 import { MiniMonth } from "@/components/calendar/mini-month";
 import { MonthGrid } from "@/components/calendar/month-grid";
 import { TimeGrid } from "@/components/calendar/time-grid";
@@ -17,6 +24,9 @@ import { rangeTitle, Toolbar, type CalendarView } from "@/components/calendar/to
 import { NextCallBanner } from "@/components/next-call";
 import { PageHero } from "@/components/page-hero";
 import { SidePanel } from "@/components/side-panel";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { request } from "@/lib/api";
 import {
   addDays,
@@ -31,7 +41,9 @@ import {
   type DayKey,
   type Meeting,
 } from "@/lib/calendar";
-import { DISPLAY_TIME_ZONE } from "@/lib/format";
+import { formatDateTime, relative } from "@/lib/format";
+import { invalidateSchedule } from "@/lib/schedule";
+import { cn } from "@/lib/utils";
 
 interface Selection {
   meeting: Meeting;
@@ -45,12 +57,35 @@ interface PatchVariables {
   optimistic?: Pick<Meeting, "starts_at" | "ends_at">;
 }
 
+interface UpcomingItem {
+  meeting: Meeting;
+  company_name: string | null;
+  role_title: string | null;
+  stage_name: string | null;
+  starts_in_minutes: number;
+}
+
+const FILTERS = [
+  ["interviews", "Interviews"],
+  ["jobs", "Team meetings"],
+  ["cancelled", "Cancelled"],
+] as const;
+type Filter = (typeof FILTERS)[number][0];
+
+const TO_BOOK_LIMIT = 6;
+
 export default function CalendarPage() {
   const queryClient = useQueryClient();
   const [view, setView] = useState<CalendarView>("week");
   const [anchor, setAnchor] = useState<DayKey>(() => todayKey());
   const [miniMonth, setMiniMonth] = useState<DayKey>(anchor);
   const [selected, setSelected] = useState<Selection | null>(null);
+  const [dialog, setDialog] = useState<MeetingDialogState>(null);
+  const [show, setShow] = useState<Record<Filter, boolean>>({
+    interviews: true,
+    jobs: true,
+    cancelled: true,
+  });
 
   const days = useMemo(
     () =>
@@ -67,7 +102,38 @@ export default function CalendarPage() {
     // does not blink through an empty week.
     placeholderData: keepPreviousData,
   });
-  const meetings = useMemo(() => data ?? [], [data]);
+  const meetings = useMemo(
+    () =>
+      (data ?? []).filter(
+        (m) =>
+          (m.stage_id ? show.interviews : show.jobs) &&
+          (show.cancelled || m.status !== "cancelled"),
+      ),
+    [data, show],
+  );
+
+  const upcoming = useQuery({
+    queryKey: ["upcoming", "calendar"],
+    queryFn: () => request<UpcomingItem[]>("/api/v1/meetings/upcoming?limit=5"),
+    refetchInterval: 60_000,
+  });
+
+  const applications = useQuery({
+    queryKey: ["applications", "all"],
+    queryFn: () => request<{ items: ApplicationRow[] }>("/api/v1/applications"),
+  });
+  // Active applications whose next step has no call booked.
+  const toBook = useMemo(
+    () =>
+      (applications.data?.items ?? []).flatMap((row) => {
+        if (CLOSED_STATUSES.has(row.status) || row.status === "saved") return [];
+        const stage = currentStage(row.stages);
+        return stage && !stage.meetings.some((m) => m.status === "scheduled")
+          ? [{ row, stage }]
+          : [];
+      }),
+    [applications.data],
+  );
 
   const patch = useMutation({
     mutationFn: ({ id, body }: PatchVariables) =>
@@ -87,12 +153,18 @@ export default function CalendarPage() {
           ? { ...current, meeting: updated }
           : current,
       );
-      queryClient.invalidateQueries({ queryKey: ["meetings"] });
-      queryClient.invalidateQueries({ queryKey: ["next-call"] });
-      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      invalidateSchedule(queryClient);
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => request(`/api/v1/meetings/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      setSelected(null);
+      invalidateSchedule(queryClient);
     },
   });
 
@@ -130,12 +202,47 @@ export default function CalendarPage() {
     [patch],
   );
 
+  const resize = useCallback(
+    (meeting: Meeting, duration: number) => {
+      patch.mutate({
+        id: meeting.id,
+        body: { duration_min: duration },
+        optimistic: {
+          starts_at: meeting.starts_at,
+          ends_at: new Date(
+            new Date(meeting.starts_at).getTime() + duration * 60_000,
+          ).toISOString(),
+        },
+      });
+    },
+    [patch],
+  );
+
+  const create = useCallback((day: DayKey, minutes?: number, duration?: number) => {
+    setSelected(null);
+    setDialog({
+      mode: "create",
+      draft: { date: day, minutes, duration: duration || undefined },
+    });
+  }, []);
+
+  const edit = useCallback((meeting: Meeting) => {
+    setSelected(null);
+    setDialog({ mode: "edit", meeting });
+  }, []);
+
+  // New meetings default to today when it is on screen, else the anchor.
+  const createHere = useCallback(
+    () => create(days.includes(todayKey()) ? todayKey() : anchor),
+    [create, days, anchor],
+  );
+
   // The mini calendar follows whatever the main grid is showing.
   useEffect(() => setMiniMonth(anchor), [anchor]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (dialog || event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
       if (
         target?.isContentEditable ||
@@ -144,6 +251,10 @@ export default function CalendarPage() {
         return;
       }
       switch (event.key.toLowerCase()) {
+        case "n":
+        case "c":
+          createHere();
+          break;
         case "t":
           setAnchor(todayKey());
           break;
@@ -171,7 +282,7 @@ export default function CalendarPage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [step]);
+  }, [step, dialog, createHere]);
 
   const highlighted = useMemo(
     () => new Set<DayKey>(view === "month" ? [] : days),
@@ -185,7 +296,7 @@ export default function CalendarPage() {
         eyebrow="Schedule"
         eyebrowIcon={CalendarDays}
         title="Calendar"
-        description="Interview stages and recurring team meetings, every time shown in your display zone."
+        description="Interviews and team meetings in one place. Click or drag across empty time to schedule; drag a meeting to move it, or its bottom edge to change its length."
       />
 
       <NextCallBanner />
@@ -197,6 +308,7 @@ export default function CalendarPage() {
         onView={setView}
         onToday={() => setAnchor(todayKey())}
         onStep={step}
+        onCreate={createHere}
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
@@ -208,6 +320,8 @@ export default function CalendarPage() {
               meetings={meetings}
               selectedId={selected?.meeting.id ?? null}
               onSelect={(meeting, rect) => setSelected({ meeting, anchor: rect })}
+              onEdit={edit}
+              onCreate={(day) => create(day)}
               onPickDay={openDay}
             />
           ) : (
@@ -217,64 +331,147 @@ export default function CalendarPage() {
               selectedId={selected?.meeting.id ?? null}
               onSelect={(meeting, rect) => setSelected({ meeting, anchor: rect })}
               onMove={move}
+              onResize={resize}
+              onCreate={create}
+              onEdit={edit}
               onPickDay={openDay}
             />
           )}
         </div>
 
-        <aside className="hidden space-y-6 lg:sticky lg:top-24 lg:block">
-          <MiniMonth
-            month={miniMonth}
-            selected={anchor}
-            highlighted={highlighted}
-            busyDays={busyDays}
-            onMonth={setMiniMonth}
-            onPick={(day) => setAnchor(day)}
-          />
+        <aside className="space-y-6 lg:sticky lg:top-24">
+          <div className="hidden lg:block">
+            <MiniMonth
+              month={miniMonth}
+              selected={anchor}
+              highlighted={highlighted}
+              busyDays={busyDays}
+              onMonth={setMiniMonth}
+              onPick={(day) => setAnchor(day)}
+            />
+          </div>
 
-          <SidePanel icon={Keyboard} title="Getting around">
-            <ul className="space-y-3 text-sm">
+          <SidePanel icon={CalendarPlus} title="Still to book">
+            {!toBook.length ? (
+              <p className="text-muted-foreground text-xs leading-relaxed">
+                {applications.isLoading
+                  ? "Checking your applications…"
+                  : "Every active application has its next step booked."}
+              </p>
+            ) : (
+              <ul className="space-y-2.5">
+                {toBook.slice(0, TO_BOOK_LIMIT).map(({ row, stage }) => (
+                  <li key={row.id} className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{row.company_name}</p>
+                      <p className="text-muted-foreground truncate text-xs">{stage.name}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setDialog({ mode: "create", draft: { stageId: stage.id } })
+                      }
+                    >
+                      Book
+                    </Button>
+                  </li>
+                ))}
+                {toBook.length > TO_BOOK_LIMIT && (
+                  <li>
+                    <Link
+                      href="/applications"
+                      className="text-muted-foreground text-xs hover:underline"
+                    >
+                      {toBook.length - TO_BOOK_LIMIT} more in Applications
+                    </Link>
+                  </li>
+                )}
+              </ul>
+            )}
+          </SidePanel>
+
+          <SidePanel icon={CalendarClock} title="Up next">
+            {!upcoming.data?.length ? (
+              <p className="text-muted-foreground text-xs leading-relaxed">
+                Nothing booked ahead.
+              </p>
+            ) : (
+              <ul className="-mx-2 space-y-1">
+                {upcoming.data.map((item) => (
+                  <li key={item.meeting.id}>
+                    <button
+                      type="button"
+                      className={cn(
+                        "hover:bg-muted w-full rounded-md px-2 py-1.5 text-left transition-colors",
+                        selected?.meeting.id === item.meeting.id && "bg-muted",
+                      )}
+                      onClick={(event) => {
+                        setAnchor(dayOf(item.meeting));
+                        setSelected({
+                          meeting: {
+                            ...item.meeting,
+                            company_name: item.company_name,
+                            role_title: item.role_title,
+                            stage_name: item.stage_name,
+                          },
+                          anchor: event.currentTarget.getBoundingClientRect(),
+                        });
+                      }}
+                    >
+                      <p className="truncate text-sm font-medium">{item.meeting.title}</p>
+                      <p className="text-muted-foreground flex justify-between gap-2 text-xs tabular-nums">
+                        <span>{formatDateTime(item.meeting.starts_at, "EEE d MMM, HH:mm")}</span>
+                        <span>{relative(item.starts_in_minutes)}</span>
+                      </p>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SidePanel>
+
+          <SidePanel icon={SlidersHorizontal} title="Show">
+            <div className="space-y-2.5">
+              {FILTERS.map(([key, label]) => (
+                <div key={key} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`show-${key}`}
+                    checked={show[key]}
+                    onCheckedChange={(checked) =>
+                      setShow((current) => ({ ...current, [key]: checked === true }))
+                    }
+                  />
+                  <Label htmlFor={`show-${key}`} className="text-sm font-normal">
+                    {label}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </SidePanel>
+
+          <SidePanel icon={Keyboard} title="Shortcuts" className="hidden lg:flex">
+            <ul className="space-y-2.5 text-sm">
               {[
-                [<Kbd key="t">T</Kbd>, "Jump to today"],
-                [
-                  <span key="dwm" className="flex gap-1">
-                    <Kbd>D</Kbd>
-                    <Kbd>W</Kbd>
-                    <Kbd>M</Kbd>
-                  </span>,
-                  "Day, week or month",
-                ],
-                [
-                  <span key="arrows" className="flex gap-1">
-                    <Kbd>←</Kbd>
-                    <Kbd>→</Kbd>
-                  </span>,
-                  "Page back and forward",
-                ],
-              ].map(([keys, label], index) => (
-                <li key={index} className="flex items-center gap-3">
-                  <span className="shrink-0">{keys}</span>
+                [["N"], "New meeting"],
+                [["T"], "Jump to today"],
+                [["D", "W", "M"], "Day, week or month"],
+                [["←", "→"], "Page back and forward"],
+              ].map(([keys, label]) => (
+                <li key={label as string} className="flex items-center gap-3">
+                  <span className="flex shrink-0 gap-1">
+                    {(keys as string[]).map((key) => (
+                      <Kbd key={key}>{key}</Kbd>
+                    ))}
+                  </span>
                   <span className="text-muted-foreground text-xs">{label}</span>
                 </li>
               ))}
             </ul>
             <p className="text-muted-foreground mt-4 border-t pt-3 text-xs leading-relaxed">
-              Drag a meeting to reschedule it — the API takes local wall-clock, which is
-              exactly what a drop position is.
+              Double-click a meeting to edit it. Times are shown in US Eastern and read
+              EST or EDT by date.
             </p>
-          </SidePanel>
-
-          <SidePanel icon={Globe} title="Times and zones">
-            <p className="text-muted-foreground text-xs leading-relaxed">
-              Everything is rendered in US Eastern ({DISPLAY_TIME_ZONE}). The zone is
-              derived from the instant, so it reads EST in winter and EDT in summer.
-            </p>
-            {!isFetching && !meetings.length && (
-              <p className="text-muted-foreground mt-3 border-t pt-3 text-xs leading-relaxed">
-                Nothing scheduled in this range. Meetings appear once you schedule an
-                interview stage or create a recurring team meeting.
-              </p>
-            )}
           </SidePanel>
         </aside>
       </div>
@@ -283,11 +480,15 @@ export default function CalendarPage() {
         <EventPopover
           meeting={selected.meeting}
           anchor={selected.anchor}
-          pending={patch.isPending}
+          pending={patch.isPending || remove.isPending}
           onPatch={(body) => patch.mutate({ id: selected.meeting.id, body })}
+          onEdit={() => edit(selected.meeting)}
+          onDelete={() => remove.mutate(selected.meeting.id)}
           onClose={() => setSelected(null)}
         />
       )}
+
+      <MeetingDialog state={dialog} onClose={() => setDialog(null)} />
     </div>
   );
 }

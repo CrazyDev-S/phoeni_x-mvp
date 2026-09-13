@@ -15,18 +15,6 @@ from app.models.enums import (
 from app.schemas.common import ORMModel
 
 
-class StageOut(ORMModel):
-    id: uuid.UUID
-    seq: int
-    name: str
-    kind: str
-    status: StageStatus
-    scheduled_for: datetime | None
-    outcome_notes: str | None
-    preparation_markdown: str | None
-    decided_at: datetime | None
-
-
 class MeetingOut(ORMModel):
     id: uuid.UUID
     title: str
@@ -47,13 +35,43 @@ class MeetingOut(ORMModel):
     reminder_minutes: int
 
 
+class CalendarMeetingOut(MeetingOut):
+    """A meeting with its owner named, so a calendar block can say who it is with."""
+
+    kind: str = "maintained"  # application | maintained
+    application_id: uuid.UUID | None = None
+    company_name: str | None = None
+    role_title: str | None = None
+    stage_name: str | None = None
+    stage_kind: str | None = None
+
+
+class StageOut(ORMModel):
+    id: uuid.UUID
+    seq: int
+    name: str
+    kind: str
+    status: StageStatus
+    scheduled_for: datetime | None
+    outcome_notes: str | None
+    preparation_markdown: str | None
+    decided_at: datetime | None
+    # Every meeting booked for the stage, earliest first. Empty when the caller
+    # did not load them (the ORM row has no such attribute).
+    meetings: list[MeetingOut] = Field(default_factory=list)
+
+
 class ApplicationOut(ORMModel):
     id: uuid.UUID
     company_name: str
+    company_domain: str | None = None
     role_title: str
     job_url: str | None
     location: str | None
     work_mode: WorkMode | None
+    salary_min: int | None = None
+    salary_max: int | None = None
+    salary_currency: str | None = None
     status: ApplicationStatus
     origin: str
     applied_at: datetime | None
@@ -63,14 +81,37 @@ class ApplicationOut(ORMModel):
     created_at: datetime
 
 
+class TailoredResumeBrief(BaseModel):
+    """The resume an application was sent with, and how well it covered the posting."""
+
+    id: uuid.UUID
+    display_name: str
+    base_resume_id: uuid.UUID
+    base_resume_name: str | None = None
+    status: str
+    job_url: str | None
+    job_source: str
+    must_have_covered: int | None
+    must_have_total: int | None
+    must_have_coverage_percent: float | None
+    nice_to_have_coverage_percent: float | None
+    years_required: int | None
+    years_shown: float | None
+    content_markdown: str
+    flags: dict | None = None
+    created_at: datetime
+
+
 class ApplicationDetail(ApplicationOut):
     job_description_text: str | None
     stages: list[StageOut] = Field(default_factory=list)
+    tailored_resume: TailoredResumeBrief | None = None
 
 
 class ApplicationRow(ApplicationOut):
-    """The tracking table row: current stage and next meeting inlined."""
+    """The tracking table row: every stage, plus the current one and next meeting."""
 
+    stages: list[StageOut] = Field(default_factory=list)
     current_stage: StageOut | None = None
     next_meeting: MeetingOut | None = None
     stage_count: int = 0
@@ -96,14 +137,22 @@ class ApplicationCreate(BaseModel):
 
 
 class ApplicationPatch(BaseModel):
-    company_name: str | None = None
-    role_title: str | None = None
-    job_url: str | None = None
+    company_name: str | None = Field(default=None, min_length=1, max_length=160)
+    company_domain: str | None = Field(default=None, max_length=255)
+    role_title: str | None = Field(default=None, min_length=1, max_length=160)
+    job_url: str | None = Field(default=None, max_length=2000)
+    job_description_text: str | None = None
     location: str | None = None
     work_mode: WorkMode | None = None
+    salary_min: int | None = Field(default=None, ge=0)
+    salary_max: int | None = Field(default=None, ge=0)
+    salary_currency: str | None = Field(default=None, max_length=3)
     status: ApplicationStatus | None = None
     notes_markdown: str | None = None
     next_action_at: datetime | None = None
+    applied_at: datetime | None = None
+    # Null unlinks; the resume itself is never touched.
+    tailored_resume_id: uuid.UUID | None = None
 
 
 class StageCreate(BaseModel):
@@ -161,7 +210,8 @@ class MeetingCreate(BaseModel):
 
 
 class MeetingPatch(BaseModel):
-    title: str | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    meeting_type: str | None = None
     local_date: date | None = None
     local_time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
     duration_min: int | None = Field(default=None, ge=5, le=600)

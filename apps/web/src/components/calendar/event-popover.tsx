@@ -1,65 +1,69 @@
 "use client";
 
-import { X } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-
-import { FormField } from "@/components/form-field";
-import { StatusBadge, type Tone } from "@/components/status-badge";
-import { Button } from "@/components/ui/button";
-import { FieldGroup } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Briefcase,
+  Check,
+  MapPin,
+  Pencil,
+  RotateCcw,
+  Trash2,
+  Video,
+  X,
+} from "lucide-react";
+import Link from "next/link";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
+import { StatusBadge } from "@/components/status-badge";
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
 import {
   dayLabel,
   durationMinutes,
   eventColor,
   minutesInto,
   minutesLabel,
+  zoneAbbreviation,
   type Meeting,
 } from "@/lib/calendar";
 import { formatDay } from "@/lib/format";
+import { humanize, meetingStatus } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
-
-const STATUSES = ["scheduled", "held", "cancelled", "rescheduled", "no_show"];
-const DURATIONS = [15, 30, 45, 60, 90, 120];
-const STATUS_TONE: Record<string, Tone> = {
-  scheduled: "brand",
-  held: "ok",
-  cancelled: "bad",
-  rescheduled: "warn",
-  no_show: "warn",
-};
 
 const MARGIN = 12;
 const WIDTH = 344;
 
-/** The detail bubble, anchored to whichever block was clicked. */
+/**
+ * The quick look, anchored to whichever block was clicked.
+ *
+ * It answers "what is this and what do I do now" — join, mark it held, cancel,
+ * delete — and hands anything longer to the edit dialog.
+ */
 export function EventPopover({
   meeting,
   anchor,
   pending,
   onPatch,
+  onEdit,
+  onDelete,
   onClose,
 }: {
   meeting: Meeting;
   anchor: DOMRect;
   pending: boolean;
   onPatch: (body: Record<string, unknown>) => void;
+  onEdit: () => void;
+  onDelete: () => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const color = eventColor(meeting.meeting_type);
   const start = minutesInto(meeting.starts_at);
   const duration = durationMinutes(meeting);
+  const day = formatDay(meeting.starts_at);
+  const status = meetingStatus(meeting.status);
 
   useLayoutEffect(() => {
     const element = ref.current;
@@ -82,7 +86,9 @@ export function EventPopover({
       Math.max(viewportHeight - height - MARGIN, MARGIN),
     );
     setPosition({ top, left });
-  }, [anchor, meeting.id]);
+  }, [anchor, meeting.id, confirmDelete]);
+
+  useEffect(() => setConfirmDelete(false), [meeting.id]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -92,7 +98,10 @@ export function EventPopover({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
+  // Portalled to the body: the page's entrance animation leaves a transform on
+  // an ancestor, and a transform turns `position: fixed` into "fixed to that
+  // ancestor" - which pushed the bubble off the bottom once the page scrolled.
+  return createPortal(
     <>
       <div className="fixed inset-0 z-40" onPointerDown={onClose} />
       <div
@@ -116,14 +125,28 @@ export function EventPopover({
             style={{ backgroundColor: color.fill }}
           />
           <div className="min-w-0 flex-1">
-            <p className="text-base leading-snug font-medium break-words">
+            <p
+              className={cn(
+                "text-base leading-snug font-medium break-words",
+                meeting.status === "cancelled" && "line-through",
+              )}
+            >
               {meeting.title}
             </p>
-            <p className="text-muted-foreground mt-0.5 text-sm">
-              {dayLabel(formatDay(meeting.starts_at), "EEEE d MMMM")} ·{" "}
-              {minutesLabel(start)} – {minutesLabel(start + duration)}
+            <p className="text-muted-foreground mt-0.5 text-sm tabular-nums">
+              {dayLabel(day, "EEEE d MMMM")} · {minutesLabel(start)} –{" "}
+              {minutesLabel(start + duration)} {zoneAbbreviation(day)}
             </p>
           </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Edit"
+            onClick={onEdit}
+            className="-mt-1 shrink-0 rounded-full"
+          >
+            <Pencil />
+          </Button>
           <Button
             variant="ghost"
             size="icon-sm"
@@ -136,142 +159,134 @@ export function EventPopover({
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 px-4 pt-2">
-          <StatusBadge
-            tone={STATUS_TONE[meeting.status] ?? "neutral"}
-            className="capitalize"
-          >
-            {meeting.status.replace("_", " ")}
-          </StatusBadge>
-          <StatusBadge tone="neutral" className="capitalize">
-            {meeting.meeting_type.replace(/_/g, " ")}
+          <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+          <StatusBadge tone="neutral">
+            {meeting.stage_name ?? humanize(meeting.meeting_type)}
           </StatusBadge>
           {meeting.series_id && (
             <StatusBadge tone="neutral">
-              recurring{meeting.is_exception ? ", edited" : ""}
+              Recurring{meeting.is_exception ? ", edited" : ""}
             </StatusBadge>
           )}
           {pending && <Spinner className="text-muted-foreground" />}
         </div>
 
-        {(meeting.location || meeting.conferencing_url) && (
-          <div className="space-y-1 px-4 pt-3 text-sm">
-            {meeting.location && (
-              <p className="text-muted-foreground">{meeting.location}</p>
-            )}
-            {meeting.conferencing_url && (
-              <Button asChild variant="link" size="sm" className="h-auto p-0">
-                <a href={meeting.conferencing_url} target="_blank" rel="noreferrer">
-                  Join call
-                </a>
-              </Button>
+        <div className="space-y-2 px-4 pt-3 text-sm">
+          {meeting.company_name && (
+            <p className="flex items-start gap-2">
+              <Briefcase className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+              <span className="min-w-0">
+                <span className="font-medium">{meeting.company_name}</span>
+                {meeting.role_title && (
+                  <span className="text-muted-foreground"> · {meeting.role_title}</span>
+                )}
+                {meeting.application_id && (
+                  <Link
+                    href={`/applications/${meeting.application_id}`}
+                    className="text-primary block text-xs hover:underline"
+                  >
+                    Open application
+                  </Link>
+                )}
+              </span>
+            </p>
+          )}
+          {meeting.location && (
+            <p className="text-muted-foreground flex items-start gap-2">
+              <MapPin className="mt-0.5 size-4 shrink-0" />
+              <span className="min-w-0 break-words">{meeting.location}</span>
+            </p>
+          )}
+          {meeting.conferencing_url && meeting.status === "scheduled" && (
+            <Button asChild size="sm" className="w-full">
+              <a href={meeting.conferencing_url} target="_blank" rel="noreferrer">
+                <Video />
+                Join call
+              </a>
+            </Button>
+          )}
+        </div>
+
+        {(meeting.agenda || meeting.preparation_notes || meeting.notes) && (
+          <div className="space-y-2 px-4 pt-3">
+            {(
+              [
+                ["Agenda", meeting.agenda],
+                ["Preparation", meeting.preparation_notes],
+                ["Notes", meeting.notes],
+              ] as const
+            ).map(
+              ([label, text]) =>
+                text && (
+                  <div key={label} className="bg-muted/50 rounded-md px-3 py-2">
+                    <p className="text-muted-foreground mb-0.5 text-[11px] font-medium tracking-wide uppercase">
+                      {label}
+                    </p>
+                    <p className="line-clamp-5 text-xs leading-relaxed whitespace-pre-wrap">
+                      {text}
+                    </p>
+                  </div>
+                ),
             )}
           </div>
         )}
 
-        <div className="p-4">
-          <FieldGroup className="gap-3">
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Date">
-                {(control) => (
-                  <Input
-                    {...control}
-                    type="date"
-                    value={formatDay(meeting.starts_at)}
-                    onChange={(event) => onPatch({ local_date: event.target.value })}
-                  />
-                )}
-              </FormField>
-              <FormField label="Time">
-                {(control) => (
-                  <Input
-                    {...control}
-                    type="time"
-                    value={minutesLabel(start)}
-                    onChange={(event) => onPatch({ local_time: event.target.value })}
-                  />
-                )}
-              </FormField>
-              <FormField label="Duration">
-                {(control) => (
-                  <Select
-                    value={String(duration)}
-                    onValueChange={(value) => onPatch({ duration_min: Number(value) })}
-                  >
-                    <SelectTrigger {...control} className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(DURATIONS.includes(duration)
-                        ? DURATIONS
-                        : [...DURATIONS, duration].sort((a, b) => a - b)
-                      ).map((minutes) => (
-                        <SelectItem key={minutes} value={String(minutes)}>
-                          {minutes} min
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </FormField>
-              <FormField label="Status">
-                {(control) => (
-                  <Select
-                    value={meeting.status}
-                    onValueChange={(value) => onPatch({ status: value })}
-                  >
-                    <SelectTrigger {...control} className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {STATUSES.map((status) => (
-                        <SelectItem key={status} value={status} className="capitalize">
-                          {status.replace("_", " ")}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </FormField>
-            </div>
-
-            {meeting.agenda && (
-              <FormField label="Agenda">
-                {(control) => (
-                  <Textarea
-                    {...control}
-                    rows={3}
-                    key={`agenda-${meeting.id}`}
-                    defaultValue={meeting.agenda ?? ""}
-                    onBlur={(event) => onPatch({ agenda: event.target.value })}
-                  />
-                )}
-              </FormField>
-            )}
-            <FormField label="Preparation">
-              {(control) => (
-                <Textarea
-                  {...control}
-                  rows={3}
-                  key={`prep-${meeting.id}`}
-                  defaultValue={meeting.preparation_notes ?? ""}
-                  onBlur={(event) => onPatch({ preparation_notes: event.target.value })}
-                />
-              )}
-            </FormField>
-            <FormField label="Notes">
-              {(control) => (
-                <Textarea
-                  {...control}
-                  rows={3}
-                  key={`notes-${meeting.id}`}
-                  defaultValue={meeting.notes ?? ""}
-                  onBlur={(event) => onPatch({ notes: event.target.value })}
-                />
-              )}
-            </FormField>
-          </FieldGroup>
+        <div className="flex flex-wrap items-center gap-1.5 p-4">
+          {meeting.status === "scheduled" ? (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                onClick={() => onPatch({ status: "held" })}
+              >
+                <Check />
+                Mark held
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={pending}
+                onClick={() => onPatch({ status: "cancelled" })}
+              >
+                Cancel meeting
+              </Button>
+            </>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={pending}
+              onClick={() => onPatch({ status: "scheduled" })}
+            >
+              <RotateCcw />
+              Back to scheduled
+            </Button>
+          )}
+          {confirmDelete ? (
+            <Button
+              size="sm"
+              variant="destructive"
+              className="ml-auto"
+              disabled={pending}
+              onClick={onDelete}
+            >
+              {meeting.series_id ? "Skip occurrence?" : "Delete for good?"}
+            </Button>
+          ) : (
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Delete"
+              className="text-muted-foreground hover:text-destructive ml-auto"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash2 />
+            </Button>
+          )}
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }

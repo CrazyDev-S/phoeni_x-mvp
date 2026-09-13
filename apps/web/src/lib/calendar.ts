@@ -28,8 +28,19 @@ export interface Meeting {
   agenda: string | null;
   preparation_notes: string | null;
   notes: string | null;
+  stage_id: string | null;
+  maintained_job_id: string | null;
   series_id: string | null;
   is_exception: boolean;
+  reminder_minutes: number;
+  // Who the meeting is with. Present on calendar reads; absent where a meeting
+  // is nested under the stage that already says so.
+  kind?: string;
+  application_id?: string | null;
+  company_name?: string | null;
+  role_title?: string | null;
+  stage_name?: string | null;
+  stage_kind?: string | null;
 }
 
 function civil(key: DayKey): Date {

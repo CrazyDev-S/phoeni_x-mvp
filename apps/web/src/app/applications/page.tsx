@@ -6,29 +6,28 @@ import {
   Archive,
   Briefcase,
   CalendarPlus,
-  Check,
   Columns3,
   Search,
   Table2,
   Trophy,
-  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { ApplicationSheet } from "@/components/applications/application-sheet";
 import { ApplicationBoard } from "@/components/applications/board";
-import { StatusSelect } from "@/components/applications/status-select";
+import { PipelineTable } from "@/components/applications/pipeline-table";
 import {
   STATUS_LABEL,
-  STATUS_TONE,
   STATUSES,
   type ApplicationRow,
+  type StageUpdated,
 } from "@/components/applications/shared";
+import { MeetingDialog, type MeetingDialogState } from "@/components/calendar/meeting-dialog";
 import { EmptyState } from "@/components/empty-state";
+import { NextCallBanner } from "@/components/next-call";
 import { PageHero } from "@/components/page-hero";
 import { StatCard } from "@/components/stat-card";
-import { NextCallBanner } from "@/components/next-call";
-import { StatusBadge } from "@/components/status-badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,40 +40,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { request } from "@/lib/api";
-import { formatDateTime, IMMINENT_MINUTES } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { invalidateSchedule } from "@/lib/schedule";
 
 const ALL = "all";
-const COLUMNS = [
-  "Company",
-  "Role",
-  "Status",
-  "Progress",
-  "Current stage",
-  "Next call",
-  "Match",
-  "",
-];
 
 type View = "table" | "board";
+
+interface NextStep {
+  company: string;
+  stageId: string;
+  name: string;
+  duration: number | null;
+}
 
 export default function ApplicationsPage() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState(ALL);
   const [q, setQ] = useState("");
   const [view, setView] = useState<View>("table");
-  const [prompt, setPrompt] = useState<string | null>(null);
+  const [open, setOpen] = useState<ApplicationRow | null>(null);
+  const [dialog, setDialog] = useState<MeetingDialogState>(null);
+  const [nextStep, setNextStep] = useState<NextStep | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["applications", filter],
@@ -84,26 +72,25 @@ export default function ApplicationsPage() {
       ),
   });
 
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ["applications"] });
-    queryClient.invalidateQueries({ queryKey: ["next-call"] });
-    queryClient.invalidateQueries({ queryKey: ["upcoming"] });
-  };
-
   const setStage = useMutation({
-    mutationFn: ({ stageId, status }: { stageId: string; status: string }) =>
-      request<{ suggested_next_stage: { name: string } | null }>(
-        `/api/v1/stages/${stageId}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({ status }),
-        },
-      ),
-    onSuccess: (res) => {
-      invalidate();
-      if (res.suggested_next_stage) {
-        setPrompt(`Passed. Next up: ${res.suggested_next_stage.name} — schedule it?`);
-      }
+    mutationFn: ({ stageId, status }: { row: ApplicationRow; stageId: string; status: string }) =>
+      request<StageUpdated>(`/api/v1/stages/${stageId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
+    onSuccess: (res, { row }) => {
+      invalidateSchedule(queryClient);
+      const next = res.suggested_next_stage;
+      setNextStep(
+        next?.stage_id && !next.already_scheduled
+          ? {
+              company: row.company_name,
+              stageId: next.stage_id,
+              name: next.name ?? "the next step",
+              duration: next.suggested_duration_min,
+            }
+          : null,
+      );
     },
   });
 
@@ -115,7 +102,7 @@ export default function ApplicationsPage() {
       }),
     // The board re-sorts on success; an optimistic move would make a failed
     // write look like it landed in the new column.
-    onSuccess: invalidate,
+    onSuccess: () => invalidateSchedule(queryClient),
   });
 
   const counts = useMemo(() => {
@@ -135,11 +122,11 @@ export default function ApplicationsPage() {
     const items = data?.items ?? [];
     if (!needle) return items;
     return items.filter((r) =>
-      `${r.company_name} ${r.role_title} ${r.location ?? ""}`
-        .toLowerCase()
-        .includes(needle),
+      `${r.company_name} ${r.role_title} ${r.location ?? ""}`.toLowerCase().includes(needle),
     );
   }, [data, q]);
+
+  const pending = setStage.isPending || setStatus.isPending;
 
   return (
     <div className="space-y-8">
@@ -149,20 +136,31 @@ export default function ApplicationsPage() {
         eyebrow="Pipeline"
         eyebrowIcon={Briefcase}
         title="Applications"
-        description="Every saved application, its current stage, and the next call — as a table or a board."
+        description="One row per application, one column per interview step. Click a step to schedule it or set its status; click the row for the whole picture."
         actions={
-          <Tabs value={view} onValueChange={(v) => setView(v as View)}>
-            <TabsList className="h-11">
-              <TabsTrigger value="table" className="gap-1.5">
-                <Table2 className="size-4" />
-                Table
-              </TabsTrigger>
-              <TabsTrigger value="board" className="gap-1.5">
-                <Columns3 className="size-4" />
-                Board
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <>
+            <Button
+              variant="outline"
+              size="lg"
+              className="h-11"
+              onClick={() => setDialog({ mode: "create", draft: {} })}
+            >
+              <CalendarPlus />
+              Schedule
+            </Button>
+            <Tabs value={view} onValueChange={(v) => setView(v as View)}>
+              <TabsList className="h-11">
+                <TabsTrigger value="table" className="gap-1.5">
+                  <Table2 className="size-4" />
+                  Table
+                </TabsTrigger>
+                <TabsTrigger value="board" className="gap-1.5">
+                  <Columns3 className="size-4" />
+                  Board
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </>
         }
       />
 
@@ -225,15 +223,31 @@ export default function ApplicationsPage() {
         </Select>
       </div>
 
-      {prompt && (
+      {nextStep && (
         <Alert>
           <CalendarPlus />
           <AlertDescription className="flex flex-wrap items-center gap-2">
-            <span>{prompt}</span>
-            <Button asChild size="sm" className="ml-auto">
-              <Link href="/calendar">Open calendar</Link>
+            <span>
+              {nextStep.company}: passed. Next up is{" "}
+              <strong className="text-foreground">{nextStep.name}</strong>.
+            </span>
+            <Button
+              size="sm"
+              className="ml-auto"
+              onClick={() => {
+                setDialog({
+                  mode: "create",
+                  draft: {
+                    stageId: nextStep.stageId,
+                    duration: nextStep.duration ?? undefined,
+                  },
+                });
+                setNextStep(null);
+              }}
+            >
+              Schedule it
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setPrompt(null)}>
+            <Button variant="ghost" size="sm" onClick={() => setNextStep(null)}>
               Dismiss
             </Button>
           </AlertDescription>
@@ -284,132 +298,33 @@ export default function ApplicationsPage() {
           rows={rows}
           pending={setStatus.isPending}
           onStatus={(id, status) => setStatus.mutate({ id, status })}
+          onOpen={setOpen}
         />
       ) : (
-        <Card className="overflow-hidden py-0">
-          <CardContent className="px-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {COLUMNS.map((h, i) => (
-                      <TableHead key={h || i} className="px-4">
-                        {h}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((r) => {
-                    const soon =
-                      r.next_meeting &&
-                      (new Date(r.next_meeting.starts_at).getTime() - Date.now()) / 60000 <=
-                        IMMINENT_MINUTES;
-                    return (
-                      <TableRow key={r.id} className={soon ? "bg-accent/50" : undefined}>
-                        <TableCell className="px-4 font-medium">
-                          <Link href={`/applications/${r.id}`} className="hover:underline">
-                            {r.company_name}
-                          </Link>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground px-4">
-                          {r.role_title}
-                        </TableCell>
-                        <TableCell className="px-4">
-                          <div className="w-36">
-                            <StatusSelect
-                              value={r.status}
-                              disabled={setStatus.isPending}
-                              label={`Status for ${r.company_name}`}
-                              onChange={(status) => setStatus.mutate({ id: r.id, status })}
-                            />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground px-4 tabular-nums">
-                          {r.stages_passed}/{r.stage_count}
-                        </TableCell>
-                        <TableCell className="px-4">
-                          {r.current_stage?.name ?? "—"}
-                        </TableCell>
-                        <TableCell className="px-4">
-                          {r.next_meeting ? (
-                            <span
-                              className={cn(
-                                "tabular-nums",
-                                soon && "text-primary font-medium",
-                              )}
-                            >
-                              {formatDateTime(r.next_meeting.starts_at, "d MMM HH:mm zzz")}
-                            </span>
-                          ) : (
-                            <span className="text-subtle">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="px-4">
-                          {r.must_have_coverage_percent != null ? (
-                            <StatusBadge tone={STATUS_TONE[r.status] ?? "neutral"}>
-                              {Math.round(r.must_have_coverage_percent)}%
-                            </StatusBadge>
-                          ) : (
-                            <span className="text-subtle">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="px-4">
-                          {r.current_stage && (
-                            <div className="flex justify-end gap-1">
-                              <StageButton
-                                label={`Mark “${r.current_stage.name}” passed`}
-                                disabled={setStage.isPending}
-                                onClick={() =>
-                                  setStage.mutate({
-                                    stageId: r.current_stage!.id,
-                                    status: "passed",
-                                  })
-                                }
-                              >
-                                <Check />
-                              </StageButton>
-                              <StageButton
-                                label={`Mark “${r.current_stage.name}” failed`}
-                                disabled={setStage.isPending}
-                                onClick={() =>
-                                  setStage.mutate({
-                                    stageId: r.current_stage!.id,
-                                    status: "failed",
-                                  })
-                                }
-                              >
-                                <X />
-                              </StageButton>
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+        <PipelineTable
+          rows={rows}
+          pending={pending}
+          onOpen={setOpen}
+          onStatus={(row, status) => setStatus.mutate({ id: row.id, status })}
+          onStageStatus={(row, stage, status) =>
+            setStage.mutate({ row, stageId: stage.id, status })
+          }
+          onSchedule={(_, stage) => setDialog({ mode: "create", draft: { stageId: stage.id } })}
+          onEditMeeting={(row, stage, meeting) =>
+            setDialog({
+              mode: "edit",
+              meeting: { ...meeting, company_name: row.company_name, stage_name: stage.name },
+            })
+          }
+        />
       )}
-    </div>
-  );
-}
 
-function StageButton({
-  label,
-  children,
-  ...props
-}: React.ComponentProps<typeof Button> & { label: string }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="outline" size="icon-sm" aria-label={label} {...props}>
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
+      <ApplicationSheet
+        id={open?.id ?? null}
+        title={open?.company_name}
+        onClose={() => setOpen(null)}
+      />
+      <MeetingDialog state={dialog} onClose={() => setDialog(null)} />
+    </div>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { CalendarClock, ExternalLink } from "lucide-react";
-import Link from "next/link";
 
 import { StatusSelect } from "@/components/applications/status-select";
 import { StatusBadge } from "@/components/status-badge";
@@ -25,10 +24,12 @@ function minutesUntil(iso: string): number {
 export function ApplicationBoard({
   rows,
   onStatus,
+  onOpen,
   pending,
 }: {
   rows: ApplicationRow[];
   onStatus: (id: string, status: string) => void;
+  onOpen: (row: ApplicationRow) => void;
   pending: boolean;
 }) {
   return (
@@ -52,6 +53,7 @@ export function ApplicationBoard({
                     row={row}
                     pending={pending}
                     onStatus={(next) => onStatus(row.id, next)}
+                    onOpen={() => onOpen(row)}
                   />
                 ))}
                 {!items.length && (
@@ -71,10 +73,12 @@ export function ApplicationBoard({
 function BoardCard({
   row,
   onStatus,
+  onOpen,
   pending,
 }: {
   row: ApplicationRow;
   onStatus: (next: string) => void;
+  onOpen: () => void;
   pending: boolean;
 }) {
   const soon =
@@ -84,12 +88,12 @@ function BoardCard({
   return (
     <Card className="gap-0 p-4 transition-shadow duration-200 hover:shadow-md">
       <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{row.company_name}</p>
+        <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
+          <p className="truncate text-sm font-semibold hover:underline">{row.company_name}</p>
           <p className="text-muted-foreground truncate text-xs">{row.role_title}</p>
-        </div>
+        </button>
         {row.job_url && (
-          <Link
+          <a
             href={row.job_url}
             target="_blank"
             rel="noreferrer"
@@ -97,18 +101,18 @@ function BoardCard({
             className="text-subtle hover:text-foreground shrink-0 transition-colors"
           >
             <ExternalLink className="size-3.5" />
-          </Link>
+          </a>
         )}
       </div>
 
       <div className="mt-3 space-y-1.5">
         <div className="text-subtle flex items-center justify-between text-xs">
-          <span>{row.current_stage?.name ?? "No stage"}</span>
+          <span>{row.current_stage?.name ?? "No open step"}</span>
           <span className="tabular-nums">
             {row.stages_passed}/{row.stage_count}
           </span>
         </div>
-        <Progress value={progress} className="h-1" aria-label="Stages passed" />
+        <Progress value={progress} className="h-1" aria-label="Steps passed" />
       </div>
 
       {row.next_meeting && (
