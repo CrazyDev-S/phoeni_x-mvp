@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Carlito, Geist, Geist_Mono } from "next/font/google";
 
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
@@ -8,6 +8,15 @@ import { Providers } from "./providers";
 
 const sans = Geist({ subsets: ["latin"], variable: "--font-sans" });
 const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
+// Metric-compatible with Calibri, the .docx font, so the resume preview breaks
+// lines where Word does on machines without Calibri. Only the preview uses it.
+const carlito = Carlito({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-carlito",
+  preload: false,
+});
 
 export const metadata: Metadata = {
   title: "Resume Assist",
@@ -19,7 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // next-themes writes the class on <html> before paint, which React cannot
     // know about while hydrating - so the mismatch on this one element is
     // expected rather than a bug.
-    <html lang="en" suppressHydrationWarning className={cn(sans.variable, mono.variable)}>
+    <html lang="en" suppressHydrationWarning className={cn(sans.variable, mono.variable, carlito.variable)}>
       <body className="font-sans antialiased">
         <Providers>
           <AppShell>{children}</AppShell>

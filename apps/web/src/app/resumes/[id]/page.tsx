@@ -1,7 +1,12 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, FileDown, FileText, Save } from "lucide-react";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { Code, Download, Eye, FileDown, FileText, Save } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -9,6 +14,7 @@ import { ConfirmDelete } from "@/components/confirm-delete";
 import { ErrorAlert } from "@/components/error-alert";
 import { FindingsList, type Finding } from "@/components/findings";
 import { PageHero } from "@/components/page-hero";
+import { ResumePreview, type ResumePreviewData } from "@/components/resume-preview";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,6 +58,7 @@ export default function ResumeDetailPage() {
   const router = useRouter();
   const [draft, setDraft] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [view, setView] = useState<"preview" | "markdown">("preview");
 
   const { data, isLoading } = useQuery({
     queryKey: ["resume", id],
@@ -183,29 +190,47 @@ export default function ResumeDetailPage() {
           child (the JSON block) expands its column and crushes the other. */}
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <Card className="min-w-0 gap-0 overflow-hidden py-0">
-          <CardHeader className="flex flex-row items-center justify-between border-b py-3">
-            <CardTitle className="text-sm">Resume Markdown</CardTitle>
-            <span
-              className={cn(
-                "text-xs",
-                dirty ? "text-warning font-medium" : "text-muted-foreground",
-              )}
-            >
-              {dirty ? "Unsaved edits" : "In sync"}
-            </span>
-          </CardHeader>
-          <CardContent className="px-0">
-            {/* field-sizing-fixed defeats the shadcn default of growing to fit
-                content: a 600-line resume would otherwise make the page itself
-                scroll and leave the panel beside it stranded at the top. */}
-            <Textarea
-              aria-label="Resume Markdown"
-              spellCheck={false}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              className="field-sizing-fixed h-[70vh] resize-none rounded-none border-0 bg-transparent font-mono text-xs focus-visible:ring-0 dark:bg-transparent"
-            />
-          </CardContent>
+          <Tabs value={view} onValueChange={(v) => setView(v as "preview" | "markdown")} className="gap-0">
+            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
+              <TabsList>
+                <TabsTrigger value="preview" className="text-xs">
+                  <Eye />
+                  Preview
+                </TabsTrigger>
+                <TabsTrigger value="markdown" className="text-xs">
+                  <Code />
+                  Markdown
+                </TabsTrigger>
+              </TabsList>
+              <span
+                className={cn(
+                  "text-xs",
+                  dirty ? "text-warning font-medium" : "text-muted-foreground",
+                )}
+              >
+                {dirty ? "Unsaved edits" : "In sync"}
+              </span>
+            </CardHeader>
+
+            <TabsContent value="preview">
+              <PreviewPane markdown={draft} />
+            </TabsContent>
+
+            <TabsContent value="markdown">
+              <CardContent className="px-0">
+                {/* field-sizing-fixed defeats the shadcn default of growing to fit
+                    content: a 600-line resume would otherwise make the page itself
+                    scroll and leave the panel beside it stranded at the top. */}
+                <Textarea
+                  aria-label="Resume Markdown"
+                  spellCheck={false}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  className="field-sizing-fixed h-[70vh] resize-none rounded-none border-0 bg-transparent font-mono text-xs focus-visible:ring-0 dark:bg-transparent"
+                />
+              </CardContent>
+            </TabsContent>
+          </Tabs>
         </Card>
 
         <Card className="min-w-0 gap-0 self-start overflow-hidden py-0">
@@ -245,6 +270,90 @@ export default function ResumeDetailPage() {
             </TabsContent>
           </Tabs>
         </Card>
+      </div>
+    </div>
+  );
+}
+
+function useDebounced<T>(value: T, ms: number): T {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(value), ms);
+    return () => clearTimeout(timer);
+  }, [value, ms]);
+  return settled;
+}
+
+/**
+ * The document the Download buttons produce, drawn from the current draft -
+ * unsaved edits included - so there is no need to download to see a change.
+ */
+function PreviewPane({ markdown }: { markdown: string }) {
+  const [profile, setProfile] = useState<ResumePreviewData["profile"]>("designed");
+  const [pageCount, setPageCount] = useState<number | null>(null);
+  const source = useDebounced(markdown, 400);
+
+  const preview = useQuery({
+    queryKey: ["resume-preview", profile, source],
+    queryFn: () =>
+      request<ResumePreviewData>("/api/v1/export/preview", {
+        method: "POST",
+        body: JSON.stringify({ content_markdown: source, profile }),
+      }),
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+
+  // Mid-edit markdown often fails to parse; keep the last good render on
+  // screen rather than blanking the page on every keystroke.
+  const [lastGood, setLastGood] = useState<ResumePreviewData | null>(null);
+  useEffect(() => {
+    if (preview.data && !preview.isPlaceholderData) setLastGood(preview.data);
+  }, [preview.data, preview.isPlaceholderData]);
+  const shown = preview.data ?? lastGood;
+
+  const error = preview.error as { message?: string; detail?: Record<string, unknown> } | null;
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
+        <Tabs
+          value={profile}
+          onValueChange={(v) => setProfile(v as ResumePreviewData["profile"])}
+        >
+          <TabsList>
+            <TabsTrigger value="designed" className="text-xs">
+              Designed
+            </TabsTrigger>
+            <TabsTrigger value="ats_plain" className="text-xs">
+              ATS version
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <span className="text-muted-foreground text-xs tabular-nums">
+          {preview.isFetching || source !== markdown
+            ? "Updating…"
+            : pageCount !== null && `${pageCount} ${pageCount === 1 ? "page" : "pages"} · Letter`}
+        </span>
+      </div>
+
+      {error && !preview.isFetching && (
+        <div className="border-b px-3 py-2">
+          <ErrorAlert>
+            {error.detail?.line
+              ? `${error.message} (line ${error.detail.line} in ${error.detail.section})`
+              : (error.message ?? "Could not render the preview")}
+            {shown && " — showing the last version that rendered."}
+          </ErrorAlert>
+        </div>
+      )}
+
+      <div className="bg-muted/60 h-[70vh] overflow-y-auto p-4 sm:p-6">
+        {shown ? (
+          <ResumePreview data={shown} onPageCount={setPageCount} />
+        ) : (
+          !error && <Skeleton className="mx-auto aspect-[8.5/11] w-full max-w-[816px]" />
+        )}
       </div>
     </div>
   );

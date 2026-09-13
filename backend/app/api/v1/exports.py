@@ -11,9 +11,10 @@ from sqlalchemy import select
 
 from app.core.deps import CurrentUser, Session
 from app.export.docx_renderer import render_docx
+from app.export.preview import render_preview
 from app.export.profiles import ExportOptions, PageSize, RenderProfile
 from app.models.resume import BaseResume, TailoredResume
-from app.schemas.resume import ExportRequest
+from app.schemas.resume import ExportRequest, PreviewOut
 from app.services.resumes import parse_or_422
 
 router = APIRouter(prefix="/export", tags=["export"])
@@ -48,6 +49,32 @@ def content_disposition(stem: str) -> str:
     )
 
 
+async def _source(
+    body: ExportRequest, user: CurrentUser, session: Session
+) -> tuple[str, str]:
+    """The markdown to render and its default filename stem."""
+    if body.content_markdown:
+        return body.content_markdown, "Resume"
+    if body.resume_id:
+        model = BaseResume if body.kind == "base" else TailoredResume
+        row = await session.scalar(
+            select(model).where(model.id == body.resume_id, model.user_id == user.id)
+        )
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Resume not found"
+            )
+        return row.content_markdown, row.display_name
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail="Supply either resume_id or content_markdown",
+    )
+
+
+def _options(body: ExportRequest) -> ExportOptions:
+    return ExportOptions(profile=RenderProfile(body.profile), page=PageSize(body.page))
+
+
 @router.post(
     "/docx",
     responses={200: {"content": {DOCX_MIME: {}}, "description": "The .docx file"}},
@@ -60,33 +87,8 @@ async def export_docx(
     The extension's tailor-and-download flow uses the raw-markdown path: at
     that point nothing has been saved, by design.
     """
-    if body.content_markdown:
-        content_markdown = body.content_markdown
-        default_name = "Resume"
-    elif body.resume_id:
-        model = BaseResume if body.kind == "base" else TailoredResume
-        row = await session.scalar(
-            select(model).where(model.id == body.resume_id, model.user_id == user.id)
-        )
-        if row is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Resume not found"
-            )
-        content_markdown = row.content_markdown
-        default_name = row.display_name
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Supply either resume_id or content_markdown",
-        )
-
-    ast = parse_or_422(content_markdown)
-    data = render_docx(
-        ast,
-        ExportOptions(
-            profile=RenderProfile(body.profile), page=PageSize(body.page)
-        ),
-    )
+    content_markdown, default_name = await _source(body, user, session)
+    data = render_docx(parse_or_422(content_markdown), _options(body))
 
     stem = safe_filename(body.filename or default_name)
     if body.profile == "ats_plain":
@@ -99,3 +101,15 @@ async def export_docx(
             "Content-Length": str(len(data)),
         },
     )
+
+
+@router.post("/preview", response_model=PreviewOut)
+async def export_preview(
+    body: ExportRequest, user: CurrentUser, session: Session
+) -> PreviewOut:
+    """The same document as ``/docx``, as styled blocks the web app can draw.
+
+    Accepts unsaved markdown so the editor can preview edits before saving.
+    """
+    content_markdown, _ = await _source(body, user, session)
+    return render_preview(parse_or_422(content_markdown), _options(body))

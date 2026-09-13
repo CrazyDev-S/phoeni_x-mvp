@@ -78,6 +78,68 @@ class ExportRequest(BaseModel):
     filename: str | None = None
 
 
+class PreviewBorder(BaseModel):
+    color: str
+    width_pt: float
+    space_pt: float
+
+
+class PreviewStyle(BaseModel):
+    """One named carrier style, in the units Word itself uses."""
+
+    size_pt: float
+    bold: bool
+    italic: bool
+    all_caps: bool
+    color: str | None
+    space_before_pt: float
+    space_after_pt: float
+    line_spacing: float
+    justify: bool
+    left_indent_pt: float
+    first_line_indent_pt: float
+    keep_with_next: bool
+    border_bottom: PreviewBorder | None
+
+
+class PreviewLayout(BaseModel):
+    font: str
+    page_width_pt: float
+    page_height_pt: float
+    margin_top_pt: float
+    margin_right_pt: float
+    margin_bottom_pt: float
+    margin_left_pt: float
+    date_color: str
+    skills_label_pt: float
+    cell_right_margin_pt: float
+    table_rule_color: str
+    table_rule_pt: float
+
+
+class PreviewSkillRow(BaseModel):
+    label: str
+    value: str
+
+
+class PreviewBlock(BaseModel):
+    """One paragraph of the .docx, or the skills table."""
+
+    kind: str = Field(pattern="^(paragraph|role|bullet|skill_line|skills_table)$")
+    style: str
+    text: str = ""
+    right: str | None = None
+    label: str | None = None
+    rows: list[PreviewSkillRow] | None = None
+
+
+class PreviewOut(BaseModel):
+    profile: str
+    layout: PreviewLayout
+    styles: dict[str, PreviewStyle]
+    blocks: list[PreviewBlock]
+
+
 class TailoredResumeSummary(ORMModel):
     id: uuid.UUID
     display_name: str

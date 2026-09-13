@@ -49,7 +49,15 @@ class DocxRenderer:
         doc = build_carrier(self.spec)
         self.doc = doc
         self.section = doc.sections[0]
+        self._emit(resume)
 
+        buf = io.BytesIO()
+        doc.save(buf)
+        return buf.getvalue()
+
+    def _emit(self, resume: Resume) -> None:
+        """Section order and content. Shared with the web preview, which
+        overrides only the primitives below so it cannot drift from this."""
         self._header(resume)
         self._summary(resume)
         self._skills(resume)
@@ -58,10 +66,6 @@ class DocxRenderer:
         self._education(resume)
         self._certifications(resume)
         self._languages(resume)
-
-        buf = io.BytesIO()
-        doc.save(buf)
-        return buf.getvalue()
 
     # -- sections ----------------------------------------------------------
 
@@ -241,16 +245,19 @@ class DocxRenderer:
         limit = self.options.tighten.max_bullets_per_title
         items = bullets[:limit] if limit else bullets
         for i, text in enumerate(items):
-            p = self.doc.add_paragraph(style="ResumeBullet")
-            # A literal bullet lives in <w:t> and survives every extractor; an
-            # auto-numbered glyph is absent from the text stream entirely.
-            # The TAB (not a space) makes continuation lines align to the stop
-            # independent of the glyph's advance width.
-            p.add_run(f"•\t{text}")
-            if i == 0:
-                # Break the keep_with_next chain here so a long role block is
-                # not shoved wholesale onto the next page.
-                p.paragraph_format.keep_with_next = False
+            self._bullet(text, first=i == 0)
+
+    def _bullet(self, text: str, *, first: bool) -> None:
+        p = self.doc.add_paragraph(style="ResumeBullet")
+        # A literal bullet lives in <w:t> and survives every extractor; an
+        # auto-numbered glyph is absent from the text stream entirely.
+        # The TAB (not a space) makes continuation lines align to the stop
+        # independent of the glyph's advance width.
+        p.add_run(f"•\t{text}")
+        if first:
+            # Break the keep_with_next chain here so a long role block is
+            # not shoved wholesale onto the next page.
+            p.paragraph_format.keep_with_next = False
 
 
 def render_docx(resume: Resume, options: ExportOptions | None = None) -> bytes:
