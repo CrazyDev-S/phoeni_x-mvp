@@ -15,9 +15,12 @@ from app.core.timezone import utc_now
 from app.llm.catalog import ALL_MODELS, DEFAULT_TIERS
 from app.llm.factory import get_provider
 from app.models.enums import CredentialStatus, LLMProvider
+from app.models.profile import AutofillProfile
 from app.models.user import LLMCredential, UserSettings
 from app.schemas.settings import (
     ApiKeyIn,
+    AutofillProfileIn,
+    AutofillProfileOut,
     ConnectionTest,
     CredentialOut,
     ModelOut,
@@ -178,3 +181,39 @@ async def list_models() -> list[ModelOut]:
 @router.get("/defaults")
 async def model_defaults() -> dict:
     return {p.value: tiers for p, tiers in DEFAULT_TIERS.items()}
+
+
+@router.get("/autofill-profile", response_model=AutofillProfileOut)
+async def get_autofill_profile(user: CurrentUser, session: Session) -> AutofillProfileOut:
+    row = await session.get(AutofillProfile, user.id)
+    if row is None:
+        return AutofillProfileOut()
+    return AutofillProfileOut(
+        fields=row.fields or {}, extra_notes_markdown=row.extra_notes_markdown
+    )
+
+
+@router.put("/autofill-profile", response_model=AutofillProfileOut)
+async def put_autofill_profile(
+    body: AutofillProfileIn, user: CurrentUser, session: Session
+) -> AutofillProfileOut:
+    """Replace the stored answers.
+
+    A whole-document PUT rather than a patch: the editor owns the full set, and
+    a partial merge would make removing a key impossible.
+    """
+    cleaned = {
+        key.strip(): value.strip()
+        for key, value in body.fields.items()
+        if key.strip() and value.strip()
+    }
+
+    row = await session.get(AutofillProfile, user.id)
+    if row is None:
+        row = AutofillProfile(user_id=user.id, fields=cleaned)
+        session.add(row)
+    else:
+        row.fields = cleaned
+    row.extra_notes_markdown = body.extra_notes_markdown or None
+
+    return AutofillProfileOut(fields=cleaned, extra_notes_markdown=row.extra_notes_markdown)

@@ -36,7 +36,8 @@ export async function getSettings(): Promise<Settings> {
 
 export async function saveSettings(settings: Partial<Settings>): Promise<void> {
   const payload: Record<string, unknown> = {};
-  if (settings.apiBase !== undefined) payload[API_BASE_KEY] = settings.apiBase.replace(/\/$/, "");
+  if (settings.apiBase !== undefined)
+    payload[API_BASE_KEY] = settings.apiBase.replace(/\/$/, "");
   if (settings.token !== undefined) payload[TOKEN_KEY] = settings.token;
   if (settings.portalUrl !== undefined) {
     payload[PORTAL_URL_KEY] = settings.portalUrl.replace(/\/$/, "");
@@ -45,15 +46,16 @@ export async function saveSettings(settings: Partial<Settings>): Promise<void> {
 }
 
 export class ApiError extends Error {
-  constructor(readonly status: number, readonly code: string, message: string) {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    message: string,
+  ) {
     super(message);
   }
 }
 
-export async function api<T = unknown>(
-  path: string,
-  init: RequestInit = {},
-): Promise<T> {
+export async function api<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
   const { apiBase, token } = await getSettings();
   if (!token) throw new ApiError(401, "NO_TOKEN", "Add your access token in Settings.");
 
@@ -161,11 +163,15 @@ export async function waitForGeneration(
       }
     } else {
       // Fall back to polling the row if the events endpoint is unavailable.
-      const gen = await api<{ status: string; phase: string | null; progress_percent: number; error_detail: string | null }>(
-        `/api/v1/generations/${id}`,
-      );
+      const gen = await api<{
+        status: string;
+        phase: string | null;
+        progress_percent: number;
+        error_detail: string | null;
+      }>(`/api/v1/generations/${id}`);
       onPhase(gen.phase ?? "Working", gen.progress_percent);
-      if (gen.status === "failed") throw new ApiError(500, "FAILED", gen.error_detail ?? "Failed");
+      if (gen.status === "failed")
+        throw new ApiError(500, "FAILED", gen.error_detail ?? "Failed");
       if (gen.status === "succeeded" || gen.status === "needs_review") return {};
     }
     await new Promise((r) => setTimeout(r, 900));

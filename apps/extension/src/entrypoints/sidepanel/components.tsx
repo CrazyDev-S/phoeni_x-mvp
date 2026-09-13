@@ -1,15 +1,19 @@
-import { AlertCircle, Video } from "lucide-react";
+import { AlertCircle, CalendarClock, Video } from "lucide-react";
 import { useId, type ReactNode } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Progress as ProgressBar } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 export interface Upcoming {
-  meeting: { id: string; title: string; starts_at: string; conferencing_url: string | null };
+  meeting: {
+    id: string;
+    title: string;
+    starts_at: string;
+    conferencing_url: string | null;
+  };
   company_name: string | null;
   stage_name: string | null;
   starts_in_minutes: number;
@@ -53,34 +57,49 @@ export function NextCall({ upcoming }: { upcoming: Upcoming | null }) {
   return (
     <div
       className={cn(
-        "space-y-1.5 rounded-xl border p-2.5",
-        soon ? "border-foreground/20 bg-muted" : "bg-card",
+        "rounded-xl border p-3",
+        soon ? "border-primary/40 bg-accent" : "bg-card",
       )}
     >
       <div className="flex items-center gap-2">
-        <Badge variant={soon ? "default" : "secondary"} className="shrink-0">
-          Next call
-        </Badge>
-        <strong className="min-w-0 flex-1 truncate text-xs">{upcoming.meeting.title}</strong>
-        <span className="shrink-0 text-xs tabular-nums">
+        <span
+          className={cn(
+            "flex size-7 shrink-0 items-center justify-center rounded-lg",
+            soon ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+          )}
+        >
+          <CalendarClock className="size-3.5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-semibold">{upcoming.meeting.title}</p>
+          <p className="text-muted-foreground truncate text-[11px]">
+            {[upcoming.company_name, upcoming.stage_name].filter(Boolean).join(" · ") ||
+              "Next call"}
+          </p>
+        </div>
+        <span
+          className={cn(
+            "shrink-0 text-[11px] font-semibold tabular-nums",
+            soon ? "text-primary" : "text-muted-foreground",
+          )}
+        >
           {relative(upcoming.starts_in_minutes)}
         </span>
       </div>
 
-      <p className="text-muted-foreground text-[11px] leading-snug">
-        {[upcoming.company_name, upcoming.stage_name].filter(Boolean).join(" · ")}
-        {upcoming.company_name && " — "}
-        {formatDateTime(upcoming.meeting.starts_at)}
-      </p>
-
-      {upcoming.meeting.conferencing_url && (
-        <Button asChild size="xs" variant={soon ? "default" : "outline"} className="w-full">
-          <a href={upcoming.meeting.conferencing_url} target="_blank" rel="noreferrer">
-            <Video />
-            Join
-          </a>
-        </Button>
-      )}
+      <div className="mt-2.5 flex items-center gap-2">
+        <p className="text-subtle min-w-0 flex-1 truncate text-[10px] tabular-nums">
+          {formatDateTime(upcoming.meeting.starts_at)}
+        </p>
+        {upcoming.meeting.conferencing_url && (
+          <Button asChild size="xs" variant={soon ? "default" : "outline"}>
+            <a href={upcoming.meeting.conferencing_url} target="_blank" rel="noreferrer">
+              <Video />
+              Join
+            </a>
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

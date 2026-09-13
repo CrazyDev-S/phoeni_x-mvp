@@ -51,7 +51,8 @@ export function GenerateTab() {
 
   useEffect(() => {
     const id = setTimeout(
-      () => void chrome.storage.local.set({ [DRAFT_KEY]: { title, skills, notes, jd, useJd } }),
+      () =>
+        void chrome.storage.local.set({ [DRAFT_KEY]: { title, skills, notes, jd, useJd } }),
       400,
     );
     return () => clearTimeout(id);
@@ -62,7 +63,9 @@ export function GenerateTab() {
     setResultId(null);
     setPhase({ label: "Starting", percent: 2 });
     try {
-      const path = useJd ? "/api/v1/resumes/generate/job" : "/api/v1/resumes/generate/story";
+      const path = useJd
+        ? "/api/v1/resumes/generate/job"
+        : "/api/v1/resumes/generate/story";
       const accepted = await api<{ id: string }>(path, {
         method: "POST",
         body: JSON.stringify({
@@ -90,89 +93,95 @@ export function GenerateTab() {
   return (
     <div className="flex flex-col gap-3">
       <Section title="New resume">
-      <Card className="py-3">
-      <CardContent className="px-3">
-        <FieldGroup className="gap-3">
-          <PanelField label="Target title">
-            {(control) => (
-              <Input
-                {...control}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Senior Software Engineer – AI Fullstack"
-              />
-            )}
-          </PanelField>
+        <Card className="py-3">
+          <CardContent className="px-3">
+            <FieldGroup className="gap-3">
+              <PanelField label="Target title">
+                {(control) => (
+                  <Input
+                    {...control}
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Senior Software Engineer – AI Fullstack"
+                  />
+                )}
+              </PanelField>
 
-          <Field orientation="horizontal">
-            <Checkbox
-              id="use-jd"
-              checked={useJd}
-              onCheckedChange={(checked) => setUseJd(checked === true)}
-            />
-            <FieldLabel htmlFor="use-jd" className="text-xs font-normal">
-              Base it on a job description
-            </FieldLabel>
-          </Field>
-
-          {useJd ? (
-            <PanelField label="Job description">
-              {(control) => (
-                <Textarea
-                  {...control}
-                  rows={7}
-                  value={jd}
-                  onChange={(e) => setJd(e.target.value)}
+              <Field orientation="horizontal">
+                <Checkbox
+                  id="use-jd"
+                  checked={useJd}
+                  onCheckedChange={(checked) => setUseJd(checked === true)}
                 />
+                <FieldLabel htmlFor="use-jd" className="text-xs font-normal">
+                  Base it on a job description
+                </FieldLabel>
+              </Field>
+
+              {useJd ? (
+                <PanelField label="Job description">
+                  {(control) => (
+                    <Textarea
+                      {...control}
+                      rows={7}
+                      value={jd}
+                      onChange={(e) => setJd(e.target.value)}
+                    />
+                  )}
+                </PanelField>
+              ) : (
+                <PanelField label="How many technologies?">
+                  {(control) => (
+                    <Input
+                      {...control}
+                      type="number"
+                      min={4}
+                      max={40}
+                      value={skills}
+                      onChange={(e) => setSkills(e.target.value)}
+                    />
+                  )}
+                </PanelField>
               )}
-            </PanelField>
-          ) : (
-            <PanelField label="How many technologies?">
-              {(control) => (
-                <Input
-                  {...control}
-                  type="number"
-                  min={4}
-                  max={40}
-                  value={skills}
-                  onChange={(e) => setSkills(e.target.value)}
-                />
+
+              <PanelField label="Anything else?">
+                {(control) => (
+                  <Textarea
+                    {...control}
+                    rows={3}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                  />
+                )}
+              </PanelField>
+
+              <Button
+                className="h-10 w-full"
+                disabled={!title || running}
+                onClick={generate}
+              >
+                {running ? <Spinner /> : <Sparkles />}
+                {running ? phase?.label || "Working…" : "Generate"}
+              </Button>
+
+              {phase && <Progress label={phase.label} percent={phase.percent} />}
+              {error && <ErrorNote>{error}</ErrorNote>}
+
+              {resultId && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() =>
+                    downloadDocx({ resume_id: resultId, kind: "base" }, `${title}.docx`)
+                  }
+                >
+                  <Download />
+                  Download .docx
+                </Button>
               )}
-            </PanelField>
-          )}
-
-          <PanelField label="Anything else?">
-            {(control) => (
-              <Textarea
-                {...control}
-                rows={3}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
-            )}
-          </PanelField>
-
-          <Button className="h-10 w-full" disabled={!title || running} onClick={generate}>
-            {running ? <Spinner /> : <Sparkles />}
-            {running ? phase?.label || "Working…" : "Generate"}
-          </Button>
-
-          {phase && <Progress label={phase.label} percent={phase.percent} />}
-          {error && <ErrorNote>{error}</ErrorNote>}
-
-          {resultId && (
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => downloadDocx({ resume_id: resultId, kind: "base" }, `${title}.docx`)}
-            >
-              <Download />
-              Download .docx
-            </Button>
-          )}
-        </FieldGroup>
-      </CardContent>
-      </Card>
+            </FieldGroup>
+          </CardContent>
+        </Card>
       </Section>
 
       <p className="text-subtle px-1 text-[10px] leading-relaxed">

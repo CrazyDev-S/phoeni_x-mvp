@@ -58,3 +58,20 @@ class ModelOut(BaseModel):
     tier: str
     context_window: int
     max_output_tokens: int
+
+
+class AutofillProfileOut(BaseModel):
+    """The answers a resume cannot supply.
+
+    Without these the form filler has nothing to answer a phone number or a
+    notice period with, and the prompt correctly refuses to invent one - so
+    every such field comes back as "not present in your profile".
+    """
+
+    fields: dict[str, str] = Field(default_factory=dict)
+    extra_notes_markdown: str | None = None
+
+
+class AutofillProfileIn(BaseModel):
+    fields: dict[str, str] = Field(default_factory=dict, max_length=80)
+    extra_notes_markdown: str | None = Field(default=None, max_length=4000)

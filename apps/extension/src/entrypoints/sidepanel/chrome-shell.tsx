@@ -25,11 +25,19 @@ const LABEL: Record<Connection, string> = {
  * The colour alone would not carry it - the panel is 400px of browser chrome
  * a user glances at, and colour is the first thing a glance gets wrong.
  */
-export function StatusDot({ state, withLabel }: { state: Connection; withLabel?: boolean }) {
+export function StatusDot({
+  state,
+  withLabel,
+}: {
+  state: Connection;
+  withLabel?: boolean;
+}) {
   return (
     <span className="inline-flex items-center gap-1.5" title={LABEL[state]}>
       <span className={cn("size-1.5 shrink-0 rounded-full", DOT[state])} />
-      {withLabel && <span className="text-muted-foreground text-[11px]">{LABEL[state]}</span>}
+      {withLabel && (
+        <span className="text-muted-foreground text-[11px]">{LABEL[state]}</span>
+      )}
       {!withLabel && <span className="sr-only">{LABEL[state]}</span>}
     </span>
   );

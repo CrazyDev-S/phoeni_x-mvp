@@ -86,7 +86,12 @@ export function CalendarTab() {
           onChange={(e) => setDay(e.target.value)}
           className="h-8 flex-1 text-center"
         />
-        <Button variant="outline" size="icon-sm" aria-label="Next day" onClick={() => shift(1)}>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          aria-label="Next day"
+          onClick={() => shift(1)}
+        >
           <ChevronRight />
         </Button>
         <Button
@@ -129,8 +134,15 @@ export function CalendarTab() {
                 )}
 
                 <div className="flex items-center gap-1.5">
-                  <Select value={m.status} onValueChange={(value) => setStatus(m.id, value)}>
-                    <SelectTrigger size="sm" aria-label="Status" className="flex-1 capitalize">
+                  <Select
+                    value={m.status}
+                    onValueChange={(value) => setStatus(m.id, value)}
+                  >
+                    <SelectTrigger
+                      size="sm"
+                      aria-label="Status"
+                      className="flex-1 capitalize"
+                    >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

@@ -20,11 +20,13 @@ import {
   Sun,
   Trash2,
   User,
+  Wand2,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
+import { AutofillProfileCard } from "@/components/autofill-profile-card";
 import { ErrorAlert } from "@/components/error-alert";
 import { FormField } from "@/components/form-field";
 import { PageHero } from "@/components/page-hero";
@@ -144,7 +146,14 @@ const SETTINGS_TIPS = [
   "Revoke an extension token the moment a device is out of your hands.",
 ];
 
-const SECTIONS = ["profile", "models", "generation", "extension", "appearance"] as const;
+const SECTIONS = [
+  "profile",
+  "models",
+  "generation",
+  "autofill",
+  "extension",
+  "appearance",
+] as const;
 type Section = (typeof SECTIONS)[number];
 
 export default function SettingsPage() {
@@ -238,6 +247,10 @@ function SettingsSections() {
                 <Sparkles className="size-4" />
                 <span className="sr-only sm:not-sr-only">Generation</span>
               </TabsTrigger>
+              <TabsTrigger value="autofill" className="gap-1.5" title="Autofill">
+                <Wand2 className="size-4" />
+                <span className="sr-only sm:not-sr-only">Autofill</span>
+              </TabsTrigger>
               <TabsTrigger value="extension" className="gap-1.5" title="Extension">
                 <Puzzle className="size-4" />
                 <span className="sr-only sm:not-sr-only">Extension</span>
@@ -304,6 +317,10 @@ function SettingsSections() {
                   ))}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="autofill">
+              <AutofillProfileCard />
             </TabsContent>
 
             <TabsContent value="extension">

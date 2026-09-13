@@ -70,7 +70,9 @@ export function App() {
     void check().finally(() => setReady(true));
     void chrome.storage.local
       .get(NEXT_CALL_KEY)
-      .then((s) => setNext(((s as Record<string, Upcoming | undefined>)[NEXT_CALL_KEY]) ?? null));
+      .then((s) =>
+        setNext((s as Record<string, Upcoming | undefined>)[NEXT_CALL_KEY] ?? null),
+      );
 
     // The service worker writes the next call here on its alarm. storage
     // events are idempotent and survive the panel being closed, which
@@ -96,7 +98,11 @@ export function App() {
 
   return (
     <div className="bg-background flex min-h-svh flex-col">
-      <PanelHeader state={connection} portalUrl={portalUrl} onRefresh={() => void check()} />
+      <PanelHeader
+        state={connection}
+        portalUrl={portalUrl}
+        onRefresh={() => void check()}
+      />
 
       <Tabs
         value={route}

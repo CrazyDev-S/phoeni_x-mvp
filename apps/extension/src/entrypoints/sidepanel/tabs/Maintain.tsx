@@ -1,4 +1,4 @@
-import { ChevronDown } from "lucide-react";
+import { Briefcase, ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { EmptyNote, Section } from "../chrome-shell";
 import { ErrorNote } from "../components";
 
 interface Job {
@@ -70,71 +71,74 @@ export function MaintainTab() {
 
   if (!jobs.length) {
     return (
-      <Card className="py-3">
-        <CardContent className="text-muted-foreground px-3 text-center text-xs text-balance">
-          No maintained jobs yet. Promote an application once you have signed.
-        </CardContent>
-      </Card>
+      <EmptyNote icon={Briefcase}>
+        No maintained jobs yet. Promote an application once you have signed.
+      </EmptyNote>
     );
   }
 
   return (
-    <>
-      {jobs.map((job) => (
-        <Card key={job.id} className="py-0">
-          <Collapsible open={open === job.id} onOpenChange={() => void toggle(job.id)}>
-            <CollapsibleTrigger className="hover:bg-muted/50 flex w-full items-start gap-2 rounded-xl p-3 text-left transition-colors">
-              <div className="min-w-0 flex-1">
-                <strong className="block truncate text-xs">{job.employer_name}</strong>
-                <p className="text-muted-foreground mt-0.5 text-[11px]">
-                  {job.role_title} · since {job.start_date}
-                </p>
-              </div>
-              <Badge
-                variant="secondary"
-                className={cn("shrink-0", job.status === "active" && "bg-success/10 text-success")}
-              >
-                {job.status}
-              </Badge>
-              <ChevronDown
-                className={cn(
-                  "text-muted-foreground mt-0.5 size-3.5 shrink-0 transition-transform",
-                  open === job.id && "rotate-180",
-                )}
-              />
-            </CollapsibleTrigger>
-
-            <CollapsibleContent>
-              <div className="space-y-2 border-t p-3">
-                <p className="text-muted-foreground text-[11px] font-medium">
-                  Recurring meetings
-                </p>
-                <ul className="divide-y">
-                  {series.length === 0 && (
-                    <li className="text-muted-foreground py-1 text-[11px]">None yet.</li>
+    <Section title={`${jobs.length} job${jobs.length === 1 ? "" : "s"}`}>
+      <div className="space-y-2">
+        {jobs.map((job) => (
+          <Card key={job.id} className="py-0">
+            <Collapsible open={open === job.id} onOpenChange={() => void toggle(job.id)}>
+              <CollapsibleTrigger className="hover:bg-muted/50 flex w-full items-start gap-2 rounded-xl p-3 text-left transition-colors">
+                <div className="min-w-0 flex-1">
+                  <strong className="block truncate text-xs">{job.employer_name}</strong>
+                  <p className="text-muted-foreground mt-0.5 text-[11px]">
+                    {job.role_title} · since {job.start_date}
+                  </p>
+                </div>
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    "shrink-0",
+                    job.status === "active" && "bg-success/10 text-success",
                   )}
-                  {series.map((s) => (
-                    <li key={s.id} className="flex items-center gap-2 py-1 text-[11px]">
-                      <span className="min-w-0 flex-1 truncate">{s.title}</span>
-                      <span className="text-muted-foreground shrink-0 tabular-nums">
-                        {s.start_time_local}
-                      </span>
-                      {!s.is_active && <Badge variant="secondary">paused</Badge>}
-                    </li>
-                  ))}
-                </ul>
-                <Textarea
-                  rows={3}
-                  aria-label={`Notes for ${job.employer_name}`}
-                  placeholder="Notes for this job…"
-                  defaultValue={job.notes_markdown ?? ""}
-                  onBlur={(e) => saveNotes(job.id, e.target.value)}
+                >
+                  {job.status}
+                </Badge>
+                <ChevronDown
+                  className={cn(
+                    "text-muted-foreground mt-0.5 size-3.5 shrink-0 transition-transform",
+                    open === job.id && "rotate-180",
+                  )}
                 />
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        </Card>
-      ))}
-    </>
+              </CollapsibleTrigger>
+
+              <CollapsibleContent>
+                <div className="space-y-2 border-t p-3">
+                  <p className="text-muted-foreground text-[11px] font-medium">
+                    Recurring meetings
+                  </p>
+                  <ul className="divide-y">
+                    {series.length === 0 && (
+                      <li className="text-muted-foreground py-1 text-[11px]">None yet.</li>
+                    )}
+                    {series.map((s) => (
+                      <li key={s.id} className="flex items-center gap-2 py-1 text-[11px]">
+                        <span className="min-w-0 flex-1 truncate">{s.title}</span>
+                        <span className="text-muted-foreground shrink-0 tabular-nums">
+                          {s.start_time_local}
+                        </span>
+                        {!s.is_active && <Badge variant="secondary">paused</Badge>}
+                      </li>
+                    ))}
+                  </ul>
+                  <Textarea
+                    rows={3}
+                    aria-label={`Notes for ${job.employer_name}`}
+                    placeholder="Notes for this job…"
+                    defaultValue={job.notes_markdown ?? ""}
+                    onBlur={(e) => saveNotes(job.id, e.target.value)}
+                  />
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </Card>
+        ))}
+      </div>
+    </Section>
   );
 }

@@ -48,6 +48,8 @@ interface Answer {
   needs_user_input: boolean;
   reason: string;
   matched_fuzzily: boolean;
+  /** Attached by the panel from the scan; the API only knows the field id. */
+  label?: string;
 }
 
 export function ApplyTab({ portalUrl }: { portalUrl: string }) {
@@ -149,7 +151,8 @@ export function ApplyTab({ portalUrl }: { portalUrl: string }) {
 
         // A resume with a banned placeholder must never reach a real
         // application in one click - push the user into the editor instead.
-        const findings = (done.findings as Array<{ rule_id: string; severity: string }>) ?? [];
+        const findings =
+          (done.findings as Array<{ rule_id: string; severity: string }>) ?? [];
         const blocking = findings.filter(
           (f) =>
             f.severity === "error" &&
@@ -170,7 +173,10 @@ export function ApplyTab({ portalUrl }: { portalUrl: string }) {
 
       setPhase({ label: "Downloading", percent: 96 });
       const name = `${job.company ?? "Resume"} - ${job.title ?? "Application"}.docx`;
-      await downloadDocx({ resume_id: resultId, kind: "tailored", profile: "designed" }, name);
+      await downloadDocx(
+        { resume_id: resultId, kind: "tailored", profile: "designed" },
+        name,
+      );
 
       setTailored({ id: resultId, job });
       setPhase({ label: "Downloaded to your Downloads folder", percent: 100 });
@@ -229,8 +235,12 @@ export function ApplyTab({ portalUrl }: { portalUrl: string }) {
 
       setFillState({
         results,
+        // The API answers by field id and knows nothing about labels, so the
+        // human-readable name has to be reattached here - otherwise the panel
+        // lists raw ids like "f0:3" and the list is unusable.
         unanswered: response.unanswered.map((u) => ({
           ...u,
+          label: labels.get(u.id) ?? "",
           reason: u.reason || "Needs you",
         })),
         unreachable: unreachableFrames,
@@ -269,6 +279,11 @@ export function ApplyTab({ portalUrl }: { portalUrl: string }) {
     ...(fillState?.results.filter((r) => r.status !== "filled") ?? []),
     ...(fillState?.unanswered ?? []),
   ];
+  // File inputs and sensitive questions are deferred by design; only the rest
+  // are things a stored profile could have answered.
+  const profileGaps = (fillState?.unanswered ?? []).filter((u) =>
+    /not present|profile|missing/i.test(u.reason ?? ""),
+  ).length;
 
   return (
     <>
@@ -357,7 +372,12 @@ export function ApplyTab({ portalUrl }: { portalUrl: string }) {
               >
                 {saved ? "Tracked" : "Save & track"}
               </Button>
-              <Button size="icon" variant="ghost" asChild aria-label="Open in the web portal">
+              <Button
+                size="icon"
+                variant="ghost"
+                asChild
+                aria-label="Open in the web portal"
+              >
                 <a href={`${portalUrl}/applications`} target="_blank" rel="noreferrer">
                   <ExternalLink />
                 </a>
@@ -401,6 +421,26 @@ export function ApplyTab({ portalUrl }: { portalUrl: string }) {
               </EmptyNote>
             )}
 
+            {profileGaps > 0 && (
+              <div className="border-warning/40 bg-warning/10 space-y-2 rounded-lg border p-2.5">
+                <p className="text-warning text-[11px] leading-relaxed">
+                  {profileGaps} field{profileGaps === 1 ? "" : "s"} had no stored answer.
+                  The filler is not allowed to invent a phone number or a notice period —
+                  add them once and they apply to every form.
+                </p>
+                <Button asChild size="xs" variant="outline" className="w-full">
+                  <a
+                    href={`${portalUrl}/settings?tab=autofill`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <ExternalLink />
+                    Complete your autofill profile
+                  </a>
+                </Button>
+              </div>
+            )}
+
             {needsYou.length > 0 && (
               <>
                 <p className="text-muted-foreground flex items-center gap-1.5 text-[11px]">
@@ -410,7 +450,9 @@ export function ApplyTab({ portalUrl }: { portalUrl: string }) {
                 <ul className="divide-y">
                   {needsYou.map((item, i) => {
                     const answer =
-                      "answer" in item ? String(item.answer ?? "") : String(item.intended ?? "");
+                      "answer" in item
+                        ? String(item.answer ?? "")
+                        : String(item.intended ?? "");
                     const label = "label" in item ? item.label : "";
                     const reverted = "status" in item && item.status === "reverted";
                     return (
