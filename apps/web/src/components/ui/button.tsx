@@ -9,6 +9,13 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        // The lead action on a screen, in the brand gradient. One per screen.
+        // Painted under the transparent border too: the base clips to the
+        // padding box, which leaves a hairline of page showing round a
+        // gradient. Origin moves with the clip, or the gradient tiles a sliver
+        // of its far end into the border.
+        brand:
+          "bg-gradient-brand-strong bg-clip-border bg-origin-border text-primary-foreground shadow-sm shadow-primary/25 hover:shadow-md hover:shadow-primary/30 hover:brightness-110",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:

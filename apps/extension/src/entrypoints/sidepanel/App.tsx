@@ -118,7 +118,9 @@ export function App() {
               key={key}
               value={key}
               title={label}
-              className="h-auto! flex-col gap-1 rounded-none px-1 py-2 text-[10px] font-medium data-active:text-primary"
+              // The underline takes the primary too, so the active tab is one
+              // colour rather than orange text over a black rule.
+              className="h-auto! flex-col gap-1 rounded-none px-1 py-2 text-[10px] font-medium after:bg-primary! data-active:text-primary"
             >
               <Icon className="size-4" />
               {label}
@@ -176,7 +178,7 @@ function Connect({ onOpenSettings }: { onOpenSettings: () => void }) {
       <div className="space-y-1">
         <p className="text-sm font-semibold">Connect the panel</p>
         <p className="text-muted-foreground text-xs leading-relaxed text-balance">
-          Point it at your Resume Assist backend and paste an access token to get started.
+          Point it at your Phoenix Eye backend and paste an access token to get started.
         </p>
       </div>
       <Button className="w-full" onClick={onOpenSettings}>

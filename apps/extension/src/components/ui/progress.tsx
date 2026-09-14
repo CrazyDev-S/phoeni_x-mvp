@@ -18,10 +18,12 @@ function Progress({
       )}
       {...props}
     >
+      {/* Sized by width rather than slid by transform, so the whole gradient
+          always shows across the filled part instead of only its tail. */}
       <ProgressPrimitive.Indicator
         data-slot="progress-indicator"
-        className="size-full flex-1 bg-primary transition-all"
-        style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
+        className="h-full bg-gradient-brand transition-all"
+        style={{ width: `${value || 0}%` }}
       />
     </ProgressPrimitive.Root>
   )

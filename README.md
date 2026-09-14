@@ -1,4 +1,4 @@
-# Resume Tailoring Platform
+# Phoenix Eye
 
 Three surfaces over one backend: a **Next.js portal**, a **FastAPI + PostgreSQL**
 backend, and a **Chrome MV3 side-panel extension** that tailors a resume against
@@ -92,6 +92,13 @@ npm run build:ext              # then load apps/extension/.output/chrome-mv3
 
 API docs at <http://localhost:8000/docs>; the OpenAPI document both frontends
 generate their types from is at `/openapi.json`.
+
+### Branding
+
+`branding/avatar.png` is the mark shown beside the wordmark; `branding/icon.png`
+is the favicon and the extension's toolbar icon. After replacing either, run
+`npm run brand` and commit what it writes — it lifts the white background,
+crops to a square, and emits every size the portal and extension use.
 
 ### Connecting the extension
 

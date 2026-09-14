@@ -7,12 +7,14 @@ export default defineConfig({
   // Vite config through this hook.
   vite: () => ({ plugins: [tailwindcss()] }),
   // Without this the archive is named after the package ("resume-assistextension").
-  zip: { name: "resume-assist" },
+  zip: { name: "phoenix-eye" },
   // Conventional layout: entrypoints live under srcDir, and WXT's default
   // "@" alias resolves to srcDir, so "@/lib/..." just works.
   srcDir: "src",
+  // No "icons" key: WXT picks up public/icon/<size>.png, which `npm run brand`
+  // writes.
   manifest: {
-    name: "Resume Assist",
+    name: "Phoenix Eye",
     description:
       "Tailor your resume to the job you have open, fill the application, and track it.",
     version: "0.1.0",
@@ -20,7 +22,7 @@ export default defineConfig({
     minimum_chrome_version: "116",
 
     // NOTE: deliberately NO "default_popup" - a popup wins over the side panel.
-    action: { default_title: "Open Resume Assist" },
+    action: { default_title: "Open Phoenix Eye" },
     side_panel: { default_path: "sidepanel.html" },
 
     permissions: [
@@ -45,7 +47,7 @@ export default defineConfig({
     commands: {
       _execute_action: {
         suggested_key: { default: "Alt+Shift+J" },
-        description: "Open Resume Assist",
+        description: "Open Phoenix Eye",
       },
     },
   },

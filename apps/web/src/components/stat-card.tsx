@@ -28,17 +28,25 @@ export function StatCard({
   }[tone];
 
   return (
-    <Card className="gap-0 p-5 transition-shadow duration-200 hover:shadow-sm">
-      <div className="flex items-start justify-between gap-3">
+    // Tighter below sm, where the cards sit two to a row on a phone.
+    <Card className="gap-0 p-4 transition-shadow duration-200 hover:shadow-sm sm:p-5">
+      <div className="flex items-start justify-between gap-2 sm:gap-3">
         <p className="text-muted-foreground text-sm font-medium">{label}</p>
-        <span className={cn("flex size-9 items-center justify-center rounded-lg", tones)}>
-          <Icon className="size-4.5" />
+        <span
+          className={cn(
+            "flex size-8 shrink-0 items-center justify-center rounded-lg sm:size-9",
+            tones,
+          )}
+        >
+          <Icon className="size-4 sm:size-4.5" />
         </span>
       </div>
       {loading ? (
         <Skeleton className="mt-3 h-9 w-20" />
       ) : (
-        <p className="mt-2 text-3xl font-semibold tracking-tight tabular-nums">{value}</p>
+        <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">
+          {value}
+        </p>
       )}
       {hint && <p className="text-subtle mt-1 text-xs">{hint}</p>}
     </Card>

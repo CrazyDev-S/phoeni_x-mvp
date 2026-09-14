@@ -96,8 +96,6 @@ export default function MaintenancePage() {
 
   return (
     <div className="space-y-8">
-      <NextCallBanner />
-
       <PageHero
         eyebrow="After the offer"
         eyebrowIcon={Wrench}
@@ -110,6 +108,8 @@ export default function MaintenancePage() {
           </Button>
         }
       />
+
+      <NextCallBanner />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <div className="min-w-0 space-y-6">

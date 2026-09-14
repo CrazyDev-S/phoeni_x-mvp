@@ -57,7 +57,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { initialsOf, nameOf, useMe } from "@/hooks/use-me";
+import { usePalette } from "@/hooks/use-palette";
 import { request, tokens as authTokens } from "@/lib/api";
+import { PALETTES } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
 interface Credential {
@@ -603,8 +605,19 @@ const THEMES = [
   { value: "system", label: "System", Icon: Monitor },
 ] as const;
 
+/** One tile in an Appearance radio group; mode and palette tiles look alike. */
+function choiceClass(active: boolean) {
+  return cn(
+    "focus-visible:ring-ring flex flex-col items-center gap-2 rounded-xl border p-4 transition-all duration-150 focus-visible:ring-3 focus-visible:outline-none",
+    active
+      ? "border-primary bg-accent text-accent-foreground"
+      : "hover:bg-muted text-muted-foreground",
+  );
+}
+
 function AppearanceCard() {
   const { theme, setTheme } = useTheme();
+  const { palette, setPalette } = usePalette();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -614,33 +627,69 @@ function AppearanceCard() {
         <CardTitle>Appearance</CardTitle>
         <CardDescription>How the app looks on this device.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div
-          role="radiogroup"
-          aria-label="Theme"
-          className="grid max-w-md grid-cols-3 gap-3"
-        >
-          {THEMES.map(({ value, label, Icon }) => {
-            const active = mounted && theme === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => setTheme(value)}
-                className={cn(
-                  "focus-visible:ring-ring flex flex-col items-center gap-2 rounded-xl border p-4 transition-all duration-150 focus-visible:ring-3 focus-visible:outline-none",
-                  active
-                    ? "border-primary bg-accent text-accent-foreground"
-                    : "hover:bg-muted text-muted-foreground",
-                )}
-              >
-                <Icon className="size-5" />
-                <span className="text-sm font-medium">{label}</span>
-              </button>
-            );
-          })}
+      <CardContent className="space-y-6">
+        <div className="space-y-2">
+          <p id="appearance-mode" className="text-sm font-medium">
+            Mode
+          </p>
+          <div
+            role="radiogroup"
+            aria-labelledby="appearance-mode"
+            className="grid max-w-md grid-cols-3 gap-3"
+          >
+            {THEMES.map(({ value, label, Icon }) => {
+              const active = mounted && theme === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setTheme(value)}
+                  className={choiceClass(active)}
+                >
+                  <Icon className="size-5" />
+                  <span className="text-sm font-medium">{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p id="appearance-palette" className="text-sm font-medium">
+            Palette
+          </p>
+          <div
+            role="radiogroup"
+            aria-labelledby="appearance-palette"
+            className="grid max-w-md grid-cols-2 gap-3"
+          >
+            {PALETTES.map(({ value, label, swatches }) => {
+              const active = mounted && palette === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setPalette(value)}
+                  className={choiceClass(active)}
+                >
+                  <span className="flex -space-x-1.5" aria-hidden>
+                    {swatches.map((color) => (
+                      <span
+                        key={color}
+                        className="border-card size-5 rounded-full border-2"
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </span>
+                  <span className="text-sm font-medium">{label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </CardContent>
     </Card>

@@ -32,14 +32,17 @@ export function StepsBand({
 
         <ol className="relative grid gap-6 @xl:grid-cols-3">
           {/* The connecting rule sits behind the numbers and only exists where
-              the steps actually sit side by side. */}
+              the steps actually sit side by side. It runs centre to centre:
+              each 2rem number sits at the start of its column, so the rule
+              starts 1rem in and stops 1rem into the last of three columns
+              (two 1.5rem gaps between them). */}
           <span
             aria-hidden
-            className="bg-border absolute top-4 right-[16%] left-[16%] hidden h-px @xl:block"
+            className="bg-gradient-brand absolute top-4 right-[calc((100%_-_3rem)/3_-_1rem)] left-4 hidden h-px opacity-50 @xl:block"
           />
           {steps.map((step, index) => (
             <li key={step.title} className="relative space-y-1.5">
-              <span className="bg-primary text-primary-foreground relative flex size-8 items-center justify-center rounded-full text-xs font-semibold tabular-nums">
+              <span className="bg-gradient-brand-strong text-primary-foreground relative flex size-8 items-center justify-center rounded-full text-xs font-semibold tabular-nums shadow-sm">
                 {String(index + 1).padStart(2, "0")}
               </span>
               <p className="pt-1 text-sm font-medium">{step.title}</p>

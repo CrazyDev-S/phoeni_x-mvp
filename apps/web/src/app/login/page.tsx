@@ -59,8 +59,15 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="bg-background flex min-h-svh flex-col items-center justify-center px-4 py-12">
-      <div className="page-enter w-full max-w-md space-y-6">
+    <div className="bg-background relative flex min-h-svh flex-col items-center justify-center overflow-hidden px-4 py-12">
+      {/* A low ember glow behind the card: the one flourish on the way in. */}
+      {/* Faded out by a radial mask rather than blurred: a blurred disc still
+          shows its rim as a faint ring. */}
+      <div
+        aria-hidden
+        className="bg-gradient-brand pointer-events-none absolute top-1/2 left-1/2 size-[44rem] -translate-x-1/2 -translate-y-1/2 opacity-20 [mask-image:radial-gradient(closest-side,black,transparent)] dark:opacity-25"
+      />
+      <div className="page-enter relative w-full max-w-md space-y-6">
         <div className="flex flex-col items-center gap-3 text-center">
           <Brand size="lg" />
           <p className="text-muted-foreground max-w-sm text-sm text-balance">
@@ -123,6 +130,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               form="auth"
+              variant="brand"
               size="lg"
               className="h-11 w-full"
               disabled={busy}

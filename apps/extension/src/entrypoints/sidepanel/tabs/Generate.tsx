@@ -156,6 +156,7 @@ export function GenerateTab() {
               </PanelField>
 
               <Button
+                variant="brand"
                 className="h-10 w-full"
                 disabled={!title || running}
                 onClick={generate}

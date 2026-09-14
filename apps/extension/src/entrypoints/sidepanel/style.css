@@ -57,94 +57,114 @@
   --radius-4xl: calc(var(--radius) * 2.333);
 }
 
+/* The portal's default Phoenix palette. The panel has no Appearance settings,
+   so it carries only this one - the values match apps/web globals.css. */
 :root {
   --radius: 0.75rem;
 
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #fafaf9;
+  --foreground: #1c1917;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #1c1917;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
+  --popover-foreground: #1c1917;
 
-  --primary: #2563eb;
+  /* The logo's orange, deepened until white text on it clears 4.5:1. */
+  --primary: #cf430c;
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #475569;
+  --secondary: #f5f5f4;
+  --secondary-foreground: #1c1917;
+  --muted: #f5f5f4;
+  --muted-foreground: #57534e;
   /* Third text rank, below muted: timestamps, counters, units. */
-  --subtle: #94a3b8;
-  --accent: #eff6ff;
-  --accent-foreground: #1d4ed8;
+  --subtle: #a8a29e;
+  --accent: #fff7ed;
+  --accent-foreground: #c2410c;
 
   --destructive: #ef4444;
   --success: #10b981;
   --warning: #f59e0b;
   --info: #3b82f6;
 
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #2563eb;
+  --border: #e7e5e4;
+  --input: #e7e5e4;
+  --ring: #cf430c;
 
-  --chart-1: #2563eb;
-  --chart-2: #4f46e5;
-  --chart-3: #3b82f6;
+  --chart-1: #ea580c;
+  --chart-2: #dc2626;
+  --chart-3: #f59e0b;
   --chart-4: #10b981;
-  --chart-5: #f59e0b;
+  --chart-5: #3b82f6;
 
   --sidebar: #ffffff;
-  --sidebar-foreground: #0f172a;
-  --sidebar-primary: #2563eb;
+  --sidebar-foreground: #1c1917;
+  --sidebar-primary: #cf430c;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eff6ff;
-  --sidebar-accent-foreground: #1d4ed8;
-  --sidebar-border: #e2e8f0;
-  --sidebar-ring: #2563eb;
+  --sidebar-accent: #fff7ed;
+  --sidebar-accent-foreground: #c2410c;
+  --sidebar-border: #e7e5e4;
+  --sidebar-ring: #cf430c;
+
+  /* Brand gradient stops. brand is decorative only; strong carries
+     --primary-foreground at 4.5:1 or better at every stop. */
+  --gradient-brand: #f6a228, #f4562c, #d32127;
+  --gradient-brand-strong: #cf430c, #c52a1a, #b91c1c;
 }
 
 .dark {
-  --background: #0b1120;
-  --foreground: #e2e8f0;
-  --card: #0f172a;
-  --card-foreground: #e2e8f0;
-  --popover: #0f172a;
-  --popover-foreground: #e2e8f0;
+  --background: #0c0a09;
+  --foreground: #e7e5e4;
+  --card: #1c1917;
+  --card-foreground: #e7e5e4;
+  --popover: #1c1917;
+  --popover-foreground: #e7e5e4;
 
-  /* Lifted one step: #2563EB on a near-black ground reads muddy. */
-  --primary: #3b82f6;
-  --primary-foreground: #ffffff;
-  --secondary: #1e293b;
-  --secondary-foreground: #e2e8f0;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --subtle: #64748b;
-  --accent: #172554;
-  --accent-foreground: #93c5fd;
+  /* Bright enough to glow on near-black - too bright for white text, so the
+     text on it goes dark instead. */
+  --primary: #f97316;
+  --primary-foreground: #0c0a09;
+  --secondary: #292524;
+  --secondary-foreground: #e7e5e4;
+  --muted: #292524;
+  --muted-foreground: #a8a29e;
+  --subtle: #78716c;
+  --accent: #431407;
+  --accent-foreground: #fdba74;
 
   --destructive: #f87171;
   --success: #34d399;
   --warning: #fbbf24;
   --info: #60a5fa;
 
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #3b82f6;
+  --border: #292524;
+  --input: #292524;
+  --ring: #f97316;
 
-  --chart-1: #60a5fa;
-  --chart-2: #818cf8;
-  --chart-3: #38bdf8;
+  --chart-1: #fb923c;
+  --chart-2: #f87171;
+  --chart-3: #fbbf24;
   --chart-4: #34d399;
-  --chart-5: #fbbf24;
+  --chart-5: #60a5fa;
 
-  --sidebar: #0f172a;
-  --sidebar-foreground: #e2e8f0;
-  --sidebar-primary: #3b82f6;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #172554;
-  --sidebar-accent-foreground: #93c5fd;
-  --sidebar-border: #1e293b;
-  --sidebar-ring: #3b82f6;
+  --sidebar: #1c1917;
+  --sidebar-foreground: #e7e5e4;
+  --sidebar-primary: #f97316;
+  --sidebar-primary-foreground: #0c0a09;
+  --sidebar-accent: #431407;
+  --sidebar-accent-foreground: #fdba74;
+  --sidebar-border: #292524;
+  --sidebar-ring: #f97316;
+
+  /* Dark text rides on these, so they can run through the logo's gold. */
+  --gradient-brand-strong: #fbbf24, #f97316, #ef4444;
+}
+
+@utility bg-gradient-brand {
+  background-image: linear-gradient(90deg, var(--gradient-brand));
+}
+
+@utility bg-gradient-brand-strong {
+  background-image: linear-gradient(90deg, var(--gradient-brand-strong));
 }
 
 @layer base {

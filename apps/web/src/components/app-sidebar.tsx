@@ -58,8 +58,14 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="offcanvas">
-      <SidebarHeader className="h-16 justify-center px-4">
-        <Link href="/" onClick={() => setOpenMobile(false)}>
+      {/* Natural height rather than the top bar's h-16: the mark is 48px and
+          needs air above it, not to be pinned flush against the edge. */}
+      <SidebarHeader className="px-4 pt-5 pb-3">
+        <Link
+          href="/"
+          onClick={() => setOpenMobile(false)}
+          className="focus-visible:ring-ring flex w-fit rounded-lg focus-visible:ring-3 focus-visible:outline-none"
+        >
           <Brand />
         </Link>
       </SidebarHeader>
@@ -176,7 +182,8 @@ function DownloadExtension() {
 function PromoCard() {
   const { setOpenMobile } = useSidebar();
   return (
-    <div className="bg-accent text-accent-foreground rounded-xl p-4">
+    <div className="bg-accent text-accent-foreground relative overflow-hidden rounded-xl p-4">
+      <span aria-hidden className="bg-gradient-brand absolute inset-x-0 top-0 h-1" />
       <Sparkles className="size-4.5" />
       <p className="text-foreground mt-2.5 text-sm font-semibold">Get better results</p>
       <p className="text-muted-foreground mt-1 text-xs leading-relaxed">

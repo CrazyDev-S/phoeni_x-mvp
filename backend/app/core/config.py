@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     )
 
     app_env: str = "development"
-    app_name: str = "Resume Tailoring Platform"
+    app_name: str = "Phoenix Eye"
 
     # Secrets
     app_secret_key: str = Field(min_length=32)

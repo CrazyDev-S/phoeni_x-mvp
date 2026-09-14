@@ -44,7 +44,7 @@ const REASONS: PointItem[] = [
 
 export function WhyPanel() {
   return (
-    <SidePanel icon={Star} title="Why use ResumeAssist?">
+    <SidePanel icon={Star} title="Why use Phoenix Eye?">
       <PointList items={REASONS} />
     </SidePanel>
   );

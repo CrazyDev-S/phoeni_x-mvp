@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import type { ComponentType } from "react";
 
+import { STATUS_LABEL } from "@/components/applications/shared";
 import { EmptyState } from "@/components/empty-state";
 import { PageHero } from "@/components/page-hero";
 import { CheckList, SidePanel } from "@/components/side-panel";
@@ -88,11 +89,15 @@ export default function HomePage() {
       <PageHero
         eyebrow="AI-Powered"
         eyebrowIcon={Sparkles}
-        title="Land your next opportunity"
+        title={
+          <>
+            Land your next <span className="text-gradient-brand">opportunity</span>
+          </>
+        }
         description="Tailor your resume to every job with AI-powered insights."
         actions={
           <>
-            <Button asChild size="lg" className="h-11">
+            <Button asChild variant="brand" size="lg" className="h-11">
               <Link href="/tailor">
                 <Sparkles />
                 Tailor a resume
@@ -108,7 +113,7 @@ export default function HomePage() {
 
       <NextCallBanner />
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
           label="Resumes"
           Icon={FileText}
@@ -156,7 +161,7 @@ export default function HomePage() {
           />
 
           <StepsBand
-            title="How ResumeAssist works"
+            title="How Phoenix Eye works"
             description="Three steps, from a blank page to a tracked application."
             steps={[
               {
@@ -228,7 +233,7 @@ function RecentActivity({
       detail: r.display_name,
       href: `/resumes/${r.id}`,
       tone: (r.status === "needs_review" ? "warn" : "neutral") as Tone,
-      status: r.status === "needs_review" ? "needs review" : "ready",
+      status: r.status === "needs_review" ? "Needs review" : "Ready",
     })),
     ...tailored.map((t) => ({
       key: `t-${t.id}`,
@@ -241,7 +246,7 @@ function RecentActivity({
       status:
         t.must_have_coverage_percent != null
           ? `${t.must_have_coverage_percent}% match`
-          : "tailored",
+          : "Tailored",
     })),
     ...applications.map((a) => ({
       key: `a-${a.id}`,
@@ -251,7 +256,8 @@ function RecentActivity({
       detail: `${a.company_name} · ${a.role_title}`,
       href: "/applications",
       tone: "neutral" as Tone,
-      status: a.status.replace("_", " "),
+      // The same words the status select uses, rather than a title-cased enum.
+      status: STATUS_LABEL[a.status] ?? a.status.replace(/_/g, " "),
     })),
   ]
     .sort((a, b) => b.at.localeCompare(a.at))
@@ -313,7 +319,7 @@ function RecentActivity({
                     </Link>
                     <p className="text-muted-foreground truncate text-xs">{detail}</p>
                   </div>
-                  <StatusBadge tone={tone} className="relative z-10 shrink-0 capitalize">
+                  <StatusBadge tone={tone} className="relative z-10 shrink-0">
                     {status}
                   </StatusBadge>
                   <time

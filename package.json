@@ -13,9 +13,13 @@
     "build:ext": "npm run build -w @resume-assist/extension",
     "types": "npm run generate -w @resume-assist/api-types",
     "lint": "npm run lint --workspaces --if-present",
-    "zip:ext": "npm run zip -w @resume-assist/extension"
+    "zip:ext": "npm run zip -w @resume-assist/extension",
+    "brand": "node scripts/brand-assets.mjs"
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.4"
   }
 }
