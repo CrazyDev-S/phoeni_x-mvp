@@ -68,6 +68,7 @@ class GenerationKind(StrEnum):
     RESUME_JOB = "resume_job"
     TAILOR_JOB = "tailor_job"
     TAILOR_INSTRUCTION = "tailor_instruction"
+    RESUME_REPAIR = "resume_repair"
     FORM_ANSWER = "form_answer"
     JD_PARSE = "jd_parse"
 

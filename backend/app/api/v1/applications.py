@@ -32,7 +32,9 @@ from app.schemas.tracking import (
     StagePatch,
     StageUpdated,
     TailoredResumeBrief,
+    TailoredResumeOption,
 )
+from app.services.links import link_resume, suggest_resume
 from app.services.tracking import load_stage_meetings, stage_out
 
 router = APIRouter(tags=["applications"])
@@ -113,10 +115,24 @@ async def _detail(session: Session, row: JobApplication) -> ApplicationDetail:
 
     return ApplicationDetail(
         **ApplicationDetail.model_validate(row).model_dump(
-            exclude={"stages", "tailored_resume"}
+            exclude={"stages", "tailored_resume", "suggested_tailored_resume"}
         ),
         stages=[stage_out(s, meetings[s.id]) for s in stages],
         tailored_resume=brief,
+        suggested_tailored_resume=await _suggestion(session, row),
+    )
+
+
+async def _suggestion(session: Session, row: JobApplication) -> TailoredResumeOption | None:
+    found = await suggest_resume(session, row)
+    if found is None:
+        return None
+    return TailoredResumeOption(
+        id=found.id,
+        display_name=found.display_name,
+        base_resume_id=found.base_resume_id,
+        must_have_coverage_percent=_float(found.must_have_coverage_percent),
+        created_at=found.created_at,
     )
 
 
@@ -142,6 +158,8 @@ async def create_application(
         row.applied_at = utc_now()
     session.add(row)
     await session.flush()
+    if row.tailored_resume_id:
+        await link_resume(session, row, row.tailored_resume_id)
 
     template = await session.scalar(
         select(StageTemplate)
@@ -265,6 +283,8 @@ async def update_application(
         # These columns are NOT NULL; an explicit null means "leave it".
         if field in data and data[field] is None:
             del data[field]
+    if "tailored_resume_id" in data:
+        await link_resume(session, row, data.pop("tailored_resume_id"))
     for field, value in data.items():
         setattr(row, field, value)
     if "status" in data and row.status is not ApplicationStatus.SAVED and row.applied_at is None:

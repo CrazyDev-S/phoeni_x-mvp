@@ -102,10 +102,20 @@ class TailoredResumeBrief(BaseModel):
     created_at: datetime
 
 
+class TailoredResumeOption(BaseModel):
+    id: uuid.UUID
+    display_name: str
+    base_resume_id: uuid.UUID
+    must_have_coverage_percent: float | None = None
+    created_at: datetime
+
+
 class ApplicationDetail(ApplicationOut):
     job_description_text: str | None
     stages: list[StageOut] = Field(default_factory=list)
     tailored_resume: TailoredResumeBrief | None = None
+    # When nothing is linked: the tailored resume written for this posting.
+    suggested_tailored_resume: TailoredResumeOption | None = None
 
 
 class ApplicationRow(ApplicationOut):

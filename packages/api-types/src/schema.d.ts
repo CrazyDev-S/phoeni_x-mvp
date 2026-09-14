@@ -1337,7 +1337,7 @@ export interface components {
          * GenerationKind
          * @enum {string}
          */
-        GenerationKind: "resume_story" | "resume_job" | "tailor_job" | "tailor_instruction" | "form_answer" | "jd_parse";
+        GenerationKind: "resume_story" | "resume_job" | "tailor_job" | "tailor_instruction" | "resume_repair" | "form_answer" | "jd_parse";
         /** GenerationOut */
         GenerationOut: {
             /**

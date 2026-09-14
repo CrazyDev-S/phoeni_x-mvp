@@ -13,7 +13,7 @@ from app.core.deps import CurrentUser, Session
 from app.core.timezone import utc_now
 from app.llm.factory import get_provider
 from app.models.application import ApplicationStage, JobApplication, StageTemplate
-from app.models.enums import ApplicationStatus, GenerationKind, StageStatus
+from app.models.enums import ApplicationStatus, GenerationKind, ResumeStatus, StageStatus
 from app.models.profile import ApplicationFormAnswer, AutofillProfile
 from app.models.resume import BaseResume, TailoredResume
 from app.orchestration.form_pipeline import answer_form, fingerprint
@@ -26,6 +26,7 @@ from app.schemas.extension import (
 from app.schemas.generation import GenerationAccepted
 from app.schemas.tracking import ApplicationDetail
 from app.services.generation import enqueue, idempotency_key, job_description_hash
+from app.services.links import link_resume
 
 router = APIRouter(prefix="/extension", tags=["extension"])
 
@@ -53,14 +54,18 @@ async def extension_tailor(
 
     # Instant path: the same posting tailored recently returns immediately, so
     # a re-click costs nothing and feels instantaneous.
-    cached = await session.scalar(
+    cached = body.strategy == "existing" and await session.scalar(
         select(TailoredResume).where(
             TailoredResume.user_id == user.id,
             TailoredResume.base_resume_id == base.id,
             TailoredResume.job_description_hash == job_description_hash(body.job.description_text),
+            TailoredResume.status != ResumeStatus.DRAFT,
+            # Results from before tailoring read the posting's keywords show
+            # 0/0 coverage; re-tailor rather than serve one again.
+            TailoredResume.must_have_total > 0,
         )
     )
-    if cached is not None:
+    if cached:
         return GenerationAccepted(
             id=cached.generation_id or cached.id,
             status="succeeded",
@@ -83,8 +88,11 @@ async def extension_tailor(
             "target_title": body.job.title or base.target_title,
             "job_source": "extension",
             "mode": "grounded",
+            "strategy": body.strategy,
         },
-        key=idempotency_key("ext-tailor", user.id, base.id, body.job.description_text),
+        key=idempotency_key(
+            "ext-tailor", user.id, base.id, body.job.description_text, body.strategy
+        ),
     )
     return GenerationAccepted(id=gen.id, status=gen.status, kind=gen.kind)
 
@@ -184,6 +192,8 @@ async def extension_save_application(
     )
     session.add(row)
     await session.flush()
+    if row.tailored_resume_id:
+        await link_resume(session, row, row.tailored_resume_id)
 
     template = await session.scalar(
         select(StageTemplate).where(

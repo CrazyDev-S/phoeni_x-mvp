@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import sys
 
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
@@ -53,7 +54,29 @@ async def create_all(*, drop_first: bool = False) -> None:
             await _drop_everything(conn)
 
         await conn.run_sync(Base.metadata.create_all)
+        await _add_missing_enum_values(conn)
         await conn.execute(text(ALL_RESUMES_VIEW))
+
+
+async def _add_missing_enum_values(conn: AsyncConnection) -> None:
+    """Add enum labels introduced after their type was created.
+
+    ``create_all`` skips a type that already exists, so a value added to a
+    Python enum would otherwise be rejected by the database until a --reset
+    wiped every row.
+    """
+    seen: set[str] = set()
+    for table in Base.metadata.tables.values():
+        for column in table.columns:
+            kind = column.type
+            if not isinstance(kind, SAEnum) or not kind.name or kind.name in seen:
+                continue
+            seen.add(kind.name)
+            for label in kind.enums:
+                quoted = label.replace("'", "''")
+                await conn.execute(
+                    text(f"ALTER TYPE \"{kind.name}\" ADD VALUE IF NOT EXISTS '{quoted}'")
+                )
 
 
 async def _drop_everything(conn: AsyncConnection) -> None:

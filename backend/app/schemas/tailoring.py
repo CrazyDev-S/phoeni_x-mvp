@@ -6,6 +6,9 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 Mode = Literal["grounded", "constructed"]
+# existing: reframe the resume - employers, titles and dates stay.
+# full: build a new resume from the job description, the old one as the profile.
+Strategy = Literal["existing", "full"]
 
 
 class GenerateFromStory(BaseModel):
@@ -36,6 +39,18 @@ class TailorToJob(BaseModel):
     source: Literal["web", "extension", "manual"] = "web"
     # Skip the instant path and force a fresh generation.
     force: bool = False
+    strategy: Strategy = "existing"
+    # Tailored for a tracked application: the result is linked to it.
+    application_id: uuid.UUID | None = None
+
+
+class TailorApplication(BaseModel):
+    base_resume_id: uuid.UUID
+    strategy: Strategy = "existing"
+
+
+class UpgradeTailored(BaseModel):
+    strategy: Strategy = "existing"
 
 
 class TailorByInstruction(BaseModel):

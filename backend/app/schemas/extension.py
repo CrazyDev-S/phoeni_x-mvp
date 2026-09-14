@@ -32,6 +32,7 @@ class ExtensionTailorRequest(BaseModel):
     base_resume_id: uuid.UUID
     job: ScrapedJob
     profile: Literal["designed", "ats_plain"] = "designed"
+    strategy: Literal["existing", "full"] = "existing"
 
 
 class FormOption(BaseModel):
