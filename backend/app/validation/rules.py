@@ -21,6 +21,7 @@ from itertools import pairwise
 from typing import Any
 
 from app.resume.document import Resume
+from app.resume.keywords import contains_keyword
 from app.resume.renderer import render_plain_text
 
 Severity = str  # "error" | "warning" | "info"
@@ -308,16 +309,20 @@ def must_have_coverage(context: Context) -> list[Finding]:
     must = context.jd_keywords.get("must", [])
     if not must:
         return []
-    text = render_plain_text(context.resume).lower()
-    missing = [k for k in must if k.lower() not in text]
+    text = render_plain_text(context.resume)
+    missing = [k for k in must if not contains_keyword(text, k)]
     if not missing:
         return []
     return [
         Finding(
             "MUST_HAVE_COVERAGE", "warning",
+            # Every missing keyword, not a sample: this is the repair turn's
+            # to-do list, and a truncated list can never reach full coverage.
             f"{len(missing)} of {len(must)} must-have keywords absent: "
-            + ", ".join(missing[:8]),
-            "document", "", "Work them into a bullet that shows real use.",
+            + ", ".join(missing),
+            "document", "",
+            "Work each into a bullet that shows real use, and into Skills, "
+            "wherever the experience supports it. Spell it as the posting does.",
         )
     ]
 
@@ -345,17 +350,33 @@ def dossier_provenance(context: Context) -> list[Finding]:
                 )
             ]
         return []
-    dossiers = {d.get("employer"): d for d in context.ledger.get("dossiers", [])}
+    dossiers = [d for d in context.ledger.get("dossiers", []) if d.get("employer")]
+    by_key = {key: d for d in dossiers for key in _employer_keys(d["employer"])}
+    used = {k for e in context.resume.experience for k in _employer_keys(e.company)}
     findings = []
     for e in context.resume.experience:
-        d = dossiers.get(e.company)
+        d = next((by_key[k] for k in _employer_keys(e.company) if k in by_key), None)
         if d is None:
+            # Name the researched companies outright. "Use an archetype" sent
+            # a real run round in circles: the model swapped "Agoda" for
+            # "Online Travel Marketplace", which has no dossier either.
+            unused = [
+                _display_employer(x["employer"])
+                for x in dossiers
+                if x.get("sources") and not (_employer_keys(x["employer"]) & used)
+            ]
+            fix = (
+                "Name this employer exactly as one of the researched companies in "
+                "the ledger: " + ", ".join(unused) + ". An archetype description "
+                "does not satisfy this rule."
+                if unused
+                else "Replace this employer with one that has a sourced dossier in the ledger."
+            )
             findings.append(
                 Finding(
                     "DOSSIER_PROVENANCE", "error",
                     f"'{e.company}' is named with no dossier in the ledger",
-                    "experience", e.company,
-                    "Research the company or use an archetype description instead.",
+                    "experience", e.company, fix,
                 )
             )
         elif not d.get("sources"):
@@ -368,6 +389,34 @@ def dossier_provenance(context: Context) -> list[Finding]:
                 )
             )
     return findings
+
+
+LEGAL_SUFFIX_RE = re.compile(
+    r"(\s+(public\s+company\s+limited|company\s+limited|co|ltd|limited|inc|"
+    r"incorporated|llc|plc|corp|corporation|gmbh|pte|pvt))+$"
+)
+
+
+def _employer_keys(name: str) -> set[str]:
+    """Every spelling that should count as the same employer.
+
+    The ledger records the legal entity ("Agoda (Agoda Services Co., Ltd. -
+    part of Booking Holdings Inc.)", "MFEC Public Company Limited") while the
+    resume names the brand ("Agoda", "MFEC"). Both are the same company.
+    """
+    parts = [name.split("(")[0], *re.findall(r"\(([^)]*)\)", name)]
+    keys = set()
+    for part in parts:
+        part = re.split(r"\s+[—–-]\s+", part)[0]
+        key = " ".join(re.sub(r"[.,]", " ", part).lower().split())
+        key = LEGAL_SUFFIX_RE.sub("", key).strip()
+        if key:
+            keys.add(key)
+    return keys
+
+
+def _display_employer(name: str) -> str:
+    return name.split("(")[0].strip() or name
 
 
 # --------------------------------------------------------------------------

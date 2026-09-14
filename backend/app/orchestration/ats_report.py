@@ -14,18 +14,14 @@ from datetime import date
 from app.core.timezone import app_today
 from app.llm.schemas import ScenarioLedger
 from app.resume.document import Resume
+from app.resume.keywords import contains_keyword
 
 SECTION_SUMMARY = "Summary"
 SECTION_SKILLS = "Skills"
 SECTION_EXPERIENCE = "Experience"
 
 
-def _contains(haystack: str, needle: str) -> bool:
-    """Word-boundary match, so 'Go' does not match 'Django'."""
-    if not needle.strip():
-        return False
-    return re.search(rf"(?<![A-Za-z0-9+#.]){re.escape(needle)}(?![A-Za-z0-9+#])",
-                     haystack, re.IGNORECASE) is not None
+_contains = contains_keyword
 
 
 def _where(resume: Resume, keyword: str) -> list[str]:
@@ -129,6 +125,27 @@ def build(
         "companies": len(resume.experience),
         "keywords": rows,
         "computed_at": today.isoformat(),
+    }
+
+
+def must_keywords(ledger: ScenarioLedger | None) -> list[str]:
+    if not ledger:
+        return []
+    return [k.keyword for k in ledger.keyword_plan if k.priority.upper().startswith("MUST")]
+
+
+def coverage_columns(report: dict) -> dict:
+    """The figures a tailored resume materialises from its report, for sorting."""
+    return {
+        key: report.get(key)
+        for key in (
+            "must_have_covered",
+            "must_have_total",
+            "must_have_coverage_percent",
+            "nice_to_have_coverage_percent",
+            "years_required",
+            "years_shown",
+        )
     }
 
 

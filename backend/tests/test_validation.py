@@ -104,6 +104,42 @@ def test_mode_b_requires_sourced_dossiers(aran_markdown: str) -> None:
     )
 
 
+SOURCED = ["https://example.com"]
+LEGAL_NAME_LEDGER = {
+    "dossiers": [
+        {"employer": "Veeva Systems Inc.", "sources": SOURCED},
+        {
+            "employer": "Accenture (Accenture Solutions Co., Ltd. — part of Accenture plc)",
+            "sources": SOURCED,
+        },
+        {"employer": "KASIKORN Business-Technology Group (KBTG)", "sources": SOURCED},
+    ]
+}
+
+
+def test_a_dossier_under_the_legal_name_covers_the_brand(aran_markdown: str) -> None:
+    """Regression: the ledger said "Agoda (Agoda Services Co., Ltd. - ...)", the
+    resume said "Agoda", and no draft could ever pass."""
+    assert "DOSSIER_PROVENANCE" not in ids(
+        aran_markdown, mode="constructed", strict_dossier=True, ledger=LEGAL_NAME_LEDGER
+    )
+
+
+def test_an_undossiered_employer_is_pointed_at_the_researched_ones(aran_markdown: str) -> None:
+    """The fix used to suggest an archetype description, which fails the same rule."""
+    renamed = aran_markdown.replace("### Accenture —", "### Global IT Consultancy —")
+    [finding] = [
+        f
+        for f in validate(
+            context(renamed, mode="constructed", strict_dossier=True, ledger=LEGAL_NAME_LEDGER)
+        )
+        if f.rule_id == "DOSSIER_PROVENANCE"
+    ]
+    assert "Accenture" in finding.suggested_fix
+    assert "Veeva" not in finding.suggested_fix  # already used by another role
+    assert "archetype description does not satisfy" in finding.suggested_fix
+
+
 def test_placeholder_hard_blocks_extension_autodownload(aran_markdown: str) -> None:
     """A defective resume must never reach a real application in one click."""
     bad = aran_markdown.replace("Mentored 4 engineers", "Mentored several engineers")

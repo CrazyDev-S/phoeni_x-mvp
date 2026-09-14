@@ -15,6 +15,7 @@ import pytest
 from app.llm.provider import LLMError, LLMRequest, LLMResponse, SystemBlock, Usage
 from app.orchestration.resume_pipeline import (
     MAX_REPAIRS,
+    STALL_DRAFTS,
     PipelineInput,
     ResumePipeline,
 )
@@ -61,9 +62,15 @@ def _maybe_json(text: str):
 
 LEDGER_JSON = """{"mode":"grounded","total_years":9,"job_required_years":7,
 "keyword_plan":[{"keyword":"FastAPI","priority":"MUST","planned_sections":["Skills"]},
-{"keyword":"Rust","priority":"MUST","planned_sections":["Skills"]}],
+{"keyword":"React","priority":"MUST","planned_sections":["Skills"]},
+{"keyword":"Rust","priority":"NICE","planned_sections":["Skills"]}],
 "gate":[{"id":1,"name":"Arithmetic","result":"PASS","evidence":"sums"}],
 "dossiers":[]}"""
+
+ANALYSIS_JSON = """{"required_years":7,"keyword_plan":[
+{"keyword":"FastAPI","priority":"MUST","planned_sections":["Skills"]},
+{"keyword":"React","priority":"MUST","planned_sections":["Skills"]},
+{"keyword":"Kafka","priority":"NICE","planned_sections":["Skills"]}]}"""
 
 FLAGS_JSON = """{"estimated_figures":[],"uncovered_requirements":[],
 "must_verify":["Confirm the Veeva backlog figure"],"interview_probes":[],"notes":""}"""
@@ -93,7 +100,8 @@ async def test_happy_path_produces_a_result(aran_markdown: str) -> None:
     assert result.ledger.total_years == 9
     assert result.flags.must_verify == ["Confirm the Veeva backlog figure"]
     assert result.report["must_have_total"] == 2
-    assert result.report["must_have_covered"] == 1  # Rust genuinely absent
+    assert result.report["must_have_covered"] == 2
+    assert result.report["nice_to_have_covered"] == 0  # Rust genuinely absent
     assert result.needs_review is False
     # Exactly three model calls: scenario, draft, flags.
     assert [c["purpose"] for c in result.calls] == ["scenario", "draft", "flags"]
@@ -160,24 +168,133 @@ async def test_parse_failure_reports_the_line_in_the_repair_turn(aran_markdown: 
     assert "line 9" in repair
 
 
+def vague(markdown: str, word: str) -> str:
+    return markdown.replace("Mentored 4 engineers", f"Mentored {word} engineers")
+
+
+async def generate(provider: StubProvider):
+    events = await drain(
+        ResumePipeline(provider).generate(
+            PipelineInput(target_title="X", today=date(2026, 9, 11))
+        )
+    )
+    return events[-1].data["result"]
+
+
 @pytest.mark.asyncio
-async def test_repairs_are_bounded_and_the_result_is_flagged(aran_markdown: str) -> None:
+async def test_repairs_continue_until_the_draft_is_clean(aran_markdown: str) -> None:
+    """Regression: repairs stopped after two rounds and shipped the errors."""
+    drafts = [vague(aran_markdown, w) for w in ("several", "various", "numerous")]
+    provider = StubProvider([LEDGER_JSON, *drafts, aran_markdown, FLAGS_JSON])
+    result = await generate(provider)
+
+    assert [c["purpose"] for c in result.calls] == [
+        "scenario", "draft", "draft", "draft", "draft", "flags",
+    ]
+    assert result.needs_review is False
+
+
+@pytest.mark.asyncio
+async def test_an_error_that_survives_a_repair_is_called_out(aran_markdown: str) -> None:
+    broken = vague(aran_markdown, "several")
+    provider = StubProvider([LEDGER_JSON, broken, broken, aran_markdown, FLAGS_JSON])
+    await generate(provider)
+
+    first, second = (provider.requests[i].messages[-1]["content"] for i in (2, 3))
+    assert "STILL FAILING" not in first
+    assert "STILL FAILING" in second
+
+
+@pytest.mark.asyncio
+async def test_a_stuck_model_stops_early_and_the_result_is_flagged(aran_markdown: str) -> None:
+    """The same errors back draft after draft will not change with more spend."""
+    broken = vague(aran_markdown, "several")
+    provider = StubProvider([LEDGER_JSON, *[broken] * STALL_DRAFTS, FLAGS_JSON])
+    result = await generate(provider)
+
+    drafts = [c for c in result.calls if c["purpose"] == "draft"]
+    assert len(drafts) == STALL_DRAFTS
+    # Surfaced honestly rather than silently shipped.
+    assert result.needs_review is True
+    assert any(f.rule_id == "PLACEHOLDER_TOKEN" for f in result.findings)
+
+
+@pytest.mark.asyncio
+async def test_repairs_are_capped_even_when_every_round_differs(aran_markdown: str) -> None:
     """A model that never fixes the problem must not loop forever."""
-    broken = aran_markdown.replace("Mentored 4 engineers", "Mentored several engineers")
-    provider = StubProvider([LEDGER_JSON, broken, broken, broken, FLAGS_JSON])
+    words = ["several", "various", "numerous", "significant", "substantial", "multiple", "many"]
+    assert len(words) > MAX_REPAIRS
+    drafts = [vague(aran_markdown, w) for w in words[: MAX_REPAIRS + 1]]
+    provider = StubProvider([LEDGER_JSON, *drafts, FLAGS_JSON])
+    result = await generate(provider)
+
+    assert len([c for c in result.calls if c["purpose"] == "draft"]) == MAX_REPAIRS + 1
+    assert result.needs_review is True
+
+
+@pytest.mark.asyncio
+async def test_the_draft_with_the_fewest_errors_is_kept(aran_markdown: str) -> None:
+    one = vague(aran_markdown, "several")
+    two = one.replace("214 customer vaults", "[N] customer vaults")
+    provider = StubProvider([LEDGER_JSON, one, *[two] * STALL_DRAFTS, FLAGS_JSON])
+    result = await generate(provider)
+
+    assert len([f for f in result.findings if f.severity == "error"]) == 1
+    assert "[N]" not in result.content_markdown
+
+
+@pytest.mark.asyncio
+async def test_upgrade_repairs_a_saved_resume(aran_markdown: str) -> None:
+    provider = StubProvider([aran_markdown])
     result = (
         await drain(
-            ResumePipeline(provider).generate(
-                PipelineInput(target_title="X", today=date(2026, 9, 11))
+            ResumePipeline(provider).upgrade(
+                base_resume_md=vague(aran_markdown, "several"),
+                ledger=None,
+                spec=PipelineInput(target_title="X", today=date(2026, 9, 11)),
             )
         )
     )[-1].data["result"]
 
-    drafts = [c for c in result.calls if c["purpose"] == "draft"]
-    assert len(drafts) == MAX_REPAIRS + 1
-    # Surfaced honestly rather than silently shipped.
-    assert result.needs_review is True
-    assert any(f.rule_id == "PLACEHOLDER_TOKEN" for f in result.findings)
+    assert [c["purpose"] for c in result.calls] == ["draft"]
+    assert "several" in provider.requests[0].messages[0]["content"]
+    assert result.needs_review is False
+    assert "several" not in result.content_markdown
+
+
+@pytest.mark.asyncio
+async def test_upgrading_a_clean_resume_spends_nothing(aran_markdown: str) -> None:
+    provider = StubProvider([])
+    result = (
+        await drain(
+            ResumePipeline(provider).upgrade(
+                base_resume_md=aran_markdown,
+                ledger=None,
+                spec=PipelineInput(target_title="X", today=date(2026, 9, 11)),
+            )
+        )
+    )[-1].data["result"]
+
+    assert provider.requests == []
+    assert result.content_markdown == aran_markdown
+
+
+@pytest.mark.asyncio
+async def test_an_upgrade_never_leaves_a_resume_worse(aran_markdown: str) -> None:
+    broken = vague(aran_markdown, "several")
+    worse = broken.replace("214 customer vaults", "[N] customer vaults")
+    provider = StubProvider([worse] * STALL_DRAFTS)
+    result = (
+        await drain(
+            ResumePipeline(provider).upgrade(
+                base_resume_md=broken,
+                ledger=None,
+                spec=PipelineInput(target_title="X", today=date(2026, 9, 11)),
+            )
+        )
+    )[-1].data["result"]
+
+    assert result.content_markdown == broken
 
 
 @pytest.mark.asyncio
@@ -205,21 +322,59 @@ async def test_code_fences_are_stripped(aran_markdown: str) -> None:
     assert result.resume.header.name == "Aran Thammasiri"
 
 
-@pytest.mark.asyncio
-async def test_tailoring_keeps_dates_and_scores_coverage(aran_markdown: str) -> None:
-    provider = StubProvider([aran_markdown])
-    result = (
-        await drain(
-            ResumePipeline(provider).tailor(
-                base_resume_md=aran_markdown,
-                job_description="Senior AI engineer. Must have Python, FastAPI, RAG.",
-                company="Acme",
-                spec=PipelineInput(target_title="Senior AI Engineer", today=date(2026, 9, 11)),
-            )
+async def tailor(provider: StubProvider, markdown: str):
+    events = await drain(
+        ResumePipeline(provider).tailor(
+            base_resume_md=markdown,
+            job_description="Senior AI engineer. Must have FastAPI, React. Kafka a plus.",
+            company="Acme",
+            spec=PipelineInput(target_title="Senior AI Engineer", today=date(2026, 9, 11)),
         )
-    )[-1].data["result"]
+    )
+    return events[-1].data["result"]
+
+
+@pytest.mark.asyncio
+async def test_tailoring_scores_against_the_posting(aran_markdown: str) -> None:
+    """Regression: tailoring had no keyword plan, so every result scored 0/0."""
+    provider = StubProvider([ANALYSIS_JSON, aran_markdown])
+    result = await tailor(provider, aran_markdown)
+
+    assert [c["purpose"] for c in result.calls] == ["analysis", "draft"]
+    assert result.report["must_have_total"] == 2
+    assert result.report["must_have_covered"] == 2
+    assert result.report["years_required"] == 7
     assert result.report["companies"] == 3
-    assert [c["purpose"] for c in result.calls] == ["draft"]
+    # Stored with the tailored resume, so an upgrade can score it again.
+    assert [k.keyword for k in result.ledger.keyword_plan] == ["FastAPI", "React", "Kafka"]
+
+
+@pytest.mark.asyncio
+async def test_a_missing_must_have_keyword_is_repaired(aran_markdown: str) -> None:
+    rust_required = ANALYSIS_JSON.replace('"Kafka","priority":"NICE"', '"Rust","priority":"MUST"')
+    with_rust = aran_markdown.replace("FastAPI", "FastAPI, Rust", 1)
+    provider = StubProvider([rust_required, aran_markdown, with_rust])
+    result = await tailor(provider, aran_markdown)
+
+    assert [c["purpose"] for c in result.calls] == ["analysis", "draft", "draft"]
+    repair = provider.requests[2].messages[-1]["content"]
+    assert "MUST_HAVE_COVERAGE" in repair
+    assert "Rust" in repair
+    assert result.report["must_have_covered"] == result.report["must_have_total"] == 3
+
+
+@pytest.mark.asyncio
+async def test_a_keyword_the_resume_cannot_support_stops_without_blocking(
+    aran_markdown: str,
+) -> None:
+    """Coverage is chased, but an honest gap is not a rule error."""
+    rust_required = ANALYSIS_JSON.replace('"Kafka","priority":"NICE"', '"Rust","priority":"MUST"')
+    provider = StubProvider([rust_required, *[aran_markdown] * STALL_DRAFTS])
+    result = await tailor(provider, aran_markdown)
+
+    assert len([c for c in result.calls if c["purpose"] == "draft"]) == STALL_DRAFTS
+    assert result.report["must_have_covered"] == 2
+    assert result.needs_review is False
 
 
 @pytest.mark.asyncio
@@ -305,8 +460,8 @@ async def test_research_on_sends_the_search_tool_and_enforces_dossiers(
             "web_search_tool_type": "web_search_20260209",
         }
 
-    # The unsourced companies fail validation, so the draft is retried the
-    # full MAX_REPAIRS times before the run is handed back for review.
+    # The unsourced companies fail validation the same way every draft, so the
+    # loop stops as stuck after STALL_DRAFTS and hands the run back for review.
     provider = ResearchProvider(
         [LEDGER_JSON, aran_markdown, aran_markdown, aran_markdown, FLAGS_JSON]
     )

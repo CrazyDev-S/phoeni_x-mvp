@@ -10,6 +10,7 @@ caching regression. Volatile values go in the first user message instead.
 from __future__ import annotations
 
 import functools
+import json
 from pathlib import Path
 
 PROMPT_VERSION = "v1"
@@ -138,7 +139,10 @@ for repair, so getting them right the first time saves a round trip:
 6. No unexplained employment gap over three months.
 7. Companies in reverse-chronological order; no end date in the future.
 8. In Mode B with strict dossiers on, every company named in the resume has a
-   dossier in your Turn 1 ledger carrying at least one source URL.
+   dossier in your Turn 1 ledger carrying at least one source URL. Name each
+   employer as its dossier does; a legal suffix or a parenthetical may be
+   dropped ("Agoda" for "Agoda (Agoda Services Co., Ltd.)"). A descriptive
+   stand-in such as "Online Travel Marketplace" has no dossier and fails.
 """
 
 
@@ -246,44 +250,107 @@ FLAGS_TURN = (
 )
 
 
-def repair_turn(findings: list[dict], raw_error: str | None = None) -> str:
-    """One bounded repair turn naming the exact failures."""
+def repair_turn(
+    findings: list[dict],
+    raw_error: str | None = None,
+    *,
+    attempt: int = 1,
+    raw_error_repeated: bool = False,
+) -> str:
+    """One repair turn naming the exact failures.
+
+    Errors that survived the previous repair are marked, because the likeliest
+    reason a fix did not land is that the model is resubmitting the same one.
+    """
     lines = [
         (
-            "The document failed machine validation. Fix ONLY these issues and "
-            "re-emit the complete resume in Resume Markdown v1. Change nothing else."
+            f"REPAIR PASS {attempt}. The document failed machine validation. Fix "
+            "ONLY these issues and re-emit the complete resume in Resume Markdown "
+            "v1. Change nothing else, and do not break any other standing rule - "
+            "the whole document is checked again."
         ),
         "",
     ]
     if raw_error:
-        lines += [f"PARSE ERROR: {raw_error}", ""]
+        lines += [f"PARSE ERROR: {raw_error}"]
+        if raw_error_repeated:
+            lines += ["    STILL FAILING: your last fix did not change this. Try a different one."]
+        lines += [""]
+    return "\n".join(lines + _finding_lines(findings))
+
+
+def upgrade_turn(
+    *, base_resume_md: str, findings: list[dict], ledger: dict | None, today: str
+) -> str:
+    """Repair a saved resume that still carries rule errors."""
+    parts = [
+        (
+            "The saved resume below fails machine validation. Fix ONLY the issues "
+            "listed and leave every other line as it is. Employers, titles and "
+            "dates must stay consistent with the scenario ledger."
+        ),
+        "",
+        f"TODAY: {today}",
+        "",
+        "Reply with BLOCK 2 ONLY: the complete repaired resume in Resume Markdown v1.",
+        "",
+        "=== FAILURES ===",
+        *_finding_lines(findings),
+        "",
+        "=== EXISTING RESUME (Resume Markdown v1) ===",
+        base_resume_md.strip(),
+    ]
+    if ledger:
+        parts += ["", "=== SCENARIO LEDGER (BLOCK 1) ===", json.dumps(ledger, ensure_ascii=False)]
+    return "\n".join(parts)
+
+
+def _finding_lines(findings: list[dict]) -> list[str]:
+    lines: list[str] = []
     for f in findings:
         lines.append(f"- [{f['rule_id']}] {f['message']}")
+        if f.get("still_failing"):
+            lines.append(
+                "    STILL FAILING: your last fix did not resolve this. Do not "
+                "repeat it; take a different approach."
+            )
         if f.get("excerpt"):
             lines.append(f"    in: {f['excerpt']}")
         if f.get("suggested_fix"):
             lines.append(f"    fix: {f['suggested_fix']}")
-    return "\n".join(lines)
+    return lines
 
 
-def tailor_turn(
+def job_analysis_turn(
     *, base_resume_md: str, job_description: str, today: str, company: str | None
 ) -> str:
+    """Tailoring step 1: the keyword plan, taken from the posting itself.
+
+    Without it a tailored resume has nothing to be scored against, and every
+    one reported 0/0 must-have coverage.
+    """
     return "\n".join(
         [
             (
-                "Tailor the existing resume below to the job description. Keep "
-                "every employer, title and date exactly as they are - this is a "
-                "reframing, not a new scenario. Re-prioritise skills, rewrite "
-                "bullets to carry the job's must-have terminology in "
-                "load-bearing sentences, and retarget the summary and header "
-                "title."
+                "TAILORING, STEP 1. Read the job description and the candidate's "
+                "existing resume below. Reply with JSON only:"
+            ),
+            (
+                "- required_years: the minimum years of experience the posting "
+                "asks for; 0 if it states none."
+            ),
+            (
+                "- keyword_plan: every hard skill, language, framework, tool, "
+                "platform, methodology and domain term the posting names, spelled "
+                "exactly as the posting spells it. priority is MUST for anything "
+                "required, essential or listed as a requirement; NICE for "
+                "preferred, bonus or nice-to-have. planned_sections says where it "
+                "lands (Summary, Skills, Experience) per the Phase 4 keyword "
+                "allocation rules."
             ),
             "",
             f"TODAY: {today}",
             f"TARGET COMPANY: {company or 'unstated'}",
-            "",
-            "Reply with BLOCK 2 ONLY: the complete tailored resume in Resume Markdown v1.",
             "",
             "=== EXISTING RESUME (Resume Markdown v1) ===",
             base_resume_md.strip(),
@@ -292,6 +359,25 @@ def tailor_turn(
             job_description.strip(),
         ]
     )
+
+
+TAILOR_DRAFT_TURN = (
+    "TAILORING, STEP 2. Tailor the existing resume above to the job description "
+    "using your keyword plan. Keep every employer, title and date exactly as they "
+    "are - this is a reframing, not a new scenario. Every MUST keyword goes into "
+    "Skills AND into a load-bearing bullet that shows the work, wherever the "
+    "existing experience supports it. Re-prioritise skills, and retarget the "
+    "summary and header title.\n\n"
+    "Reply with BLOCK 2 ONLY: the complete tailored resume in Resume Markdown v1."
+)
+
+FULL_UPGRADE_INSTRUCTIONS = (
+    "FULL UPGRADE for this job. CANDIDATE_PROFILE is the candidate's existing "
+    "resume. Keep their name, contact details, location and education from it. "
+    "Rebuild the career scenario, roles and bullets as far as the mode allows, so "
+    "the result matches the job description as closely as the rules permit: every "
+    "MUST keyword covered, and the years the posting asks for."
+)
 
 
 def instruction_turn(*, base_resume_md: str, instructions: str, today: str) -> str:

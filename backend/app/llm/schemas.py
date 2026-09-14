@@ -39,6 +39,13 @@ class KeywordPlan(BaseModel):
     planned_sections: list[str] = Field(default_factory=list)
 
 
+class JobAnalysis(BaseModel):
+    """Tailoring's keyword plan, read from the posting itself."""
+
+    required_years: int = 0
+    keyword_plan: list[KeywordPlan] = Field(default_factory=list)
+
+
 class GateCheck(BaseModel):
     id: int
     name: str

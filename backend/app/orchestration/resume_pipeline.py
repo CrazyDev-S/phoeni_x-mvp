@@ -25,11 +25,13 @@ from app.core.timezone import app_today
 from app.llm.prompts import (
     DRAFT_TURN,
     FLAGS_TURN,
+    TAILOR_DRAFT_TURN,
     frozen_system_prompt,
     instruction_turn,
+    job_analysis_turn,
     repair_turn,
     scenario_turn,
-    tailor_turn,
+    upgrade_turn,
 )
 from app.llm.provider import (
     CacheTTL,
@@ -41,14 +43,20 @@ from app.llm.provider import (
     SystemBlock,
     Usage,
 )
-from app.llm.schemas import FlagsReport, ScenarioLedger
+from app.llm.schemas import FlagsReport, JobAnalysis, ScenarioLedger
 from app.orchestration import ats_report
 from app.resume.document import Resume
 from app.resume.parser import ResumeMarkdownError, parse
 from app.resume.renderer import render_plain_text
 from app.validation.rules import Context, Finding, validate
 
-MAX_REPAIRS = 2
+# A draft is repaired until no rule error remains. These two only cap spend
+# on a model that cannot get there: each round re-emits the whole resume.
+MAX_REPAIRS = 6
+STALL_DRAFTS = 3
+# Coverage is a warning - a resume missing a keyword can still be sent - but it
+# is repaired like an error, because a tailored resume exists to match the job.
+REPAIRED_WARNINGS = frozenset({"MUST_HAVE_COVERAGE"})
 
 # Thinking tokens count toward the output budget, so these are far larger than
 # the answers themselves. A real run truncated the scenario turn at 24k with
@@ -56,6 +64,7 @@ MAX_REPAIRS = 2
 SCENARIO_MAX_TOKENS = 64_000
 DRAFT_MAX_TOKENS = 32_000
 FLAGS_MAX_TOKENS = 16_000
+ANALYSIS_MAX_TOKENS = 16_000
 MAX_OUTPUT_CEILING = 128_000
 
 # How often a running turn reports its reasoning, and how much of it to keep.
@@ -164,7 +173,7 @@ class ResumePipeline:
         yield LLMEvent("phase", {"phase": "draft", "label": "Drafting the resume", "percent": 45})
         messages.append({"role": "user", "content": DRAFT_TURN})
         resume, content_markdown, findings = await self._draft_and_repair(
-            messages, spec, ledger, today
+            messages, spec, ledger, today, percent=45
         )
 
         yield LLMEvent("phase", {"phase": "validate", "label": "Checking hard rules", "percent": 80})
@@ -213,14 +222,21 @@ class ResumePipeline:
         job_description: str,
         company: str | None,
         spec: PipelineInput,
+        ledger: ScenarioLedger | None = None,
     ) -> AsyncIterator[LLMEvent]:
-        """Job-based tailoring: a reframing, not a new scenario."""
+        """Job-based tailoring: a reframing, not a new scenario.
+
+        Two turns. The first reads the keyword plan out of the posting - without
+        it there was nothing to score against, and every tailored resume reported
+        0/0 must-have coverage. That plan replaces the base ledger's, and the
+        repair loop then chases every MUST keyword the draft leaves out.
+        """
         today = spec.today or app_today()
-        yield LLMEvent("phase", {"phase": "draft", "label": "Tailoring to the job", "percent": 20})
+        yield LLMEvent("phase", {"phase": "analysis", "label": "Reading the job description", "percent": 10})
         messages: list[dict[str, Any]] = [
             {
                 "role": "user",
-                "content": tailor_turn(
+                "content": job_analysis_turn(
                     base_resume_md=base_resume_md,
                     job_description=job_description,
                     today=today.isoformat(),
@@ -228,17 +244,29 @@ class ResumePipeline:
                 ),
             }
         ]
-        resume, content_markdown, findings = await self._draft_and_repair(
-            messages, spec, None, today
+        analysis_resp = await self._call(
+            "analysis", messages, output_schema=JobAnalysis,
+            max_tokens=ANALYSIS_MAX_TOKENS, effort="low",
+        )
+        analysis = _coerce(JobAnalysis, analysis_resp) or JobAnalysis()
+        messages.append({"role": "assistant", "content": analysis_resp.text})
+        ledger = (ledger or ScenarioLedger(mode=spec.mode)).model_copy(
+            update={
+                "keyword_plan": analysis.keyword_plan,
+                "job_required_years": analysis.required_years,
+            }
         )
 
-        yield LLMEvent("phase", {"phase": "validate", "label": "Checking hard rules", "percent": 75})
-        # No ledger on this path, so the keyword plan is extracted from the JD
-        # directly rather than asked for again.
+        yield LLMEvent("phase", {"phase": "draft", "label": "Tailoring to the job", "percent": 25})
+        messages.append({"role": "user", "content": TAILOR_DRAFT_TURN})
+        resume, content_markdown, findings = await self._draft_and_repair(
+            messages, spec, ledger, today, percent=25
+        )
+
         yield LLMEvent("phase", {"phase": "report", "label": "Scoring coverage", "percent": 90})
         report = ats_report.build(
             resume,
-            None,
+            ledger,
             target_title=spec.target_title,
             today=today,
             findings_count=len(findings),
@@ -250,6 +278,7 @@ class ResumePipeline:
                     content_markdown=content_markdown,
                     content_text=render_plain_text(resume),
                     resume=resume,
+                    ledger=ledger,
                     report=report,
                     findings=findings,
                     usage=self._totals(),
@@ -274,7 +303,7 @@ class ResumePipeline:
             }
         ]
         resume, content_markdown, findings = await self._draft_and_repair(
-            messages, spec, None, today
+            messages, spec, None, today, percent=25
         )
         yield LLMEvent(
             "done",
@@ -290,6 +319,70 @@ class ResumePipeline:
             },
         )
 
+    async def upgrade(
+        self,
+        *,
+        base_resume_md: str,
+        ledger: ScenarioLedger | None,
+        spec: PipelineInput,
+    ) -> AsyncIterator[LLMEvent]:
+        """Repair a saved resume until the rule errors it carries are gone.
+
+        The same loop a fresh draft goes through, started from the saved
+        document. A result with no fewer errors than the original is discarded:
+        an upgrade must never leave the resume worse than it found it.
+        """
+        today = spec.today or app_today()
+        original = parse(base_resume_md)
+        before = self._validate(original, base_resume_md, spec, ledger, today)
+        resume, content_markdown, findings = original, base_resume_md, before
+
+        if _error_count(before):
+            yield LLMEvent("phase", {"phase": "draft", "label": "Fixing rule errors", "percent": 20})
+            messages: list[dict[str, Any]] = [
+                {
+                    "role": "user",
+                    "content": upgrade_turn(
+                        base_resume_md=base_resume_md,
+                        findings=[f.as_dict() for f in before if f.severity == "error"],
+                        ledger=ledger.model_dump() if ledger else None,
+                        today=today.isoformat(),
+                    ),
+                }
+            ]
+            try:
+                repaired = await self._draft_and_repair(
+                    messages, spec, ledger, today, percent=20
+                )
+            except ResumeMarkdownError:
+                repaired = None
+            if repaired and _error_count(repaired[2]) < _error_count(before):
+                resume, content_markdown, findings = repaired
+
+        yield LLMEvent("phase", {"phase": "report", "label": "Scoring coverage", "percent": 90})
+        report = ats_report.build(
+            resume,
+            ledger,
+            target_title=spec.target_title,
+            today=today,
+            findings_count=len(findings),
+        )
+        yield LLMEvent(
+            "done",
+            {
+                "result": GenerationResult(
+                    content_markdown=content_markdown,
+                    content_text=render_plain_text(resume),
+                    resume=resume,
+                    ledger=ledger,
+                    report=report,
+                    findings=findings,
+                    usage=self._totals(),
+                    calls=self.calls,
+                )
+            },
+        )
+
     # -- the draft + gate loop --------------------------------------------
 
     async def _draft_and_repair(
@@ -298,39 +391,97 @@ class ResumePipeline:
         spec: PipelineInput,
         ledger: ScenarioLedger | None,
         today: date,
+        *,
+        percent: int,
     ) -> tuple[Resume, str, list[Finding]]:
-        """Draft, parse, validate, and repair at most twice.
+        """Draft, parse, validate, and repair until no error - and no missing
+        must-have keyword - remains.
 
-        A parse failure and a rule failure both route into the same bounded
-        repair turn, because both are "the document is wrong in a way we can
-        name precisely".
+        A parse failure and a rule failure both route into the same repair
+        turn, because both are "the document is wrong in a way we can name
+        precisely". Each repair also says which errors survived the last one,
+        so the model changes approach instead of resubmitting the same fix.
+
+        Only spend ends the loop short of a clean draft: MAX_REPAIRS rounds, or
+        the identical errors coming back STALL_DRAFTS drafts running - a model
+        repeating itself will not be talked out of it by another round. Either
+        way the draft with the fewest errors is returned, not merely the last.
         """
         attempt = 0
-        last_error: str | None = None
-        findings: list[Finding] = []
+        previous: set[str] = set()
+        repeats = 0
+        best: tuple[Resume, str, list[Finding]] | None = None
 
         while True:
             resp = await self._call("draft", messages, max_tokens=DRAFT_MAX_TOKENS)
             content_markdown = _strip_fences(resp.text)
             messages.append({"role": "assistant", "content": resp.text})
 
+            parse_error: ResumeMarkdownError | None = None
+            errors: list[Finding] = []
             try:
                 resume = parse(content_markdown)
             except ResumeMarkdownError as exc:
-                last_error = str(exc)
-                attempt += 1
-                if attempt > MAX_REPAIRS:
-                    raise
-                messages.append(
-                    {"role": "user", "content": repair_turn([], raw_error=last_error)}
-                )
-                continue
+                parse_error = exc
+                failures = {f"PARSE: {exc}"}
+            else:
+                findings = self._validate(resume, content_markdown, spec, ledger, today)
+                errors = _to_fix(findings)
+                if best is None or _rank(findings) <= _rank(best[2]):
+                    best = (resume, content_markdown, findings)
+                if not errors:
+                    return best
+                failures = {_failure_key(f) for f in errors}
 
-            findings = validate(
+            repeats = repeats + 1 if failures == previous else 1
+            if attempt >= MAX_REPAIRS or repeats >= STALL_DRAFTS:
+                if best is None:
+                    raise parse_error  # type: ignore[misc]
+                return best
+
+            attempt += 1
+            if self.on_event is not None:
+                n = len(errors) or 1
+                await self.on_event(
+                    LLMEvent(
+                        "phase",
+                        {
+                            "phase": "repair",
+                            "label": f"Fixing {n} {'issue' if n == 1 else 'issues'} (pass {attempt})",
+                            "percent": percent,
+                        },
+                    )
+                )
+            messages.append(
+                {
+                    "role": "user",
+                    "content": repair_turn(
+                        [
+                            f.as_dict() | {"still_failing": _failure_key(f) in previous}
+                            for f in errors
+                        ],
+                        raw_error=str(parse_error) if parse_error else None,
+                        attempt=attempt,
+                        raw_error_repeated=failures == previous,
+                    ),
+                }
+            )
+            previous = failures
+
+    def _validate(
+        self,
+        resume: Resume,
+        content_markdown: str,
+        spec: PipelineInput,
+        ledger: ScenarioLedger | None,
+        today: date,
+    ) -> list[Finding]:
+        return validate(
                 Context(
                     resume=resume,
                     raw_md=content_markdown,
                     claimed_years=_claimed_yoe(resume, ledger),
+                    jd_keywords=_jd_keywords(ledger),
                     mode=spec.mode,
                     strict_dossier=(
                         spec.strict_dossier
@@ -340,14 +491,6 @@ class ResumePipeline:
                     ledger=ledger.model_dump() if ledger else {},
                     today=today,
                 )
-            )
-            errors = [f for f in findings if f.severity == "error"]
-            if not errors or attempt >= MAX_REPAIRS:
-                return resume, content_markdown, findings
-
-            attempt += 1
-            messages.append(
-                {"role": "user", "content": repair_turn([f.as_dict() for f in errors])}
             )
 
     # -- provider plumbing -------------------------------------------------
@@ -510,6 +653,27 @@ def _coerce(model: type, resp: LLMResponse):
             # and the missing ledger simply narrows the ATS report.
             return None
     return None
+
+
+def _error_count(findings: list[Finding]) -> int:
+    return sum(f.severity == "error" for f in findings)
+
+
+def _to_fix(findings: list[Finding]) -> list[Finding]:
+    return [f for f in findings if f.severity == "error" or f.rule_id in REPAIRED_WARNINGS]
+
+
+def _rank(findings: list[Finding]) -> tuple[int, int]:
+    """Fewer errors first, then fewer remaining issues of any repaired kind."""
+    return _error_count(findings), len(_to_fix(findings))
+
+
+def _jd_keywords(ledger: ScenarioLedger | None) -> dict[str, list[str]]:
+    return {"must": ats_report.must_keywords(ledger)} if ledger else {}
+
+
+def _failure_key(finding: Finding) -> str:
+    return f"{finding.rule_id}: {finding.message}"
 
 
 def _claimed_yoe(resume: Resume, ledger: ScenarioLedger | None) -> int | None:
