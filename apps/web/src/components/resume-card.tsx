@@ -33,7 +33,7 @@ export interface ResumeCardModel {
   status: string;
   createdAt: string;
   coverage: number | null;
-  /** Null for tailored versions, which have no editor page of their own. */
+  /** The resume's own page; null when there is nowhere to open. */
   href: string | null;
 }
 

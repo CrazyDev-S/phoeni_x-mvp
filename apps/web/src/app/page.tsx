@@ -241,7 +241,7 @@ function RecentActivity({
       Icon: Sparkles,
       title: "Resume tailored",
       detail: [t.company_name, t.job_title].filter(Boolean).join(" · ") || t.display_name,
-      href: "/applications",
+      href: `/resumes/tailored/${t.id}`,
       tone: "brand" as Tone,
       status:
         t.must_have_coverage_percent != null

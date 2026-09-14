@@ -15,10 +15,13 @@ import {
   Maximize2,
   NotebookPen,
   Pencil,
+  RefreshCw,
   Save,
   Search,
+  Sparkles,
   Trash2,
   Video,
+  WandSparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
@@ -28,6 +31,7 @@ import { StageMenu } from "@/components/applications/stage-menu";
 import { StatusSelect } from "@/components/applications/status-select";
 import { MeetingDialog, type MeetingDialogState } from "@/components/calendar/meeting-dialog";
 import { ErrorAlert } from "@/components/error-alert";
+import { GenerationProgress } from "@/components/generation-progress";
 import { FactList } from "@/components/side-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -58,7 +62,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { useGeneration } from "@/hooks/use-generation";
 import { downloadDocx, request } from "@/lib/api";
 import type { Meeting } from "@/lib/calendar";
 import { formatDateTime, relative } from "@/lib/format";
@@ -167,6 +173,7 @@ export function ApplicationDetailView({
   );
   const resume = (
     <ResumeSection
+      detail={data}
       resume={data.tailored_resume}
       pending={patch.isPending}
       onLink={(resumeId) => patch.mutate({ tailored_resume_id: resumeId })}
@@ -561,26 +568,75 @@ function PipelineSection({
 }
 
 function ResumeSection({
+  detail,
   resume,
   pending,
   onLink,
 }: {
+  detail: ApplicationDetail;
   resume: TailoredResumeBrief | null;
   pending: boolean;
   onLink: (resumeId: string | null) => void;
 }) {
+  const queryClient = useQueryClient();
+  const upgrade = useGeneration();
+  const upgraded = upgrade.state.running ? null : upgrade.state.resultId;
+  useEffect(() => {
+    if (!upgraded) return;
+    // The linked resume was rewritten in place; refetch everything showing it.
+    queryClient.invalidateQueries({ queryKey: ["application"] });
+    queryClient.invalidateQueries({ queryKey: ["tailored-resumes"] });
+  }, [upgraded, queryClient]);
+
   if (!resume) {
+    const suggestion = detail.suggested_tailored_resume;
     return (
       <Section icon={FileText} title="Resume sent">
-        <div className="space-y-3 p-4">
-          <p className="text-muted-foreground text-sm">
-            No resume is linked yet. Link the tailored version you applied with, so its
-            coverage and interview prep sit next to the job.
-          </p>
+        <div className="space-y-4 p-4">
+          {suggestion ? (
+            <div className="border-primary/25 bg-accent/40 space-y-2.5 rounded-lg border p-3">
+              <p className="text-sm">
+                <span className="font-medium">{suggestion.display_name}</span> was tailored
+                for this posting
+                {suggestion.must_have_coverage_percent != null &&
+                  ` · ${Math.round(suggestion.must_have_coverage_percent)}% must-have coverage`}
+                .
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" disabled={pending} onClick={() => onLink(suggestion.id)}>
+                  <Link2 />
+                  Link it
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/resumes/tailored/${suggestion.id}`}>
+                    <Pencil />
+                    Review
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              No resume is linked yet. Tailor one for this job, or link the version you
+              applied with, so its coverage and interview prep sit next to the job.
+            </p>
+          )}
+          <div className="space-y-1.5">
+            <Button asChild className="w-full">
+              <Link href={tailorHref(detail)}>
+                <Sparkles />
+                Tailor a resume for this job
+              </Link>
+            </Button>
+            <p className="text-muted-foreground text-center text-xs">
+              Opens the Tailor page with this job&apos;s description, company, role and link
+              filled in.
+            </p>
+          </div>
+          <Disclosure title="Or tailor it here">
+            <TailorForJob detail={detail} />
+          </Disclosure>
           <ResumePicker value={null} disabled={pending} onPick={onLink} />
-          <Button asChild variant="link" size="sm" className="h-auto px-0">
-            <Link href="/tailor">Tailor a resume for this job</Link>
-          </Button>
         </div>
       </Section>
     );
@@ -595,19 +651,27 @@ function ResumeSection({
       icon={FileText}
       title="Resume sent"
       action={
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            downloadDocx(
-              { resume_id: resume.id, kind: "tailored", profile: "designed" },
-              `${resume.display_name}.docx`,
-            )
-          }
-        >
-          <Download />
-          .docx
-        </Button>
+        <div className="flex gap-1.5">
+          <Button asChild size="sm" variant="outline">
+            <Link href={`/resumes/tailored/${resume.id}`}>
+              <Pencil />
+              Review &amp; edit
+            </Link>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              downloadDocx(
+                { resume_id: resume.id, kind: "tailored", profile: "designed" },
+                `${resume.display_name}.docx`,
+              )
+            }
+          >
+            <Download />
+            .docx
+          </Button>
+        </div>
       }
     >
       <div className="space-y-4 p-4">
@@ -651,6 +715,50 @@ function ResumeSection({
             { label: "Tailored via", value: humanize(resume.job_source), tone: "muted" },
           ]}
         />
+
+        <div className="space-y-2.5 rounded-lg border p-3">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={upgrade.state.running}
+              onClick={() =>
+                upgrade.start(`/api/v1/tailored-resumes/${resume.id}/upgrade`, {
+                  strategy: "existing",
+                })
+              }
+            >
+              <RefreshCw />
+              Upgrade existing
+            </Button>
+            <Button
+              size="sm"
+              disabled={upgrade.state.running}
+              onClick={() =>
+                upgrade.start(`/api/v1/tailored-resumes/${resume.id}/upgrade`, {
+                  strategy: "full",
+                })
+              }
+            >
+              <WandSparkles />
+              Full upgrade
+            </Button>
+            <Button asChild size="sm" variant="ghost">
+              <Link href={tailorHref(detail)}>
+                <Sparkles />
+                Open in Tailor
+              </Link>
+            </Button>
+          </div>
+          <p className="text-muted-foreground text-xs leading-relaxed">
+            Upgrade existing keeps employers, titles and dates and rewrites for this
+            posting&apos;s keywords. Full upgrade builds a new resume from the job
+            description. Both replace this version, so the application stays linked.
+          </p>
+          {(upgrade.state.running || upgrade.state.error) && (
+            <GenerationProgress state={upgrade.state} />
+          )}
+        </div>
 
         {gaps.length > 0 && (
           <Disclosure title={`Gaps to prepare for (${gaps.length})`}>
@@ -701,6 +809,118 @@ function ResumeSection({
   );
 }
 
+/**
+ * The Tailor page, filled in from this application. The base resume comes from
+ * the linked resume, or failing that the one tailored for this posting.
+ */
+function tailorHref(detail: ApplicationDetail): string {
+  const params = new URLSearchParams({ application: detail.id });
+  const base =
+    detail.tailored_resume?.base_resume_id ?? detail.suggested_tailored_resume?.base_resume_id;
+  if (base) params.set("base", base);
+  return `/tailor?${params}`;
+}
+
+/**
+ * Tailor straight from the application, against the job description saved
+ * with it. The result is linked here when it lands, so the card fills itself.
+ */
+function TailorForJob({ detail }: { detail: ApplicationDetail }) {
+  const queryClient = useQueryClient();
+  const tailor = useGeneration();
+  const [baseId, setBaseId] = useState("");
+  const [strategy, setStrategy] = useState<"existing" | "full">("existing");
+  const { data: bases } = useQuery({
+    queryKey: ["resumes", ""],
+    queryFn: () =>
+      request<{ items: { id: string; display_name: string }[] }>("/api/v1/resumes"),
+  });
+  const items = bases?.items ?? [];
+  const chosen = baseId || items[0]?.id || "";
+  const running = tailor.state.running;
+
+  const finished = running ? null : tailor.state.resultId;
+  useEffect(() => {
+    if (!finished) return;
+    queryClient.invalidateQueries({ queryKey: ["application", detail.id] });
+    queryClient.invalidateQueries({ queryKey: ["tailored-resumes"] });
+  }, [finished, detail.id, queryClient]);
+
+  const tailorPage = tailorHref(detail);
+
+  if ((detail.job_description_text ?? "").trim().length < 40) {
+    return (
+      <p className="text-muted-foreground text-xs leading-relaxed">
+        No job description is saved with this application, so it can&apos;t be tailored
+        from here. Add it under Edit details, or{" "}
+        <Link href={tailorPage} className="text-primary hover:underline">
+          paste it on the Tailor page
+        </Link>
+        .
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5 rounded-lg border p-3">
+      <p className="text-sm font-medium">Tailor without leaving this page</p>
+      <Select
+        value={chosen}
+        onValueChange={(v) => v && setBaseId(v)}
+        disabled={running || !items.length}
+      >
+        <SelectTrigger className="w-full" aria-label="Base resume">
+          <SelectValue placeholder={items.length ? "Choose a base resume…" : "No base resumes yet"} />
+        </SelectTrigger>
+        <SelectContent>
+          {items.map((item) => (
+            <SelectItem key={item.id} value={item.id}>
+              {item.display_name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="How to tailor">
+        {(["existing", "full"] as const).map((option) => (
+          <Button
+            key={option}
+            type="button"
+            size="sm"
+            role="radio"
+            aria-checked={strategy === option}
+            variant={strategy === option ? "secondary" : "ghost"}
+            disabled={running}
+            onClick={() => setStrategy(option)}
+          >
+            {option === "existing" ? <RefreshCw /> : <WandSparkles />}
+            {option === "existing" ? "Upgrade existing" : "Full upgrade"}
+          </Button>
+        ))}
+      </div>
+      <Button
+        className="w-full"
+        disabled={!chosen || running}
+        onClick={() =>
+          tailor.start(`/api/v1/applications/${detail.id}/tailor`, {
+            base_resume_id: chosen,
+            strategy,
+          })
+        }
+      >
+        {running ? <Spinner /> : <Sparkles />}
+        {running ? "Tailoring…" : "Tailor and link"}
+      </Button>
+      <p className="text-muted-foreground text-xs leading-relaxed">
+        Uses the job description saved with this application, and links the result here.{" "}
+        <Link href={tailorPage} className="text-primary hover:underline">
+          Open in the Tailor page
+        </Link>
+      </p>
+      {(running || tailor.state.error) && <GenerationProgress state={tailor.state} />}
+    </div>
+  );
+}
+
 function ResumePicker({
   value,
   disabled,
@@ -719,7 +939,12 @@ function ResumePicker({
   });
   const items = data?.items ?? [];
   return (
-    <Select value={value ?? ""} onValueChange={onPick} disabled={disabled || !items.length}>
+    <Select
+      value={value ?? ""}
+      // Radix can report an empty value while its items reload; that is not a pick.
+      onValueChange={(v) => v && onPick(v)}
+      disabled={disabled || !items.length}
+    >
       <SelectTrigger className="w-full" aria-label="Linked tailored resume">
         <SelectValue
           placeholder={items.length ? "Link a tailored resume…" : "No tailored resumes yet"}

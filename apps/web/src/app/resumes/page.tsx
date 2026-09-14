@@ -164,7 +164,7 @@ export default function ResumesPage() {
       status: t.status,
       createdAt: t.created_at,
       coverage: t.must_have_coverage_percent,
-      href: null,
+      href: `/resumes/tailored/${t.id}`,
     }));
 
     const pool =

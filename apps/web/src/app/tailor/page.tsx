@@ -6,12 +6,15 @@ import {
   ClipboardPaste,
   FileText,
   Plus,
+  RefreshCw,
   Sparkles,
   Upload,
+  WandSparkles,
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
 
 import { ErrorAlert } from "@/components/error-alert";
 import { FormField } from "@/components/form-field";
@@ -43,6 +46,7 @@ const JD_MAX = 60_000;
 const INSTRUCTION_MAX = 8_000;
 
 type Mode = "job" | "instruction";
+type Strategy = "existing" | "full";
 
 interface ResumeOption {
   id: string;
@@ -50,7 +54,24 @@ interface ResumeOption {
   target_title: string;
 }
 
+interface ApplicationPrefill {
+  id: string;
+  company_name: string;
+  role_title: string;
+  job_url: string | null;
+  job_description_text: string | null;
+}
+
 export default function TailorPage() {
+  // useSearchParams needs a Suspense boundary, or the route renders client-only.
+  return (
+    <Suspense fallback={null}>
+      <TailorForm />
+    </Suspense>
+  );
+}
+
+function TailorForm() {
   const [mode, setMode] = useState<Mode>("job");
   const { state, start, reset } = useGeneration();
 
@@ -65,8 +86,36 @@ export default function TailorPage() {
   const [company, setCompany] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [instructions, setInstructions] = useState("");
+  const [strategy, setStrategy] = useState<Strategy>("existing");
+
+  // ?application=<id>: tailoring for a tracked application. Its job details
+  // are filled in once, and the result is linked back to it.
+  const searchParams = useSearchParams();
+  const applicationId = searchParams.get("application");
+  const requestedBase = searchParams.get("base");
+  const { data: application } = useQuery({
+    queryKey: ["application", applicationId],
+    queryFn: () => request<ApplicationPrefill>(`/api/v1/applications/${applicationId}`),
+    enabled: Boolean(applicationId),
+  });
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (!application || prefilled.current) return;
+    prefilled.current = true;
+    setJobDescription((current) => current || (application.job_description_text ?? ""));
+    setCompany((current) => current || application.company_name);
+    setJobTitle((current) => current || application.role_title);
+    setJobUrl((current) => current || (application.job_url ?? ""));
+  }, [application]);
 
   const options = resumes?.items ?? [];
+
+  // ?base=<id>: start from the resume this job was last tailored from.
+  useEffect(() => {
+    if (requestedBase && !baseId && options.some((option) => option.id === requestedBase)) {
+      setBaseId(requestedBase);
+    }
+  }, [requestedBase, baseId, options]);
   const jdReady = jobDescription.trim().length >= JD_MIN;
   const canSubmit =
     Boolean(baseId) &&
@@ -84,6 +133,8 @@ export default function TailorPage() {
         company_name: company || undefined,
         job_title: jobTitle || undefined,
         source: "web",
+        strategy,
+        application_id: application?.id,
       });
     } else {
       await start("/api/v1/tailoring/instruction", {
@@ -104,6 +155,23 @@ export default function TailorPage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <div className="min-w-0 space-y-6">
+          {application && (
+            <div className="border-primary/25 bg-accent/50 flex flex-wrap items-center gap-3 rounded-xl border border-dashed p-4 text-sm">
+              <p className="min-w-0 flex-1">
+                Tailoring for{" "}
+                <span className="font-medium">
+                  {application.company_name} · {application.role_title}
+                </span>
+                . The result is linked to that application.
+                {!application.job_description_text?.trim() &&
+                  " No job description is saved with it — paste one below."}
+              </p>
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/applications/${application.id}`}>Back to the application</Link>
+              </Button>
+            </div>
+          )}
+
           <Card className="py-0">
             <CardContent className="p-5 md:p-6">
               <form onSubmit={submit}>
@@ -135,6 +203,8 @@ export default function TailorPage() {
 
                     <TabsContent value="job">
                       <FieldGroup className="gap-5">
+                        <StrategyPicker value={strategy} onChange={setStrategy} />
+
                         <JobDescriptionInput
                           value={jobDescription}
                           onChange={setJobDescription}
@@ -201,6 +271,7 @@ export default function TailorPage() {
 
                   <Button
                     type="submit"
+                    variant="brand"
                     size="lg"
                     className="h-12 w-full"
                     disabled={!canSubmit}
@@ -213,7 +284,11 @@ export default function TailorPage() {
                     ) : (
                       <>
                         <Sparkles />
-                        {mode === "job" ? "Generate tailored resume" : "Apply edits"}
+                        {mode === "instruction"
+                          ? "Apply edits"
+                          : strategy === "full"
+                            ? "Build a new resume for this job"
+                            : "Generate tailored resume"}
                         <ArrowRight data-icon="inline-end" />
                       </>
                     )}
@@ -252,6 +327,58 @@ export default function TailorPage() {
           <WhyPanel />
         </aside>
       </div>
+    </div>
+  );
+}
+
+const STRATEGIES: { value: Strategy; title: string; body: string; icon: typeof Sparkles }[] = [
+  {
+    value: "existing",
+    title: "Upgrade existing",
+    body: "Keeps your employers, titles and dates, and rewrites until it covers every must-have keyword your experience supports.",
+    icon: RefreshCw,
+  },
+  {
+    value: "full",
+    title: "Full upgrade",
+    body: "Builds a new resume from the job description, using your current one as the profile. Slower, and the closest match.",
+    icon: WandSparkles,
+  },
+];
+
+function StrategyPicker({
+  value,
+  onChange,
+}: {
+  value: Strategy;
+  onChange: (next: Strategy) => void;
+}) {
+  return (
+    <div role="radiogroup" aria-label="How to tailor" className="grid gap-3 sm:grid-cols-2">
+      {STRATEGIES.map(({ value: option, title, body, icon: Icon }) => {
+        const selected = value === option;
+        return (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(option)}
+            className={cn(
+              "rounded-xl border p-4 text-left transition-colors",
+              selected ? "border-primary bg-accent/60 ring-primary ring-1" : "hover:bg-muted/50",
+            )}
+          >
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <Icon className="text-primary size-4" />
+              {title}
+            </span>
+            <span className="text-muted-foreground mt-1 block text-xs leading-relaxed">
+              {body}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

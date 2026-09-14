@@ -95,6 +95,13 @@ export interface ApplicationDetail {
   job_description_text: string | null;
   stages: Stage[];
   tailored_resume: TailoredResumeBrief | null;
+  /** When nothing is linked: the tailored resume written for this posting. */
+  suggested_tailored_resume: {
+    id: string;
+    display_name: string;
+    base_resume_id: string;
+    must_have_coverage_percent: number | null;
+  } | null;
 }
 
 export interface StageUpdated {

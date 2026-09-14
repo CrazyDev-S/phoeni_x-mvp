@@ -143,16 +143,20 @@ export function ResultPanel({ state }: { state: GenerationState }) {
             <FileDown />
             ATS version
           </Button>
-          {!isTailored && (
-            <Button
-              size="lg"
-              variant="ghost"
-              onClick={() => router.push(`/resumes/${state.resultId}`)}
-            >
-              <ExternalLink />
-              Open and edit
-            </Button>
-          )}
+          <Button
+            size="lg"
+            variant="ghost"
+            onClick={() =>
+              router.push(
+                isTailored
+                  ? `/resumes/tailored/${state.resultId}`
+                  : `/resumes/${state.resultId}`,
+              )
+            }
+          >
+            <ExternalLink />
+            {isTailored ? "Review and edit" : "Open and edit"}
+          </Button>
         </div>
       </CardContent>
     </Card>

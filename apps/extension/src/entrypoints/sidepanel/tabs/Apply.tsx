@@ -55,6 +55,7 @@ interface Answer {
 export function ApplyTab({ portalUrl }: { portalUrl: string }) {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [baseId, setBaseId] = useState("");
+  const [strategy, setStrategy] = useState<"existing" | "full">("existing");
   const [target, setTarget] = useState<TargetTab | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -139,7 +140,7 @@ export function ApplyTab({ portalUrl }: { portalUrl: string }) {
         result_id?: string | null;
       }>("/api/v1/extension/tailor", {
         method: "POST",
-        body: JSON.stringify({ base_resume_id: baseId, job }),
+        body: JSON.stringify({ base_resume_id: baseId, job, strategy }),
       });
 
       let resultId = accepted.result_id ?? null;
@@ -311,8 +312,26 @@ export function ApplyTab({ portalUrl }: { portalUrl: string }) {
               )}
             </PanelField>
 
+            <PanelField label="How to tailor">
+              {(control) => (
+                <Select
+                  value={strategy}
+                  onValueChange={(v) => setStrategy(v as "existing" | "full")}
+                >
+                  <SelectTrigger {...control} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="existing">Upgrade existing resume</SelectItem>
+                    <SelectItem value="full">Full upgrade from the job</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </PanelField>
+
             <div className="space-y-1.5">
               <Button
+                variant="brand"
                 className="h-10 w-full"
                 disabled={!baseId || !ready || running}
                 onClick={tailor}
@@ -321,7 +340,9 @@ export function ApplyTab({ portalUrl }: { portalUrl: string }) {
                 Tailor &amp; download
               </Button>
               <p className="text-subtle text-center text-[10px] leading-snug">
-                Reframes your resume against this posting and saves the .docx.
+                {strategy === "full"
+                  ? "Builds a new resume for this posting from your current one, and saves the .docx."
+                  : "Reframes your resume against this posting and saves the .docx."}
               </p>
             </div>
 
