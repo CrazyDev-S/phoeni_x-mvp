@@ -22,7 +22,7 @@ from app.schemas.resume import (
     TailoredResumePatch,
     TailoredResumeSummary,
 )
-from app.services.resumes import parse_or_422, run_validation
+from app.services.resumes import parse_or_422, rescore_tailored
 
 router = APIRouter(prefix="/tailored-resumes", tags=["resumes"])
 
@@ -89,10 +89,9 @@ async def update_tailored_resume(
 
     if body.content_markdown is not None:
         parsed = parse_or_422(body.content_markdown)
-        findings = run_validation(parsed)
         row.content_markdown = body.content_markdown
         row.content_text = render_plain_text(parsed)
-        row.validation = {"findings": [f.as_dict() for f in findings]}
+        rescore_tailored(row, parsed)
 
     for field in ("display_name", "company_name", "job_title", "job_url", "status"):
         if (value := getattr(body, field)) is not None:

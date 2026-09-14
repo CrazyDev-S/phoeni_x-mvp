@@ -6,10 +6,13 @@ import re
 import uuid
 
 from fastapi import HTTPException, status
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.llm.schemas import ScenarioLedger
 from app.models.enums import ResumeSource, ResumeStatus
-from app.models.resume import CURRENT_MARKDOWN_VERSION, BaseResume
+from app.models.resume import CURRENT_MARKDOWN_VERSION, BaseResume, TailoredResume
+from app.orchestration import ats_report
 from app.resume.document import Resume
 from app.resume.parser import ResumeMarkdownError, parse
 from app.resume.renderer import render_plain_text
@@ -42,6 +45,43 @@ def claimed_years(resume: Resume) -> int | None:
 
 def run_validation(resume: Resume, **kw) -> list[Finding]:
     return validate(Context(resume=resume, claimed_years=claimed_years(resume), **kw))
+
+
+def rescore_tailored(row: TailoredResume, resume: Resume) -> list[Finding]:
+    """Re-check and re-score a tailored resume after a hand edit.
+
+    Against its own keyword plan. Without it an edit left the coverage figures
+    describing the version before it, and deleting a must-have keyword went
+    unnoticed.
+    """
+    try:
+        ledger = ScenarioLedger.model_validate(row.ledger) if row.ledger else None
+    except ValidationError:
+        ledger = None
+    findings = validate(
+        Context(
+            resume=resume,
+            claimed_years=(ledger.total_years if ledger and ledger.total_years else None)
+            or claimed_years(resume),
+            jd_keywords={"must": ats_report.must_keywords(ledger)},
+        )
+    )
+    report = ats_report.build(
+        resume,
+        ledger,
+        target_title=row.job_title or resume.header.title,
+        findings_count=len(findings),
+    )
+    row.validation = {"findings": [f.as_dict() for f in findings]}
+    row.ats_report = report
+    for key, value in ats_report.coverage_columns(report).items():
+        setattr(row, key, value)
+    row.status = (
+        ResumeStatus.NEEDS_REVIEW
+        if any(f.severity == "error" for f in findings)
+        else ResumeStatus.FINAL
+    )
+    return findings
 
 
 async def create_base_resume(

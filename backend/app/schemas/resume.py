@@ -155,6 +155,11 @@ class TailoredResumeSummary(ORMModel):
 
 
 class TailoredResumeOut(TailoredResumeSummary):
+    must_have_covered: int | None = None
+    must_have_total: int | None = None
+    nice_to_have_coverage_percent: float | None = None
+    years_required: int | None = None
+    years_shown: float | None = None
     content_markdown: str
     content_text: str
     markdown_version: int
