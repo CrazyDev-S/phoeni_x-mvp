@@ -26,6 +26,8 @@ export interface GenerationState {
   needsReview: boolean;
   error: string | null;
   running: boolean;
+  /** When the run was started, for the elapsed timer. */
+  startedAt: number | null;
 }
 
 const IDLE: GenerationState = {
@@ -42,6 +44,7 @@ const IDLE: GenerationState = {
   needsReview: false,
   error: null,
   running: false,
+  startedAt: null,
 };
 
 /**
@@ -59,7 +62,7 @@ export function useGeneration() {
 
   const start = useCallback(async (path: string, body: unknown) => {
     cancelRef.current?.();
-    setState({ ...IDLE, running: true, label: "Starting…" });
+    setState({ ...IDLE, running: true, label: "Starting…", startedAt: Date.now() });
 
     let accepted: {
       id: string;

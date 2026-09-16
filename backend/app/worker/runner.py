@@ -14,8 +14,9 @@ import uuid
 from datetime import timedelta
 
 from pydantic import ValidationError
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
+from app.core.config import get_settings
 from app.core.timezone import app_today, utc_now
 from app.db.session import SessionLocal
 from app.llm.factory import get_provider
@@ -30,6 +31,7 @@ from app.models.enums import (
     ResumeStatus,
 )
 from app.models.generation import Generation
+from app.models.job_link import JobLink
 from app.models.resume import CURRENT_MARKDOWN_VERSION, BaseResume, TailoredResume
 from app.models.user import UserSettings
 from app.orchestration import ats_report
@@ -323,6 +325,18 @@ async def _persist(session, generation: Generation, payload: dict, result) -> No
     await session.flush()
     generation.result_id = row.id
 
+    if generation.kind is GenerationKind.TAILOR_JOB:
+        # Every posting the side panel started this run from - two tabs can be
+        # the same job - now uses its result, even if the panel was closed.
+        await session.execute(
+            update(JobLink)
+            .where(
+                JobLink.generation_id == generation.id,
+                JobLink.user_id == generation.user_id,
+            )
+            .values(resume_kind="tailored", tailored_resume_id=row.id)
+        )
+
     if generation.kind is GenerationKind.TAILOR_JOB and payload.get("application_id"):
         # Tailored from a tracked application: link it there, on both sides.
         application = await session.get(JobApplication, uuid.UUID(payload["application_id"]))
@@ -390,6 +404,14 @@ async def worker_loop(stop: asyncio.Event) -> None:
                 await asyncio.wait_for(stop.wait(), timeout=POLL_SECONDS)
 
 
+async def run_workers(stop: asyncio.Event, count: int) -> None:
+    """Several loops over the one queue.
+
+    SKIP LOCKED in claim_next keeps two loops from taking the same job.
+    """
+    await asyncio.gather(*(worker_loop(stop) for _ in range(count)))
+
+
 if __name__ == "__main__":  # pragma: no cover
     logging.basicConfig(level=logging.INFO)
-    asyncio.run(worker_loop(asyncio.Event()))
+    asyncio.run(run_workers(asyncio.Event(), get_settings().worker_concurrency))

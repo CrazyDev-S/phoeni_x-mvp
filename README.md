@@ -29,6 +29,7 @@ All three surfaces build and run.
 | Tracking, stages, calendar, recurring meetings, maintenance | Done |
 | Next.js portal (11 routes) | Done |
 | Chrome MV3 side panel (5 tabs, scan + fill engines) | Done |
+| Tailor many open tabs at once; a resume per posting; resume upload | Done |
 | PDF export, tightening ladder | Not started |
 | ATS adapter registry / Workday multi-step | Not started |
 

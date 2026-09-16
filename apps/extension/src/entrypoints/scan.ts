@@ -10,7 +10,7 @@
  *  - Detecting what it CANNOT see (closed shadow roots, unreachable iframes) so
  *    the panel can be honest about it.
  */
-import type { FieldType, FormOption, JobExtract, ScanResult, ScannedField } from "@/lib/types";
+import type { FieldType, FormOption, FrameScan, JobExtract, ScannedField } from "@/lib/types";
 
 declare global {
   interface Window {
@@ -86,12 +86,41 @@ function resolveLabel(el: Element): string {
     const heading = container.querySelector("label,legend,h3,h4,[class*=label]");
     if (heading?.textContent?.trim()) return clean(heading.textContent);
   }
+  if (isFileInput(el)) {
+    // Upload widgets label the button they draw, not the input behind it -
+    // which is how an Ashby upload came through as a bare "f0:0".
+    const nearby = nearbyText(el);
+    if (nearby) return nearby;
+  }
   return clean(
     el.getAttribute("placeholder") ??
       el.getAttribute("name") ??
       el.getAttribute("data-automation-id") ??
       "",
   );
+}
+
+function isFileInput(el: Element): el is HTMLInputElement {
+  return el instanceof HTMLInputElement && el.type === "file";
+}
+
+/** The nearest text around an element, a few ancestors up at most. */
+function nearbyText(el: Element): string {
+  let node = el.parentElement;
+  for (let depth = 0; node && depth < 4; depth++, node = node.parentElement) {
+    const text = clean(node.innerText ?? "");
+    if (text) return text.slice(0, 120);
+  }
+  return "";
+}
+
+/** A hidden file input counts when the upload widget around it is on screen. */
+function uploadVisible(el: Element): boolean {
+  let node = el.parentElement;
+  for (let depth = 0; node && depth < 3; depth++, node = node.parentElement) {
+    if (visible(node)) return true;
+  }
+  return false;
 }
 
 function resolveHelp(el: Element): string {
@@ -156,7 +185,7 @@ function optionsOf(el: Element): { options: FormOption[]; unknown: boolean } {
   return { options: [], unknown: fieldType(el) === "combobox" };
 }
 
-export function scanFrame(frameKey: string): ScanResult {
+export function scanFrame(frameKey: string): FrameScan {
   const registry = (window.__raRegistry ??= new Map());
   registry.clear();
 
@@ -174,7 +203,8 @@ export function scanFrame(frameKey: string): ScanResult {
     const input = el as HTMLInputElement;
     if (input.disabled || input.readOnly) continue;
     if (el.tagName === "INPUT" && SKIP_INPUT_TYPES.has(input.type)) continue;
-    if (!visible(el)) continue;
+    // Upload widgets hide the real input behind a styled button.
+    if (!visible(el) && !(isFileInput(el) && uploadVisible(el))) continue;
 
     const type = fieldType(el);
 
@@ -201,6 +231,7 @@ export function scanFrame(frameKey: string): ScanResult {
         options: [{ label: optionLabel, value: input.value }],
         options_unknown: false,
         group: input.name,
+        accept: "",
       };
       radioGroups.set(input.name, field);
       fields.push(field);
@@ -225,6 +256,7 @@ export function scanFrame(frameKey: string): ScanResult {
       options,
       options_unknown: unknown,
       group: "",
+      accept: isFileInput(el) ? el.accept : "",
     });
     registry.set(id, el);
     el.setAttribute("data-ra-fid", id);

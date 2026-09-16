@@ -14,6 +14,9 @@ import {
   TOKEN_KEY,
 } from "./constants";
 
+export const DOCX_MIME =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
 export interface Settings {
   apiBase: string;
   token: string;
@@ -83,6 +86,18 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}): Pr
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }
 
+/** A stored resume rendered as .docx, in memory. */
+export async function fetchDocx(body: Record<string, unknown>): Promise<Blob> {
+  const { apiBase, token } = await getSettings();
+  const res = await fetch(`${apiBase}/api/v1/export/docx`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, "EXPORT", "Could not build the document");
+  return res.blob();
+}
+
 /**
  * Download through chrome.downloads rather than an anchor.
  *
@@ -95,15 +110,7 @@ export async function downloadDocx(
   body: Record<string, unknown>,
   filename: string,
 ): Promise<void> {
-  const { apiBase, token } = await getSettings();
-  const res = await fetch(`${apiBase}/api/v1/export/docx`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new ApiError(res.status, "EXPORT", "Could not build the document");
-
-  const blob = await res.blob();
+  const blob = await fetchDocx(body);
   const url = URL.createObjectURL(blob);
   try {
     const id = await chrome.downloads.download({
@@ -125,6 +132,22 @@ export async function downloadDocx(
   } finally {
     setTimeout(() => URL.revokeObjectURL(url), 15_000);
   }
+}
+
+/** A .docx filename from its parts, e.g. "Acme - Senior Engineer.docx". */
+export function docxName(...parts: (string | null | undefined)[]): string {
+  return sanitize(`${parts.filter(Boolean).join(" - ") || "Resume"}.docx`);
+}
+
+/** Base64 for a blob: executeScript arguments must be JSON, not bytes. */
+export async function toBase64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+  // Chunked: spreading a whole file into fromCharCode overflows the stack.
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
 }
 
 function sanitize(name: string): string {
@@ -168,11 +191,14 @@ export async function waitForGeneration(
         phase: string | null;
         progress_percent: number;
         error_detail: string | null;
+        result_id: string | null;
       }>(`/api/v1/generations/${id}`);
       onPhase(gen.phase ?? "Working", gen.progress_percent);
       if (gen.status === "failed")
         throw new ApiError(500, "FAILED", gen.error_detail ?? "Failed");
-      if (gen.status === "succeeded" || gen.status === "needs_review") return {};
+      if (gen.status === "succeeded" || gen.status === "needs_review") {
+        return { result_id: gen.result_id };
+      }
     }
     await new Promise((r) => setTimeout(r, 900));
   }

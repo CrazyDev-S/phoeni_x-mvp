@@ -54,9 +54,18 @@ async def enqueue(
                 Generation.user_id == user_id, Generation.idempotency_key == key
             )
         )
-        if existing is not None:
+        if existing is not None and existing.status not in (
+            GenerationStatus.FAILED,
+            GenerationStatus.CANCELLED,
+        ):
             # A double-clicked button costs nothing.
             return existing
+        if existing is not None:
+            # Reusing a failed run made the same request fail forever: the
+            # client was handed the old error every time it tried again.
+            # Release the key so a fresh run can take it.
+            existing.idempotency_key = None
+            await session.flush()
 
     row = Generation(
         user_id=user_id,

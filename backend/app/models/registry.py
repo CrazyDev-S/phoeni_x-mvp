@@ -16,6 +16,7 @@ from app.models.application import (
 )
 from app.models.calendar import Meeting, MeetingSeries
 from app.models.generation import Generation, GenerationEvent, LLMCall
+from app.models.job_link import JobLink
 from app.models.maintenance import MaintainedJob
 from app.models.profile import (
     ApplicationFormAnswer,
@@ -38,6 +39,7 @@ __all__ = [
     "Generation",
     "GenerationEvent",
     "JobApplication",
+    "JobLink",
     "LLMCall",
     "LLMCredential",
     "MaintainedJob",

@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, or_, select
 
 from app.core.deps import CurrentUser, Session
 from app.models.application import JobApplication
@@ -51,7 +51,16 @@ async def list_tailored_resumes(
     limit: int = Query(default=50, le=200),
     offset: int = 0,
 ) -> Page[TailoredResumeSummary]:
-    stmt = select(TailoredResume).where(TailoredResume.user_id == user.id)
+    stmt = select(TailoredResume).where(
+        TailoredResume.user_id == user.id,
+        # Tailoring from the side panel is not saving it: that resume is listed
+        # only once Save & track registers it as an application. Until then
+        # the panel still finds it by its posting.
+        or_(
+            TailoredResume.job_source != "extension",
+            exists().where(JobApplication.tailored_resume_id == TailoredResume.id),
+        ),
+    )
     if base_resume_id:
         stmt = stmt.where(TailoredResume.base_resume_id == base_resume_id)
     if q:

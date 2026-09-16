@@ -13,7 +13,7 @@ from sqlalchemy import text
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.db.session import engine
-from app.worker.runner import worker_loop
+from app.worker.runner import run_workers
 
 settings = get_settings()
 
@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
     stop = asyncio.Event()
     task = None
     if settings.worker_in_process:
-        task = asyncio.create_task(worker_loop(stop))
+        task = asyncio.create_task(run_workers(stop, settings.worker_concurrency))
     try:
         yield
     finally:

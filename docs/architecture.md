@@ -82,6 +82,34 @@ Related choices:
   not survive a `runtime.sendMessage` round trip.
 - **Zero `web_accessible_resources`**, so sites probing for known extension IDs
   find nothing.
+- **Frames are addressed by Chrome's frame id.** Field ids are
+  `f<frameId>:<index>`, and scan and fill each target one frame. Every frame
+  used to scan itself as `f0`, so a form inside an iframe (Greenhouse's embed)
+  was filled against the wrong frame and nothing in it filled.
+
+## Many postings at once
+
+The Apply tab lists every open tab. Selected tabs tailor side by side, and the
+worker runs `WORKER_CONCURRENCY` generations at once (default 3); with one at a
+time, the fifth tab waited out four full runs.
+
+Each posting's resume is a **job link** (`job_links`), keyed by a normalised
+URL (`services/job_links.py:job_key`): scheme, `www.`, fragment, tracking
+parameters and an `/application` or `/apply` suffix are dropped, so a posting
+and its application form share one link. A link names either a tailored resume
+or a base resume used as it is, and records the latest tailoring run. The
+worker attaches a finished run to every link naming it, so a run survives the
+panel closing, and reopening the panel picks its progress back up. A tab with
+no link still shows a resume tailored from the same URL.
+
+Tailoring in the panel does not save the resume. It is kept, so the panel can
+download it and fill the form with it, but the resume lists (`GET
+/tailored-resumes`, which the portal's library and dashboard read) leave it
+out until **Save & track** registers it as an application. Resumes tailored in
+the portal are always listed: the portal has no separate save step.
+
+A failed generation releases its idempotency key. Reusing it made the same
+request fail forever, handing back the old error on every retry.
 
 ## Filling forms
 
@@ -100,15 +128,34 @@ controlled-input failure and is reported as such rather than as success.
 
 **Never auto-answered:** sponsorship, work authorization, disability, veteran
 status, race/ethnicity, criminal history, salary expectation. These return
-`needs_user_input` with the label surfaced.
+`needs_user_input` with the label surfaced. The patterns match whole words:
+without boundaries "corporate" read as a pay rate and "Essex" as a question
+about sex.
+
+**Answers come from the resume before the model.** Contact fields (name,
+email, phone, links, location, current role, total years) are matched by
+autocomplete token, input type and label, and answered straight from the
+linked resume, with the autofill profile on top. Only what is left goes to the
+fast tier, with thinking off: it shares the output budget there and could cut
+the JSON off. The reply is read even when fenced. A reply that cannot be read,
+or a missing key, leaves those fields to the user and is never cached; the
+cache key covers the resume, profile and posting as well as the form's shape.
+
+**Resume uploads.** A file input labelled as a resume gets the linked resume's
+`.docx`, attached through a `DataTransfer` FileList and a change event. It
+counts as filled only when the file name shows on the page (or a visible native
+input still holds it); otherwise it is reported as unconfirmed, for the user to
+check. Cover letters, PDF-only uploads and Ashby's "autofill from resume"
+input, which would re-parse the file over the fields just filled, are left to
+the user.
 
 ## Honest limits
 
 - Closed shadow roots are out of scope; they would need a MAIN-world
   `attachShadow` patch and a permanent content script.
-- File inputs are reported as manual. They can sometimes be set via a
-  constructed `DataTransfer`, but success cannot be verified reliably enough to
-  claim.
+- A resume upload is attached, but a widget that uploads the file and clears
+  its input without showing the name gives no signal, so it is reported as
+  unconfirmed rather than filled. Drop zones with no file input are not reached.
 - LinkedIn Easy Apply is deliberately not auto-filled.
 - OpenAI pricing is not in this project's authoritative reference, so cost for
   that provider is reported as unknown rather than guessed.

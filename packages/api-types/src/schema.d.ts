@@ -218,6 +218,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/autofill-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Autofill Profile */
+        get: operations["get_autofill_profile_api_v1_settings_autofill_profile_get"];
+        /**
+         * Put Autofill Profile
+         * @description Replace the stored answers.
+         *
+         *     A whole-document PUT rather than a patch: the editor owns the full set, and
+         *     a partial merge would make removing a key impossible.
+         */
+        put: operations["put_autofill_profile_api_v1_settings_autofill_profile_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/resumes": {
         parameters: {
             query?: never;
@@ -420,6 +444,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/resumes/{resume_id}/repair": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Repair Resume
+         * @description Fix the rule errors a saved resume still carries, in place.
+         *
+         *     Not idempotency-keyed: a run that could not clear everything must be
+         *     re-runnable on the same content. Only a run already in flight is reused.
+         */
+        post: operations["repair_resume_api_v1_resumes__resume_id__repair_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tailored-resumes/{resume_id}/upgrade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upgrade Tailored Resume
+         * @description Re-tailor a saved tailored resume against its own posting, in place.
+         *
+         *     In place, so the application it was sent with stays linked to it.
+         */
+        post: operations["upgrade_tailored_resume_api_v1_tailored_resumes__resume_id__upgrade_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{application_id}/tailor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tailor For Application
+         * @description Tailor against an application's saved posting, and link the result to it.
+         *
+         *     The same flow as the Tailor page, so strategies and the instant path behave
+         *     identically from either place.
+         */
+        post: operations["tailor_for_application_api_v1_applications__application_id__tailor_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/generations/{generation_id}": {
         parameters: {
             query?: never;
@@ -526,6 +618,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/export/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Preview
+         * @description The same document as ``/docx``, as styled blocks the web app can draw.
+         *
+         *     Accepts unsaved markdown so the editor can preview edits before saving.
+         */
+        post: operations["export_preview_api_v1_export_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/applications": {
         parameters: {
             query?: never;
@@ -537,8 +651,8 @@ export interface paths {
          * List Applications
          * @description The tracking table.
          *
-         *     Current stage and next meeting are inlined so the table renders in one
-         *     request rather than N+1 lookups per row.
+         *     Every stage - with its meetings - is inlined, because each stage is a
+         *     column of the table. Three queries in total, however many rows.
          */
         get: operations["list_applications_api_v1_applications_get"];
         put?: never;
@@ -787,9 +901,75 @@ export interface paths {
          * @description Tailor against the page the user has open.
          *
          *     Nothing is saved as an application here — that only happens if the user
-         *     presses Save afterwards, exactly as the flow requires.
+         *     presses Save afterwards, exactly as the flow requires. The posting is
+         *     linked to the run, though, so the panel can find the result again from any
+         *     tab showing that posting.
          */
         post: operations["extension_tailor_api_v1_extension_tailor_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/extension/job-links/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lookup Job Links
+         * @description What each open tab's posting already has: a resume, a run in flight, or neither.
+         *
+         *     One item per distinct URL. A posting with no link still shows a resume
+         *     tailored from the same URL, so jobs tailored before links existed - or in
+         *     the portal - turn up too.
+         */
+        post: operations["lookup_job_links_api_v1_extension_job_links_lookup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/extension/job-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Link Job
+         * @description Use a resume for a posting as it is, without tailoring - or unlink it.
+         */
+        put: operations["link_job_api_v1_extension_job_links_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/extension/resume-facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resume Facts
+         * @description A resume's contact details and highlights, ready to copy into a form.
+         */
+        get: operations["resume_facts_api_v1_extension_resume_facts_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -958,6 +1138,8 @@ export interface components {
             id: string;
             /** Company Name */
             company_name: string;
+            /** Company Domain */
+            company_domain?: string | null;
             /** Role Title */
             role_title: string;
             /** Job Url */
@@ -965,6 +1147,12 @@ export interface components {
             /** Location */
             location: string | null;
             work_mode: components["schemas"]["WorkMode"] | null;
+            /** Salary Min */
+            salary_min?: number | null;
+            /** Salary Max */
+            salary_max?: number | null;
+            /** Salary Currency */
+            salary_currency?: string | null;
             status: components["schemas"]["ApplicationStatus"];
             /** Origin */
             origin: string;
@@ -985,27 +1173,43 @@ export interface components {
             job_description_text: string | null;
             /** Stages */
             stages?: components["schemas"]["StageOut"][];
+            tailored_resume?: components["schemas"]["TailoredResumeBrief"] | null;
+            suggested_tailored_resume?: components["schemas"]["TailoredResumeOption"] | null;
         };
         /** ApplicationPatch */
         ApplicationPatch: {
             /** Company Name */
             company_name?: string | null;
+            /** Company Domain */
+            company_domain?: string | null;
             /** Role Title */
             role_title?: string | null;
             /** Job Url */
             job_url?: string | null;
+            /** Job Description Text */
+            job_description_text?: string | null;
             /** Location */
             location?: string | null;
             work_mode?: components["schemas"]["WorkMode"] | null;
+            /** Salary Min */
+            salary_min?: number | null;
+            /** Salary Max */
+            salary_max?: number | null;
+            /** Salary Currency */
+            salary_currency?: string | null;
             status?: components["schemas"]["ApplicationStatus"] | null;
             /** Notes Markdown */
             notes_markdown?: string | null;
             /** Next Action At */
             next_action_at?: string | null;
+            /** Applied At */
+            applied_at?: string | null;
+            /** Tailored Resume Id */
+            tailored_resume_id?: string | null;
         };
         /**
          * ApplicationRow
-         * @description The tracking table row: current stage and next meeting inlined.
+         * @description The tracking table row: every stage, plus the current one and next meeting.
          */
         ApplicationRow: {
             /**
@@ -1015,6 +1219,8 @@ export interface components {
             id: string;
             /** Company Name */
             company_name: string;
+            /** Company Domain */
+            company_domain?: string | null;
             /** Role Title */
             role_title: string;
             /** Job Url */
@@ -1022,6 +1228,12 @@ export interface components {
             /** Location */
             location: string | null;
             work_mode: components["schemas"]["WorkMode"] | null;
+            /** Salary Min */
+            salary_min?: number | null;
+            /** Salary Max */
+            salary_max?: number | null;
+            /** Salary Currency */
+            salary_currency?: string | null;
             status: components["schemas"]["ApplicationStatus"];
             /** Origin */
             origin: string;
@@ -1038,6 +1250,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Stages */
+            stages?: components["schemas"]["StageOut"][];
             current_stage?: components["schemas"]["StageOut"] | null;
             next_meeting?: components["schemas"]["MeetingOut"] | null;
             /**
@@ -1068,6 +1282,11 @@ export interface components {
              */
             type: "text" | "email" | "tel" | "url" | "number" | "date" | "textarea" | "select" | "radio" | "checkbox" | "combobox" | "richtext" | "file" | "unknown";
             /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
              * Answer
              * @default
              */
@@ -1089,10 +1308,44 @@ export interface components {
              * @default false
              */
             matched_fuzzily: boolean;
+            /**
+             * Source
+             * @default
+             * @enum {string}
+             */
+            source: "resume" | "profile" | "model" | "";
+        };
+        /** AutofillProfileIn */
+        AutofillProfileIn: {
+            /** Fields */
+            fields?: {
+                [key: string]: string;
+            };
+            /** Extra Notes Markdown */
+            extra_notes_markdown?: string | null;
+        };
+        /**
+         * AutofillProfileOut
+         * @description The answers a resume cannot supply.
+         *
+         *     Without these the form filler has nothing to answer a phone number or a
+         *     notice period with, and the prompt correctly refuses to invent one - so
+         *     every such field comes back as "not present in your profile".
+         */
+        AutofillProfileOut: {
+            /** Fields */
+            fields?: {
+                [key: string]: string;
+            };
+            /** Extra Notes Markdown */
+            extra_notes_markdown?: string | null;
         };
         /** AutofillRequest */
         AutofillRequest: {
             job?: components["schemas"]["ScrapedJob"] | null;
+            /** Job Url */
+            job_url?: string | null;
+            resume?: components["schemas"]["ResumeRef"] | null;
             /** Base Resume Id */
             base_resume_id?: string | null;
             /** Frames */
@@ -1110,6 +1363,11 @@ export interface components {
             /** Unanswered */
             unanswered?: components["schemas"]["AutofillAnswer"][];
             /**
+             * Complete
+             * @default true
+             */
+            complete: boolean;
+            /**
              * Cached
              * @default false
              */
@@ -1119,6 +1377,71 @@ export interface components {
              * @default
              */
             form_fingerprint: string;
+            resume?: components["schemas"]["LinkedResume"] | null;
+            facts?: components["schemas"]["ResumeFacts"] | null;
+        };
+        /**
+         * CalendarMeetingOut
+         * @description A meeting with its owner named, so a calendar block can say who it is with.
+         */
+        CalendarMeetingOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Meeting Type */
+            meeting_type: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Display Timezone */
+            display_timezone: string;
+            status: components["schemas"]["MeetingStatus"];
+            /** Location */
+            location: string | null;
+            /** Conferencing Url */
+            conferencing_url: string | null;
+            /** Agenda */
+            agenda: string | null;
+            /** Preparation Notes */
+            preparation_notes: string | null;
+            /** Notes */
+            notes: string | null;
+            /** Stage Id */
+            stage_id: string | null;
+            /** Maintained Job Id */
+            maintained_job_id: string | null;
+            /** Series Id */
+            series_id: string | null;
+            /** Is Exception */
+            is_exception: boolean;
+            /** Reminder Minutes */
+            reminder_minutes: number;
+            /**
+             * Kind
+             * @default maintained
+             */
+            kind: string;
+            /** Application Id */
+            application_id?: string | null;
+            /** Company Name */
+            company_name?: string | null;
+            /** Role Title */
+            role_title?: string | null;
+            /** Stage Name */
+            stage_name?: string | null;
+            /** Stage Kind */
+            stage_kind?: string | null;
         };
         /** ConnectionTest */
         ConnectionTest: {
@@ -1190,6 +1513,19 @@ export interface components {
              * @enum {string}
              */
             profile: "designed" | "ats_plain";
+            /**
+             * Strategy
+             * @default existing
+             * @enum {string}
+             */
+            strategy: "existing" | "full";
+        };
+        /** FactPair */
+        FactPair: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
         };
         /** FormFieldIn */
         FormFieldIn: {
@@ -1245,6 +1581,11 @@ export interface components {
              * @default
              */
             group: string;
+            /**
+             * Accept
+             * @default
+             */
+            accept: string;
         };
         /** FormFrame */
         FormFrame: {
@@ -1384,11 +1725,92 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** JobLinkIn */
+        JobLinkIn: {
+            /** Url */
+            url: string;
+            resume?: components["schemas"]["ResumeRef"] | null;
+            job?: components["schemas"]["ScrapedJob"] | null;
+        };
+        /** JobLinkLookup */
+        JobLinkLookup: {
+            /** Urls */
+            urls: string[];
+        };
+        /** JobLinkLookupOut */
+        JobLinkLookupOut: {
+            /** Items */
+            items: components["schemas"]["JobLinkOut"][];
+        };
+        /**
+         * JobLinkOut
+         * @description What one open tab's posting has: a resume, a run in flight, or neither.
+         */
+        JobLinkOut: {
+            /** Url */
+            url: string;
+            /** Job Key */
+            job_key: string;
+            /** Linked */
+            linked: boolean;
+            /** Company Name */
+            company_name?: string | null;
+            /** Job Title */
+            job_title?: string | null;
+            /** Base Resume Id */
+            base_resume_id?: string | null;
+            resume?: components["schemas"]["LinkedResume"] | null;
+            generation?: components["schemas"]["LinkGeneration"] | null;
+        };
         /**
          * LLMProvider
          * @enum {string}
          */
         LLMProvider: "anthropic" | "openai";
+        /** LinkGeneration */
+        LinkGeneration: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["GenerationStatus"];
+            /** Phase */
+            phase?: string | null;
+            /**
+             * Progress Percent
+             * @default 0
+             */
+            progress_percent: number;
+            /** Error Detail */
+            error_detail?: string | null;
+        };
+        /** LinkedResume */
+        LinkedResume: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "base" | "tailored";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            status: components["schemas"]["ResumeStatus"];
+            /** Company Name */
+            company_name?: string | null;
+            /** Job Title */
+            job_title?: string | null;
+            /** Must Have Coverage Percent */
+            must_have_coverage_percent?: number | null;
+            /** Base Resume Id */
+            base_resume_id?: string | null;
+            /** Application Id */
+            application_id?: string | null;
+        };
         /** LoginRequest */
         LoginRequest: {
             /**
@@ -1542,6 +1964,8 @@ export interface components {
         MeetingPatch: {
             /** Title */
             title?: string | null;
+            /** Meeting Type */
+            meeting_type?: string | null;
             /** Local Date */
             local_date?: string | null;
             /** Local Time */
@@ -1633,6 +2057,113 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /**
+         * PreviewBlock
+         * @description One paragraph of the .docx, or the skills table.
+         */
+        PreviewBlock: {
+            /** Kind */
+            kind: string;
+            /** Style */
+            style: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /** Right */
+            right?: string | null;
+            /** Label */
+            label?: string | null;
+            /** Rows */
+            rows?: components["schemas"]["PreviewSkillRow"][] | null;
+        };
+        /** PreviewBorder */
+        PreviewBorder: {
+            /** Color */
+            color: string;
+            /** Width Pt */
+            width_pt: number;
+            /** Space Pt */
+            space_pt: number;
+        };
+        /** PreviewLayout */
+        PreviewLayout: {
+            /** Font */
+            font: string;
+            /** Page Width Pt */
+            page_width_pt: number;
+            /** Page Height Pt */
+            page_height_pt: number;
+            /** Margin Top Pt */
+            margin_top_pt: number;
+            /** Margin Right Pt */
+            margin_right_pt: number;
+            /** Margin Bottom Pt */
+            margin_bottom_pt: number;
+            /** Margin Left Pt */
+            margin_left_pt: number;
+            /** Date Color */
+            date_color: string;
+            /** Skills Label Pt */
+            skills_label_pt: number;
+            /** Cell Right Margin Pt */
+            cell_right_margin_pt: number;
+            /** Table Rule Color */
+            table_rule_color: string;
+            /** Table Rule Pt */
+            table_rule_pt: number;
+        };
+        /** PreviewOut */
+        PreviewOut: {
+            /** Profile */
+            profile: string;
+            layout: components["schemas"]["PreviewLayout"];
+            /** Styles */
+            styles: {
+                [key: string]: components["schemas"]["PreviewStyle"];
+            };
+            /** Blocks */
+            blocks: components["schemas"]["PreviewBlock"][];
+        };
+        /** PreviewSkillRow */
+        PreviewSkillRow: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /**
+         * PreviewStyle
+         * @description One named carrier style, in the units Word itself uses.
+         */
+        PreviewStyle: {
+            /** Size Pt */
+            size_pt: number;
+            /** Bold */
+            bold: boolean;
+            /** Italic */
+            italic: boolean;
+            /** All Caps */
+            all_caps: boolean;
+            /** Color */
+            color: string | null;
+            /** Space Before Pt */
+            space_before_pt: number;
+            /** Space After Pt */
+            space_after_pt: number;
+            /** Line Spacing */
+            line_spacing: number;
+            /** Justify */
+            justify: boolean;
+            /** Left Indent Pt */
+            left_indent_pt: number;
+            /** First Line Indent Pt */
+            first_line_indent_pt: number;
+            /** Keep With Next */
+            keep_with_next: boolean;
+            border_bottom: components["schemas"]["PreviewBorder"] | null;
+        };
         /** RefreshRequest */
         RefreshRequest: {
             /** Refresh Token */
@@ -1704,6 +2235,59 @@ export interface components {
             } | null;
             /** Findings */
             findings?: components["schemas"]["ValidationFinding"][];
+        };
+        /**
+         * ResumeFacts
+         * @description The candidate's details as one resume states them.
+         */
+        ResumeFacts: {
+            /** Full Name */
+            full_name?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Last Name */
+            last_name?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Location */
+            location?: string | null;
+            /** City */
+            city?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Linkedin */
+            linkedin?: string | null;
+            /** Github */
+            github?: string | null;
+            /** Website */
+            website?: string | null;
+            /** Headline */
+            headline?: string | null;
+            /** Current Title */
+            current_title?: string | null;
+            /** Current Company */
+            current_company?: string | null;
+            /** Years Experience */
+            years_experience?: number | null;
+            /** Work Preference */
+            work_preference?: string | null;
+            /** Availability */
+            availability?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /** Skills */
+            skills?: components["schemas"]["FactPair"][];
+            /** Education */
+            education?: string[];
+            /** Languages */
+            languages?: string[];
+        };
+        /** ResumeFactsOut */
+        ResumeFactsOut: {
+            resume: components["schemas"]["LinkedResume"];
+            facts: components["schemas"]["ResumeFacts"];
         };
         /**
          * ResumeMode
@@ -1778,6 +2362,19 @@ export interface components {
             stack_tags?: string[] | null;
             /** Is Archived */
             is_archived?: boolean | null;
+        };
+        /** ResumeRef */
+        ResumeRef: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "base" | "tailored";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
         };
         /**
          * ResumeSource
@@ -2017,6 +2614,8 @@ export interface components {
             preparation_markdown: string | null;
             /** Decided At */
             decided_at: string | null;
+            /** Meetings */
+            meetings?: components["schemas"]["MeetingOut"][];
         };
         /** StagePatch */
         StagePatch: {
@@ -2040,6 +2639,20 @@ export interface components {
             stage: components["schemas"]["StageOut"];
             application_status: components["schemas"]["ApplicationStatus"];
             suggested_next_stage?: components["schemas"]["NextStepSuggestion"] | null;
+        };
+        /** TailorApplication */
+        TailorApplication: {
+            /**
+             * Base Resume Id
+             * Format: uuid
+             */
+            base_resume_id: string;
+            /**
+             * Strategy
+             * @default existing
+             * @enum {string}
+             */
+            strategy: "existing" | "full";
         };
         /** TailorByInstruction */
         TailorByInstruction: {
@@ -2081,6 +2694,85 @@ export interface components {
              * @default false
              */
             force: boolean;
+            /**
+             * Strategy
+             * @default existing
+             * @enum {string}
+             */
+            strategy: "existing" | "full";
+            /** Application Id */
+            application_id?: string | null;
+        };
+        /**
+         * TailoredResumeBrief
+         * @description The resume an application was sent with, and how well it covered the posting.
+         */
+        TailoredResumeBrief: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Base Resume Id
+             * Format: uuid
+             */
+            base_resume_id: string;
+            /** Base Resume Name */
+            base_resume_name?: string | null;
+            /** Status */
+            status: string;
+            /** Job Url */
+            job_url: string | null;
+            /** Job Source */
+            job_source: string;
+            /** Must Have Covered */
+            must_have_covered: number | null;
+            /** Must Have Total */
+            must_have_total: number | null;
+            /** Must Have Coverage Percent */
+            must_have_coverage_percent: number | null;
+            /** Nice To Have Coverage Percent */
+            nice_to_have_coverage_percent: number | null;
+            /** Years Required */
+            years_required: number | null;
+            /** Years Shown */
+            years_shown: number | null;
+            /** Content Markdown */
+            content_markdown: string;
+            /** Flags */
+            flags?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** TailoredResumeOption */
+        TailoredResumeOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Base Resume Id
+             * Format: uuid
+             */
+            base_resume_id: string;
+            /** Must Have Coverage Percent */
+            must_have_coverage_percent?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** TailoredResumeOut */
         TailoredResumeOut: {
@@ -2117,6 +2809,16 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Must Have Covered */
+            must_have_covered?: number | null;
+            /** Must Have Total */
+            must_have_total?: number | null;
+            /** Nice To Have Coverage Percent */
+            nice_to_have_coverage_percent?: number | null;
+            /** Years Required */
+            years_required?: number | null;
+            /** Years Shown */
+            years_shown?: number | null;
             /** Content Markdown */
             content_markdown: string;
             /** Content Text */
@@ -2219,6 +2921,15 @@ export interface components {
             kind: string;
             /** Starts In Minutes */
             starts_in_minutes: number;
+        };
+        /** UpgradeTailored */
+        UpgradeTailored: {
+            /**
+             * Strategy
+             * @default existing
+             * @enum {string}
+             */
+            strategy: "existing" | "full";
         };
         /** UserOut */
         UserOut: {
@@ -2677,6 +3388,59 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    get_autofill_profile_api_v1_settings_autofill_profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutofillProfileOut"];
+                };
+            };
+        };
+    };
+    put_autofill_profile_api_v1_settings_autofill_profile_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutofillProfileIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutofillProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -3171,6 +3935,107 @@ export interface operations {
             };
         };
     };
+    repair_resume_api_v1_resumes__resume_id__repair_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upgrade_tailored_resume_api_v1_tailored_resumes__resume_id__upgrade_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpgradeTailored"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tailor_for_application_api_v1_applications__application_id__tailor_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TailorApplication"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_generation_api_v1_generations__generation_id__get: {
         parameters: {
             query?: never;
@@ -3320,6 +4185,39 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_preview_api_v1_export_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -3582,7 +4480,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MeetingOut"][];
+                    "application/json": components["schemas"]["CalendarMeetingOut"][];
                 };
             };
             /** @description Validation Error */
@@ -3615,7 +4513,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MeetingOut"];
+                    "application/json": components["schemas"]["CalendarMeetingOut"];
                 };
             };
             /** @description Validation Error */
@@ -3730,7 +4628,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MeetingOut"];
+                    "application/json": components["schemas"]["CalendarMeetingOut"];
                 };
             };
             /** @description Validation Error */
@@ -3986,6 +4884,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenerationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lookup_job_links_api_v1_extension_job_links_lookup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobLinkLookup"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobLinkLookupOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    link_job_api_v1_extension_job_links_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobLinkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobLinkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_facts_api_v1_extension_resume_facts_get: {
+        parameters: {
+            query: {
+                kind: "base" | "tailored";
+                resume_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeFactsOut"];
                 };
             };
             /** @description Validation Error */

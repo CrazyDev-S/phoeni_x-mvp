@@ -9,15 +9,7 @@
  * `composed: true` on every event is not optional — without it, an event raised
  * inside a shadow root never reaches a framework listening at the app root.
  */
-import type { FillResult, FillStatus } from "@/lib/types";
-
-interface Instruction {
-  id: string;
-  type: string;
-  answer?: string;
-  checked?: boolean;
-  label?: string;
-}
+import type { FileUpload, FillResult, FillStatus, FillStep as Instruction } from "@/lib/types";
 
 declare global {
   interface Window {
@@ -210,6 +202,32 @@ async function waitForListbox(host: Element, timeoutMs: number): Promise<Element
   });
 }
 
+/**
+ * Attach a file the way the file picker would.
+ *
+ * `input.files` takes a FileList built with DataTransfer, and upload widgets
+ * (react-dropzone, Greenhouse, Lever, Ashby) read the file from the change
+ * event. What cannot be read back is whether the site accepted it: many
+ * widgets upload the file and clear the input straight away. So it counts as
+ * filled only when the file's name shows on the page, or in a plain file input
+ * still holding it; otherwise it is reported as unconfirmed, for the user to check.
+ */
+async function attachFile(input: HTMLInputElement, file: FileUpload): Promise<FillStatus> {
+  const bytes = Uint8Array.from(atob(file.base64), (c) => c.charCodeAt(0));
+  const transfer = new DataTransfer();
+  transfer.items.add(new File([bytes], file.name, { type: file.mime }));
+  input.files = transfer.files;
+  fire(input, "input");
+  fire(input, "change");
+
+  await sleep(1500);
+  const stem = file.name.replace(/\.[^.]+$/, "");
+  if (document.body.innerText.includes(stem)) return "filled";
+  // A visible native file input shows the name in its own UI, not the page's text.
+  const native = input.getClientRects().length > 0 && getComputedStyle(input).opacity !== "0";
+  return native && input.files?.[0]?.name === file.name ? "filled" : "unconfirmed";
+}
+
 function readValue(el: Element): string {
   if (el instanceof HTMLSelectElement) return el.selectedOptions[0]?.text.trim() ?? "";
   if (el instanceof HTMLInputElement) {
@@ -230,12 +248,26 @@ async function fillOne(step: Instruction): Promise<FillResult> {
     return { ...base, status: "failed", observed: null, reason: "element-gone" };
   }
   if (step.type === "file") {
-    return {
-      ...base,
-      status: "manual",
-      observed: null,
-      reason: "file-input",
-    };
+    if (!step.file) {
+      return { ...base, status: "manual", observed: null, reason: "file-input" };
+    }
+    const attached = { ...base, intended: step.file.name };
+    try {
+      const status = await attachFile(el as HTMLInputElement, step.file);
+      return {
+        ...attached,
+        status,
+        observed: status === "filled" ? step.file.name : null,
+        reason: status === "filled" ? "file-attached" : "check-the-upload",
+      };
+    } catch (error) {
+      return {
+        ...attached,
+        status: "failed",
+        observed: null,
+        reason: String((error as Error).message ?? error).slice(0, 120),
+      };
+    }
   }
 
   let optionsSeen: string[] | null = null;

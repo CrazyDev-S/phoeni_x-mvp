@@ -18,6 +18,10 @@ export interface GenerationEvent {
  */
 const RECONNECT_DELAY_MS = 1200;
 const MAX_RECONNECTS = 40;
+// A frame ends at a blank line, and the spec allows CRLF, LF, or CR line
+// endings. sse-starlette sends CRLF, so matching only "\n\n" never finds a
+// frame: nothing is ever parsed and the UI sits at "Starting... 0%" forever.
+const FRAME_END = /\r\n\r\n|\n\n|\r\r/;
 
 export function streamGeneration(
   generationId: string,
@@ -61,10 +65,10 @@ export function streamGeneration(
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
 
-          let split: number;
-          while ((split = buffer.indexOf("\n\n")) !== -1) {
-            const raw = buffer.slice(0, split);
-            buffer = buffer.slice(split + 2);
+          let end: RegExpExecArray | null;
+          while ((end = FRAME_END.exec(buffer)) !== null) {
+            const raw = buffer.slice(0, end.index);
+            buffer = buffer.slice(end.index + end[0].length);
             const event = parseFrame(raw);
             if (!event) continue;
             lastId = event.id;
@@ -101,7 +105,7 @@ function parseFrame(raw: string): GenerationEvent | null {
   let id = -1;
   let type = "message";
   const dataLines: string[] = [];
-  for (const line of raw.split("\n")) {
+  for (const line of raw.split(/\r\n|\r|\n/)) {
     if (line.startsWith("id:")) id = Number(line.slice(3).trim());
     else if (line.startsWith("event:")) type = line.slice(6).trim();
     else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());

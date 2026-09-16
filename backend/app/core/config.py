@@ -37,6 +37,9 @@ class Settings(BaseSettings):
 
     # Run the generation worker inside the API process.
     worker_in_process: bool = True
+    # Generations run at once. The side panel tailors every open tab together;
+    # with one at a time, the fifth tab waited out four full runs.
+    worker_concurrency: int = Field(default=3, ge=1, le=16)
 
     @field_validator("app_kek")
     @classmethod
