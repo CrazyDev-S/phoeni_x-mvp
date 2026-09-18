@@ -1,0 +1,25 @@
+{
+  "name": "resume-assist",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @resume-assist/web",
+    "dev:ext": "npm run dev -w @resume-assist/extension",
+    "build:web": "npm run build -w @resume-assist/web",
+    "build:ext": "npm run build -w @resume-assist/extension",
+    "types": "npm run generate -w @resume-assist/api-types",
+    "lint": "npm run lint --workspaces --if-present",
+    "zip:ext": "npm run zip -w @resume-assist/extension",
+    "brand": "node scripts/brand-assets.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.4"
+  }
+}

@@ -1,0 +1,391 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* One step above text-4xl, for the two pages that lead with a statement. */
+  --text-display: 2.75rem;
+  --text-display--line-height: 1.1;
+  --text-display--letter-spacing: -0.02em;
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-subtle: var(--subtle);
+  --color-info: var(--info);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+
+  /* 6 / 8 / 12 / 16px, with --radius as the "large" step. */
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.667);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.333);
+  --radius-2xl: calc(var(--radius) * 1.667);
+  --radius-3xl: calc(var(--radius) * 2);
+  --radius-4xl: calc(var(--radius) * 2.333);
+}
+
+/*
+ * Two palettes, picked in Settings -> Appearance and stored per device.
+ *
+ * Phoenix is the default and lives on bare :root and .dark. Blue layers on top
+ * through data-palette="blue" on <html>, which a script in the root layout
+ * sets before first paint. Blue's dark block names both .dark and the
+ * attribute, so it outranks Blue's light block and Phoenix's dark one - which
+ * is also why each Blue block must set every token its twin sets.
+ */
+
+:root {
+  --radius: 0.75rem;
+
+  /* Semantic hues: shared by both palettes. */
+  --destructive: #ef4444;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+
+  /* Phoenix: warm stone neutrals under the logo's orange. */
+  --background: #fafaf9;
+  --foreground: #1c1917;
+  --card: #ffffff;
+  --card-foreground: #1c1917;
+  --popover: #ffffff;
+  --popover-foreground: #1c1917;
+
+  /* The logo's orange, deepened until white text on it clears 4.5:1. */
+  --primary: #cf430c;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f4;
+  --secondary-foreground: #1c1917;
+  --muted: #f5f5f4;
+  --muted-foreground: #57534e;
+  /* Third text rank, below muted: timestamps, counters, units. */
+  --subtle: #a8a29e;
+  --accent: #fff7ed;
+  --accent-foreground: #c2410c;
+
+  --border: #e7e5e4;
+  --input: #e7e5e4;
+  --ring: #cf430c;
+
+  --chart-1: #ea580c;
+  --chart-2: #dc2626;
+  --chart-3: #f59e0b;
+  --chart-4: #10b981;
+  --chart-5: #3b82f6;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1c1917;
+  --sidebar-primary: #cf430c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #fff7ed;
+  --sidebar-accent-foreground: #c2410c;
+  --sidebar-border: #e7e5e4;
+  --sidebar-ring: #cf430c;
+
+  /* Brand gradient stops, used through the gradient utilities below.
+     brand: decorative only - bars, rules, glows; nothing reads on it.
+     strong: carries --primary-foreground at 4.5:1 or better at every stop.
+     text: display type on --background, 3:1 or better at every stop. */
+  --gradient-brand: #f6a228, #f4562c, #d32127;
+  --gradient-brand-strong: #cf430c, #c52a1a, #b91c1c;
+  --gradient-brand-text: #ea580c, #dc2626, #b91c1c;
+}
+
+.dark {
+  --destructive: #f87171;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --info: #60a5fa;
+
+  --background: #0c0a09;
+  --foreground: #e7e5e4;
+  --card: #1c1917;
+  --card-foreground: #e7e5e4;
+  --popover: #1c1917;
+  --popover-foreground: #e7e5e4;
+
+  /* Bright enough to glow on near-black - too bright for white text, so the
+     text on it goes dark instead. */
+  --primary: #f97316;
+  --primary-foreground: #0c0a09;
+  --secondary: #292524;
+  --secondary-foreground: #e7e5e4;
+  --muted: #292524;
+  --muted-foreground: #a8a29e;
+  --subtle: #78716c;
+  --accent: #431407;
+  --accent-foreground: #fdba74;
+
+  --border: #292524;
+  --input: #292524;
+  --ring: #f97316;
+
+  --chart-1: #fb923c;
+  --chart-2: #f87171;
+  --chart-3: #fbbf24;
+  --chart-4: #34d399;
+  --chart-5: #60a5fa;
+
+  --sidebar: #1c1917;
+  --sidebar-foreground: #e7e5e4;
+  --sidebar-primary: #f97316;
+  --sidebar-primary-foreground: #0c0a09;
+  --sidebar-accent: #431407;
+  --sidebar-accent-foreground: #fdba74;
+  --sidebar-border: #292524;
+  --sidebar-ring: #f97316;
+
+  /* Dark text rides on these, so they can run through the logo's gold. */
+  --gradient-brand-strong: #fbbf24, #f97316, #ef4444;
+  --gradient-brand-text: #fbbf24, #fb923c, #f87171;
+}
+
+/* Blue: cool slate neutrals under a blue primary. */
+:root[data-palette="blue"] {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #475569;
+  --subtle: #94a3b8;
+  --accent: #eff6ff;
+  --accent-foreground: #1d4ed8;
+
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #2563eb;
+
+  --chart-1: #2563eb;
+  --chart-2: #4f46e5;
+  --chart-3: #3b82f6;
+  --chart-4: #10b981;
+  --chart-5: #f59e0b;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #2563eb;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eff6ff;
+  --sidebar-accent-foreground: #1d4ed8;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #2563eb;
+
+  --gradient-brand: #38bdf8, #3b82f6, #6366f1;
+  --gradient-brand-strong: #0369a1, #2563eb, #4f46e5;
+  --gradient-brand-text: #0284c7, #2563eb, #4f46e5;
+}
+
+:root.dark[data-palette="blue"] {
+  --background: #0b1120;
+  --foreground: #e2e8f0;
+  --card: #0f172a;
+  --card-foreground: #e2e8f0;
+  --popover: #0f172a;
+  --popover-foreground: #e2e8f0;
+
+  /* Lifted one step: #2563EB on a near-black ground reads muddy. */
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #1e293b;
+  --secondary-foreground: #e2e8f0;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --subtle: #64748b;
+  --accent: #172554;
+  --accent-foreground: #93c5fd;
+
+  --border: #1e293b;
+  --input: #1e293b;
+  --ring: #3b82f6;
+
+  --chart-1: #60a5fa;
+  --chart-2: #818cf8;
+  --chart-3: #38bdf8;
+  --chart-4: #34d399;
+  --chart-5: #fbbf24;
+
+  --sidebar: #0f172a;
+  --sidebar-foreground: #e2e8f0;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #172554;
+  --sidebar-accent-foreground: #93c5fd;
+  --sidebar-border: #1e293b;
+  --sidebar-ring: #3b82f6;
+
+  /* White text stays on Blue's buttons, so its strong stops stay deep. */
+  --gradient-brand-strong: #2563eb, #4f46e5, #7c3aed;
+  --gradient-brand-text: #38bdf8, #60a5fa, #818cf8;
+}
+
+/* Calendar event hues. Each palette leads with its own primary family, then
+   spreads over well-separated cool hues, so a full week still reads as one
+   palette without two meeting types sharing a colour. The cyan, green and
+   violet slots are common to both; Blue overrides the other three. */
+:root {
+  --event-1: #ea580c;
+  --event-1-foreground: #ffffff;
+  --event-1-ink: #c2410c;
+  --event-2: #e11d48;
+  --event-2-foreground: #ffffff;
+  --event-2-ink: #be123c;
+  --event-3: #0891b2;
+  --event-3-foreground: #ffffff;
+  --event-3-ink: #0e7490;
+  --event-4: #059669;
+  --event-4-foreground: #ffffff;
+  --event-4-ink: #047857;
+  --event-5: #2563eb;
+  --event-5-foreground: #ffffff;
+  --event-5-ink: #1d4ed8;
+  --event-6: #7c3aed;
+  --event-6-foreground: #ffffff;
+  --event-6-ink: #6d28d9;
+}
+
+.dark {
+  --event-1: #fb923c;
+  --event-1-foreground: #0c0a09;
+  --event-1-ink: #fdba74;
+  --event-2: #fb7185;
+  --event-2-foreground: #0c0a09;
+  --event-2-ink: #fda4af;
+  --event-3: #22d3ee;
+  --event-3-foreground: #0c0a09;
+  --event-3-ink: #67e8f9;
+  --event-4: #34d399;
+  --event-4-foreground: #0c0a09;
+  --event-4-ink: #6ee7b7;
+  --event-5: #60a5fa;
+  --event-5-foreground: #0c0a09;
+  --event-5-ink: #93c5fd;
+  --event-6: #a78bfa;
+  --event-6-foreground: #0c0a09;
+  --event-6-ink: #c4b5fd;
+}
+
+:root[data-palette="blue"] {
+  --event-1: #2563eb;
+  --event-1-foreground: #ffffff;
+  --event-1-ink: #1d4ed8;
+  --event-2: #4f46e5;
+  --event-2-foreground: #ffffff;
+  --event-2-ink: #4338ca;
+  --event-5: #d97706;
+  --event-5-foreground: #ffffff;
+  --event-5-ink: #b45309;
+}
+
+:root.dark[data-palette="blue"] {
+  --event-1: #60a5fa;
+  --event-1-foreground: #0b1120;
+  --event-1-ink: #93c5fd;
+  --event-2: #818cf8;
+  --event-2-foreground: #0b1120;
+  --event-2-ink: #a5b4fc;
+  --event-5: #fbbf24;
+  --event-5-foreground: #0b1120;
+  --event-5-ink: #fcd34d;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* The brand gradient. Kept for the few moments that carry the brand - the lead
+   call to action, progress, the steps, the sign-in page - so it stays a
+   signal rather than wallpaper. */
+@utility bg-gradient-brand {
+  background-image: linear-gradient(90deg, var(--gradient-brand));
+}
+
+@utility bg-gradient-brand-strong {
+  background-image: linear-gradient(90deg, var(--gradient-brand-strong));
+}
+
+@utility text-gradient-brand {
+  background-image: linear-gradient(90deg, var(--gradient-brand-text));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility page-enter {
+  animation: page-enter 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Nothing here is load-bearing for comprehension, so it all goes away when
+   the reader has asked for less movement. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
