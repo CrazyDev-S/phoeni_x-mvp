@@ -69,7 +69,7 @@ export default function LoginPage() {
       />
       <div className="page-enter relative w-full max-w-md space-y-6">
         <div className="flex flex-col items-center gap-3 text-center">
-          <Brand size="lg" />
+          <Brand size="x_lg" />
           <p className="text-muted-foreground max-w-sm text-sm text-balance">
             Tailor, track and follow through on every application.
           </p>

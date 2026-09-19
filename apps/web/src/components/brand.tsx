@@ -7,12 +7,13 @@ const SIZES = {
   sm: { px: 32, text: "text-base" },
   default: { px: 48, text: "text-xl" },
   lg: { px: 64, text: "text-3xl" },
+  x_lg: { px: 300, text: "text-3xl" },
 } as const;
 
 /** The mark and wordmark. One definition, used by the sidebar, the top bar and the login page. */
 export function Brand({
   className,
-  size = "default",
+  size = "x_lg",
 }: {
   className?: string;
   size?: keyof typeof SIZES;
@@ -33,13 +34,6 @@ export function Brand({
         loading="eager"
         className="shrink-0"
       />
-      <span className={cn("font-semibold tracking-tight", text)}>
-        {/* Stops sampled from the phoenix itself: its gold, orange and red. */}
-        <span className="bg-linear-to-r from-[#f78d24] via-[#f4562c] to-[#d32127] bg-clip-text text-transparent">
-          Phoenix
-        </span>
-        <span className="text-primary">Eye</span>
-      </span>
     </span>
   );
 }
