@@ -38,7 +38,7 @@ export function MaintainTab() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void api<Job[]>("/api/v1/maintained-jobs")
+    void api<Job[]>("/api/v1/shared/maintained-jobs")
       .then(setJobs)
       .catch((e) => setError((e as Error).message));
   }, []);
@@ -50,7 +50,7 @@ export function MaintainTab() {
     }
     setOpen(id);
     try {
-      setSeries(await api<Series[]>(`/api/v1/maintained-jobs/${id}/series`));
+      setSeries(await api<Series[]>(`/api/v1/shared/maintained-jobs/${id}/series`));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -58,7 +58,7 @@ export function MaintainTab() {
 
   async function saveNotes(id: string, notes: string) {
     try {
-      await api(`/api/v1/maintained-jobs/${id}`, {
+      await api(`/api/v1/shared/maintained-jobs/${id}`, {
         method: "PATCH",
         body: JSON.stringify({ notes_markdown: notes }),
       });

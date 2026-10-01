@@ -55,6 +55,7 @@ async def create_all(*, drop_first: bool = False) -> None:
 
         await conn.run_sync(Base.metadata.create_all)
         await _add_missing_enum_values(conn)
+        await _apply_upgrades(conn)
         await conn.execute(text(ALL_RESUMES_VIEW))
 
 
@@ -77,6 +78,26 @@ async def _add_missing_enum_values(conn: AsyncConnection) -> None:
                 await conn.execute(
                     text(f"ALTER TYPE \"{kind.name}\" ADD VALUE IF NOT EXISTS '{quoted}'")
                 )
+
+
+# Changes to EXISTING tables. ``create_all`` only ever adds whole tables, so a
+# column or constraint added to a table that already exists has to be stated
+# here, in a form that is safe to run again. Newest last.
+UPGRADES = (
+    # 2026-09: the calendar and job maintenance learn about Freelancing tracks.
+    "ALTER TABLE meetings ADD COLUMN IF NOT EXISTS freelance_track_id uuid "
+    "REFERENCES freelance_job_tracks(id) ON DELETE CASCADE",
+    "ALTER TABLE meetings DROP CONSTRAINT IF EXISTS ck_meetings_exactly_one_owner",
+    "ALTER TABLE meetings ADD CONSTRAINT ck_meetings_exactly_one_owner "
+    "CHECK (num_nonnulls(stage_id, maintained_job_id, freelance_track_id) = 1)",
+    "ALTER TABLE maintained_jobs ADD COLUMN IF NOT EXISTS freelance_track_id uuid "
+    "UNIQUE REFERENCES freelance_job_tracks(id) ON DELETE SET NULL",
+)
+
+
+async def _apply_upgrades(conn: AsyncConnection) -> None:
+    for statement in UPGRADES:
+        await conn.execute(text(statement))
 
 
 async def _drop_everything(conn: AsyncConnection) -> None:

@@ -242,276 +242,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/resumes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Resumes */
-        get: operations["list_resumes_api_v1_resumes_get"];
-        put?: never;
-        /**
-         * Upload Resume
-         * @description Store a resume the user pasted in, as Resume Markdown.
-         *
-         *     Parsing happens on the way in: a document that cannot be read back cannot
-         *     be exported, so it is rejected at the boundary rather than at download time.
-         */
-        post: operations["upload_resume_api_v1_resumes_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/resumes/{resume_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Resume */
-        get: operations["get_resume_api_v1_resumes__resume_id__get"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Resume
-         * @description Delete permanently. This cannot be undone.
-         *
-         *     Tailored versions are the documents somebody actually applied with, so
-         *     they are never destroyed as an invisible side effect: without ``cascade``
-         *     the request is refused and the response says how many there are, which is
-         *     what lets the caller name the number in its confirmation.
-         */
-        delete: operations["delete_resume_api_v1_resumes__resume_id__delete"];
-        options?: never;
-        head?: never;
-        /** Update Resume */
-        patch: operations["update_resume_api_v1_resumes__resume_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/resumes/{resume_id}/archive": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Archive Resume
-         * @description Hide a resume without destroying it. Reversible.
-         */
-        post: operations["archive_resume_api_v1_resumes__resume_id__archive_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/resumes/{resume_id}/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Restore Resume */
-        post: operations["restore_resume_api_v1_resumes__resume_id__restore_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/tailored-resumes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Tailored Resumes */
-        get: operations["list_tailored_resumes_api_v1_tailored_resumes_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/tailored-resumes/{resume_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Tailored Resume */
-        get: operations["get_tailored_resume_api_v1_tailored_resumes__resume_id__get"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Tailored Resume
-         * @description Delete permanently.
-         *
-         *     Any application pointing at this version keeps its own record; the link is
-         *     ON DELETE SET NULL, so deleting the document does not delete the history of
-         *     having applied.
-         */
-        delete: operations["delete_tailored_resume_api_v1_tailored_resumes__resume_id__delete"];
-        options?: never;
-        head?: never;
-        /** Update Tailored Resume */
-        patch: operations["update_tailored_resume_api_v1_tailored_resumes__resume_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/resumes/generate/story": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Generate From Story */
-        post: operations["generate_from_story_api_v1_resumes_generate_story_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/resumes/generate/job": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Generate From Job */
-        post: operations["generate_from_job_api_v1_resumes_generate_job_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/tailoring/job": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Tailor To Job */
-        post: operations["tailor_to_job_api_v1_tailoring_job_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/tailoring/instruction": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Tailor By Instruction
-         * @description Instruction-based edits save back as a BASE resume, per the requirements.
-         */
-        post: operations["tailor_by_instruction_api_v1_tailoring_instruction_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/resumes/{resume_id}/repair": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Repair Resume
-         * @description Fix the rule errors a saved resume still carries, in place.
-         *
-         *     Not idempotency-keyed: a run that could not clear everything must be
-         *     re-runnable on the same content. Only a run already in flight is reused.
-         */
-        post: operations["repair_resume_api_v1_resumes__resume_id__repair_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/tailored-resumes/{resume_id}/upgrade": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Upgrade Tailored Resume
-         * @description Re-tailor a saved tailored resume against its own posting, in place.
-         *
-         *     In place, so the application it was sent with stays linked to it.
-         */
-        post: operations["upgrade_tailored_resume_api_v1_tailored_resumes__resume_id__upgrade_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/applications/{application_id}/tailor": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Tailor For Application
-         * @description Tailor against an application's saved posting, and link the result to it.
-         *
-         *     The same flow as the Tailor page, so strategies and the instant path behave
-         *     identically from either place.
-         */
-        post: operations["tailor_for_application_api_v1_applications__application_id__tailor_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/generations/{generation_id}": {
         parameters: {
             query?: never;
@@ -595,7 +325,277 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/export/docx": {
+    "/api/v1/remote/resumes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Resumes */
+        get: operations["list_resumes_api_v1_remote_resumes_get"];
+        put?: never;
+        /**
+         * Upload Resume
+         * @description Store a resume the user pasted in, as Resume Markdown.
+         *
+         *     Parsing happens on the way in: a document that cannot be read back cannot
+         *     be exported, so it is rejected at the boundary rather than at download time.
+         */
+        post: operations["upload_resume_api_v1_remote_resumes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remote/resumes/{resume_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Resume */
+        get: operations["get_resume_api_v1_remote_resumes__resume_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Resume
+         * @description Delete permanently. This cannot be undone.
+         *
+         *     Tailored versions are the documents somebody actually applied with, so
+         *     they are never destroyed as an invisible side effect: without ``cascade``
+         *     the request is refused and the response says how many there are, which is
+         *     what lets the caller name the number in its confirmation.
+         */
+        delete: operations["delete_resume_api_v1_remote_resumes__resume_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Resume */
+        patch: operations["update_resume_api_v1_remote_resumes__resume_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/remote/resumes/{resume_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive Resume
+         * @description Hide a resume without destroying it. Reversible.
+         */
+        post: operations["archive_resume_api_v1_remote_resumes__resume_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remote/resumes/{resume_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Resume */
+        post: operations["restore_resume_api_v1_remote_resumes__resume_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remote/tailored-resumes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tailored Resumes */
+        get: operations["list_tailored_resumes_api_v1_remote_tailored_resumes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remote/tailored-resumes/{resume_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Tailored Resume */
+        get: operations["get_tailored_resume_api_v1_remote_tailored_resumes__resume_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Tailored Resume
+         * @description Delete permanently.
+         *
+         *     Any application pointing at this version keeps its own record; the link is
+         *     ON DELETE SET NULL, so deleting the document does not delete the history of
+         *     having applied.
+         */
+        delete: operations["delete_tailored_resume_api_v1_remote_tailored_resumes__resume_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Tailored Resume */
+        patch: operations["update_tailored_resume_api_v1_remote_tailored_resumes__resume_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/remote/resumes/generate/story": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate From Story */
+        post: operations["generate_from_story_api_v1_remote_resumes_generate_story_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remote/resumes/generate/job": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate From Job */
+        post: operations["generate_from_job_api_v1_remote_resumes_generate_job_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remote/tailoring/job": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Tailor To Job */
+        post: operations["tailor_to_job_api_v1_remote_tailoring_job_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remote/tailoring/instruction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tailor By Instruction
+         * @description Instruction-based edits save back as a BASE resume, per the requirements.
+         */
+        post: operations["tailor_by_instruction_api_v1_remote_tailoring_instruction_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remote/resumes/{resume_id}/repair": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Repair Resume
+         * @description Fix the rule errors a saved resume still carries, in place.
+         *
+         *     Not idempotency-keyed: a run that could not clear everything must be
+         *     re-runnable on the same content. Only a run already in flight is reused.
+         */
+        post: operations["repair_resume_api_v1_remote_resumes__resume_id__repair_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remote/tailored-resumes/{resume_id}/upgrade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upgrade Tailored Resume
+         * @description Re-tailor a saved tailored resume against its own posting, in place.
+         *
+         *     In place, so the application it was sent with stays linked to it.
+         */
+        post: operations["upgrade_tailored_resume_api_v1_remote_tailored_resumes__resume_id__upgrade_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remote/applications/{application_id}/tailor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tailor For Application
+         * @description Tailor against an application's saved posting, and link the result to it.
+         *
+         *     The same flow as the Tailor page, so strategies and the instant path behave
+         *     identically from either place.
+         */
+        post: operations["tailor_for_application_api_v1_remote_applications__application_id__tailor_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remote/export/docx": {
         parameters: {
             query?: never;
             header?: never;
@@ -611,14 +611,14 @@ export interface paths {
          *     The extension's tailor-and-download flow uses the raw-markdown path: at
          *     that point nothing has been saved, by design.
          */
-        post: operations["export_docx_api_v1_export_docx_post"];
+        post: operations["export_docx_api_v1_remote_export_docx_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/export/preview": {
+    "/api/v1/remote/export/preview": {
         parameters: {
             query?: never;
             header?: never;
@@ -633,14 +633,14 @@ export interface paths {
          *
          *     Accepts unsaved markdown so the editor can preview edits before saving.
          */
-        post: operations["export_preview_api_v1_export_preview_post"];
+        post: operations["export_preview_api_v1_remote_export_preview_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/applications": {
+    "/api/v1/remote/applications": {
         parameters: {
             query?: never;
             header?: never;
@@ -654,20 +654,20 @@ export interface paths {
          *     Every stage - with its meetings - is inlined, because each stage is a
          *     column of the table. Three queries in total, however many rows.
          */
-        get: operations["list_applications_api_v1_applications_get"];
+        get: operations["list_applications_api_v1_remote_applications_get"];
         put?: never;
         /**
          * Create Application
          * @description Create an application and seed its pipeline from a stage template.
          */
-        post: operations["create_application_api_v1_applications_post"];
+        post: operations["create_application_api_v1_remote_applications_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/applications/{application_id}": {
+    "/api/v1/remote/applications/{application_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -675,18 +675,18 @@ export interface paths {
             cookie?: never;
         };
         /** Get Application */
-        get: operations["get_application_api_v1_applications__application_id__get"];
+        get: operations["get_application_api_v1_remote_applications__application_id__get"];
         put?: never;
         post?: never;
         /** Delete Application */
-        delete: operations["delete_application_api_v1_applications__application_id__delete"];
+        delete: operations["delete_application_api_v1_remote_applications__application_id__delete"];
         options?: never;
         head?: never;
         /** Update Application */
-        patch: operations["update_application_api_v1_applications__application_id__patch"];
+        patch: operations["update_application_api_v1_remote_applications__application_id__patch"];
         trace?: never;
     };
-    "/api/v1/applications/{application_id}/stages": {
+    "/api/v1/remote/applications/{application_id}/stages": {
         parameters: {
             query?: never;
             header?: never;
@@ -696,14 +696,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Add Stage */
-        post: operations["add_stage_api_v1_applications__application_id__stages_post"];
+        post: operations["add_stage_api_v1_remote_applications__application_id__stages_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/stages/{stage_id}": {
+    "/api/v1/remote/stages/{stage_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -724,170 +724,10 @@ export interface paths {
          *     prompt in both the tracking table and the calendar, so the behaviour cannot
          *     drift between the two surfaces.
          */
-        patch: operations["update_stage_api_v1_stages__stage_id__patch"];
+        patch: operations["update_stage_api_v1_remote_stages__stage_id__patch"];
         trace?: never;
     };
-    "/api/v1/meetings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Meetings
-         * @description Meetings overlapping a local date range.
-         *
-         *     Bounds are computed in Python because ``timestamptz AT TIME ZONE`` is
-         *     STABLE, not IMMUTABLE, so it cannot be used in an index expression - a
-         *     plain btree range scan on ``starts_at`` is both correct and fast.
-         */
-        get: operations["list_meetings_api_v1_meetings_get"];
-        put?: never;
-        /** Create Meeting */
-        post: operations["create_meeting_api_v1_meetings_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/meetings/upcoming": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Upcoming
-         * @description The notification feed. Also backs the extension's top banner.
-         */
-        get: operations["upcoming_api_v1_meetings_upcoming_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/meetings/next": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Next Meeting
-         * @description The single next call, across applications and maintained jobs.
-         */
-        get: operations["next_meeting_api_v1_meetings_next_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/meetings/{meeting_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete Meeting */
-        delete: operations["delete_meeting_api_v1_meetings__meeting_id__delete"];
-        options?: never;
-        head?: never;
-        /** Update Meeting */
-        patch: operations["update_meeting_api_v1_meetings__meeting_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/maintained-jobs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Maintained Jobs */
-        get: operations["list_maintained_jobs_api_v1_maintained_jobs_get"];
-        put?: never;
-        /**
-         * Create Maintained Job
-         * @description Promote a won application into an ongoing job.
-         */
-        post: operations["create_maintained_job_api_v1_maintained_jobs_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/maintained-jobs/{job_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update Maintained Job */
-        patch: operations["update_maintained_job_api_v1_maintained_jobs__job_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/maintained-jobs/{job_id}/series": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Series */
-        get: operations["list_series_api_v1_maintained_jobs__job_id__series_get"];
-        put?: never;
-        /**
-         * Create Series
-         * @description Create a recurring meeting and materialise its first 90 days.
-         */
-        post: operations["create_series_api_v1_maintained_jobs__job_id__series_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/maintained-jobs/series/{series_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete Series */
-        delete: operations["delete_series_api_v1_maintained_jobs_series__series_id__delete"];
-        options?: never;
-        head?: never;
-        /** Update Series */
-        patch: operations["update_series_api_v1_maintained_jobs_series__series_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/extension/tailor": {
+    "/api/v1/remote/extension/tailor": {
         parameters: {
             query?: never;
             header?: never;
@@ -905,14 +745,14 @@ export interface paths {
          *     linked to the run, though, so the panel can find the result again from any
          *     tab showing that posting.
          */
-        post: operations["extension_tailor_api_v1_extension_tailor_post"];
+        post: operations["extension_tailor_api_v1_remote_extension_tailor_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/extension/job-links/lookup": {
+    "/api/v1/remote/extension/job-links/lookup": {
         parameters: {
             query?: never;
             header?: never;
@@ -929,14 +769,14 @@ export interface paths {
          *     tailored from the same URL, so jobs tailored before links existed - or in
          *     the portal - turn up too.
          */
-        post: operations["lookup_job_links_api_v1_extension_job_links_lookup_post"];
+        post: operations["lookup_job_links_api_v1_remote_extension_job_links_lookup_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/extension/job-links": {
+    "/api/v1/remote/extension/job-links": {
         parameters: {
             query?: never;
             header?: never;
@@ -948,7 +788,7 @@ export interface paths {
          * Link Job
          * @description Use a resume for a posting as it is, without tailoring - or unlink it.
          */
-        put: operations["link_job_api_v1_extension_job_links_put"];
+        put: operations["link_job_api_v1_remote_extension_job_links_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -956,7 +796,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/extension/resume-facts": {
+    "/api/v1/remote/extension/resume-facts": {
         parameters: {
             query?: never;
             header?: never;
@@ -967,7 +807,7 @@ export interface paths {
          * Resume Facts
          * @description A resume's contact details and highlights, ready to copy into a form.
          */
-        get: operations["resume_facts_api_v1_extension_resume_facts_get"];
+        get: operations["resume_facts_api_v1_remote_extension_resume_facts_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -976,7 +816,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/extension/autofill": {
+    "/api/v1/remote/extension/autofill": {
         parameters: {
             query?: never;
             header?: never;
@@ -992,14 +832,14 @@ export interface paths {
          *     Synchronous on purpose: this is a fast-tier call of a few seconds, and the
          *     panel needs the answers in hand before it can touch the page.
          */
-        post: operations["extension_autofill_api_v1_extension_autofill_post"];
+        post: operations["extension_autofill_api_v1_remote_extension_autofill_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/extension/save-application": {
+    "/api/v1/remote/extension/save-application": {
         parameters: {
             query?: never;
             header?: never;
@@ -1012,7 +852,761 @@ export interface paths {
          * Extension Save Application
          * @description Promote a tailoring session into a tracked application.
          */
-        post: operations["extension_save_application_api_v1_extension_save_application_post"];
+        post: operations["extension_save_application_api_v1_remote_extension_save_application_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Source
+         * @description The source in service, the controls it honours, and what to set up if it is not ready.
+         */
+        get: operations["read_source_api_v1_freelancing_source_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/apify/connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Connection */
+        get: operations["read_connection_api_v1_freelancing_apify_connection_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/apify/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Token */
+        put: operations["put_token_api_v1_freelancing_apify_token_put"];
+        post?: never;
+        /** Delete Token */
+        delete: operations["delete_token_api_v1_freelancing_apify_token_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/apify/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Token
+         * @description Who the token belongs to, and whether the actor answers. Costs nothing.
+         */
+        post: operations["test_token_api_v1_freelancing_apify_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/upwork/connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Connection */
+        get: operations["read_connection_api_v1_freelancing_upwork_connection_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/upwork/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Credentials */
+        put: operations["put_credentials_api_v1_freelancing_upwork_credentials_put"];
+        post?: never;
+        /** Delete Credentials */
+        delete: operations["delete_credentials_api_v1_freelancing_upwork_credentials_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/upwork/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Authorize
+         * @description The URL to send the browser to. The state carries the user for the way back.
+         */
+        post: operations["authorize_api_v1_freelancing_upwork_authorize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/upwork/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disconnect */
+        post: operations["disconnect_api_v1_freelancing_upwork_disconnect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/upwork/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Connection
+         * @description One real call, recorded on the connection so the UI can show the outcome.
+         */
+        post: operations["test_connection_api_v1_freelancing_upwork_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/upwork/tenant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Tenant */
+        put: operations["put_tenant_api_v1_freelancing_upwork_tenant_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/jobs/filters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Filters
+         * @description Every control the search form renders, and which of them the source honours.
+         */
+        get: operations["filters_api_v1_freelancing_jobs_filters_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/jobs/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Skills */
+        get: operations["skills_api_v1_freelancing_jobs_skills_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/jobs/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search
+         * @description Run a search on Upwork and snapshot what comes back.
+         */
+        post: operations["search_api_v1_freelancing_jobs_search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Snapshots
+         * @description Jobs already seen: the focused list, or everything still in the 24-hour window.
+         */
+        get: operations["list_snapshots_api_v1_freelancing_jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/jobs/saved-searches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Saved Searches */
+        get: operations["list_saved_searches_api_v1_freelancing_jobs_saved_searches_get"];
+        /**
+         * Save Search
+         * @description Create or replace by name, so re-saving a preset never makes a duplicate.
+         */
+        put: operations["save_search_api_v1_freelancing_jobs_saved_searches_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/jobs/saved-searches/{saved_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Saved Search */
+        delete: operations["delete_saved_search_api_v1_freelancing_jobs_saved_searches__saved_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/jobs/saved-searches/{saved_id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Saved Search */
+        post: operations["run_saved_search_api_v1_freelancing_jobs_saved_searches__saved_id__run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Job
+         * @description The posting, with its deeper aggregate fetched when stale.
+         *
+         *     A failed fetch is not an error here: the snapshot is still the posting as
+         *     last seen, and the card says how old it is.
+         */
+        get: operations["get_job_api_v1_freelancing_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/jobs/{job_id}/focus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Focus Job
+         * @description Focus: the posting joins the tracker at its first stage.
+         */
+        post: operations["focus_job_api_v1_freelancing_jobs__job_id__focus_post"];
+        /** Unfocus Job */
+        delete: operations["unfocus_job_api_v1_freelancing_jobs__job_id__focus_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/jobs/{job_id}/hide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hide Job */
+        post: operations["hide_job_api_v1_freelancing_jobs__job_id__hide_post"];
+        /** Unhide Job */
+        delete: operations["unhide_job_api_v1_freelancing_jobs__job_id__hide_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Profiles */
+        get: operations["list_profiles_api_v1_freelancing_profiles_get"];
+        put?: never;
+        /** Create Profile */
+        post: operations["create_profile_api_v1_freelancing_profiles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/profiles/{profile_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Profile */
+        get: operations["get_profile_api_v1_freelancing_profiles__profile_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Profile */
+        delete: operations["delete_profile_api_v1_freelancing_profiles__profile_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Profile */
+        patch: operations["update_profile_api_v1_freelancing_profiles__profile_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/freelancing/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Proposals */
+        get: operations["list_proposals_api_v1_freelancing_proposals_get"];
+        put?: never;
+        /**
+         * Create Proposal
+         * @description A proposal written by hand. Focuses the job, so it is tracked.
+         */
+        post: operations["create_proposal_api_v1_freelancing_proposals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/proposals/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Proposal
+         * @description Queue a draft. The generation's events say when the proposal is ready.
+         *
+         *     The engine in service today is the template engine; ``engine_version``
+         *     in the response says which one will write the draft.
+         */
+        post: operations["generate_proposal_api_v1_freelancing_proposals_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/proposals/{proposal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Proposal */
+        get: operations["get_proposal_api_v1_freelancing_proposals__proposal_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Proposal */
+        delete: operations["delete_proposal_api_v1_freelancing_proposals__proposal_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Proposal */
+        patch: operations["update_proposal_api_v1_freelancing_proposals__proposal_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/freelancing/proposals/{proposal_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Proposal
+         * @description Record that this proposal went out on Upwork; the track follows.
+         */
+        post: operations["submit_proposal_api_v1_freelancing_proposals__proposal_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/tracks/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Summary */
+        get: operations["summary_api_v1_freelancing_tracks_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/tracks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tracks
+         * @description The board. Every row carries its job, proposal and next call.
+         */
+        get: operations["list_tracks_api_v1_freelancing_tracks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/tracks/{track_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Track */
+        get: operations["get_track_api_v1_freelancing_tracks__track_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Track
+         * @description Stop tracking. The job snapshot stays, unfocused; proposals stay with it.
+         */
+        delete: operations["delete_track_api_v1_freelancing_tracks__track_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Track */
+        patch: operations["update_track_api_v1_freelancing_tracks__track_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/freelancing/tracks/{track_id}/promote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Promote To Maintenance
+         * @description A won bid becomes a maintained job in the shared Job Maintenance tool.
+         */
+        post: operations["promote_to_maintenance_api_v1_freelancing_tracks__track_id__promote_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shared/meetings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Meetings
+         * @description Meetings overlapping a local date range.
+         *
+         *     Bounds are computed in Python because ``timestamptz AT TIME ZONE`` is
+         *     STABLE, not IMMUTABLE, so it cannot be used in an index expression - a
+         *     plain btree range scan on ``starts_at`` is both correct and fast.
+         */
+        get: operations["list_meetings_api_v1_shared_meetings_get"];
+        put?: never;
+        /** Create Meeting */
+        post: operations["create_meeting_api_v1_shared_meetings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shared/meetings/upcoming": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Upcoming
+         * @description The notification feed. Also backs the extension's top banner.
+         */
+        get: operations["upcoming_api_v1_shared_meetings_upcoming_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shared/meetings/next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Next Meeting
+         * @description The single next call, across applications, maintained jobs and freelancing tracks.
+         */
+        get: operations["next_meeting_api_v1_shared_meetings_next_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shared/meetings/{meeting_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Meeting */
+        delete: operations["delete_meeting_api_v1_shared_meetings__meeting_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Meeting */
+        patch: operations["update_meeting_api_v1_shared_meetings__meeting_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/shared/maintained-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Maintained Jobs */
+        get: operations["list_maintained_jobs_api_v1_shared_maintained_jobs_get"];
+        put?: never;
+        /**
+         * Create Maintained Job
+         * @description Promote a won application, or a won freelancing bid, into an ongoing job.
+         */
+        post: operations["create_maintained_job_api_v1_shared_maintained_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shared/maintained-jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Maintained Job */
+        patch: operations["update_maintained_job_api_v1_shared_maintained_jobs__job_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/shared/maintained-jobs/{job_id}/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Series */
+        get: operations["list_series_api_v1_shared_maintained_jobs__job_id__series_get"];
+        put?: never;
+        /**
+         * Create Series
+         * @description Create a recurring meeting and materialise its first 90 days.
+         */
+        post: operations["create_series_api_v1_shared_maintained_jobs__job_id__series_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shared/maintained-jobs/series/{series_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Series */
+        delete: operations["delete_series_api_v1_shared_maintained_jobs_series__series_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Series */
+        patch: operations["update_series_api_v1_shared_maintained_jobs_series__series_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/shared/interview/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Status */
+        get: operations["read_status_api_v1_shared_interview_status_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1095,6 +1689,56 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ApifyConnectionOut */
+        ApifyConnectionOut: {
+            /** Configured */
+            configured: boolean;
+            /**
+             * Token Source
+             * @enum {string}
+             */
+            token_source: "user" | "environment" | "none";
+            /** Masked Token */
+            masked_token?: string | null;
+            /** Status */
+            status: string;
+            /** Apify Username */
+            apify_username?: string | null;
+            /** Actor Id */
+            actor_id: string;
+            /** Actor Label */
+            actor_label?: string | null;
+            /** Cost Note */
+            cost_note?: string | null;
+            /** Last Verified At */
+            last_verified_at?: string | null;
+            /** Last Error */
+            last_error?: string | null;
+            /** Last Run Id */
+            last_run_id?: string | null;
+            /** Last Run At */
+            last_run_at?: string | null;
+        };
+        /** ApifyTestOut */
+        ApifyTestOut: {
+            /** Ok */
+            ok: boolean;
+            /** Detail */
+            detail: string;
+            /** Apify Username */
+            apify_username?: string | null;
+            /** Plan */
+            plan?: string | null;
+            /** Actor Title */
+            actor_title?: string | null;
+            /** Price Per Job Usd */
+            price_per_job_usd?: number | null;
+        };
+        /** ApifyTokenIn */
+        ApifyTokenIn: {
+            /** Token */
+            token: string;
         };
         /** ApplicationCreate */
         ApplicationCreate: {
@@ -1272,6 +1916,15 @@ export interface components {
          * @enum {string}
          */
         ApplicationStatus: "saved" | "applied" | "in_process" | "offer" | "hired" | "rejected" | "withdrawn" | "ghosted";
+        /** AreaParam */
+        AreaParam: {
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+            /** Radius Miles */
+            radius_miles: number;
+        };
         /** AutofillAnswer */
         AutofillAnswer: {
             /** Id */
@@ -1421,6 +2074,8 @@ export interface components {
             stage_id: string | null;
             /** Maintained Job Id */
             maintained_job_id: string | null;
+            /** Freelance Track Id */
+            freelance_track_id?: string | null;
             /** Series Id */
             series_id: string | null;
             /** Is Exception */
@@ -1434,6 +2089,10 @@ export interface components {
             kind: string;
             /** Application Id */
             application_id?: string | null;
+            /** Track Id */
+            track_id?: string | null;
+            /** Job Id */
+            job_id?: string | null;
             /** Company Name */
             company_name?: string | null;
             /** Role Title */
@@ -1442,6 +2101,15 @@ export interface components {
             stage_name?: string | null;
             /** Stage Kind */
             stage_kind?: string | null;
+        };
+        /** CategoryOption */
+        CategoryOption: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Subcategories */
+            subcategories?: components["schemas"]["FilterOption"][];
         };
         /** ConnectionTest */
         ConnectionTest: {
@@ -1527,6 +2195,38 @@ export interface components {
             /** Value */
             value: string;
         };
+        /**
+         * FilterCatalogue
+         * @description Everything the search form needs to render its controls.
+         */
+        FilterCatalogue: {
+            source: components["schemas"]["JobSourceInfo"];
+            /** Job Types */
+            job_types: components["schemas"]["FilterOption"][];
+            /** Workloads */
+            workloads: components["schemas"]["FilterOption"][];
+            /** Durations */
+            durations: components["schemas"]["FilterOption"][];
+            /** Experience Levels */
+            experience_levels: components["schemas"]["FilterOption"][];
+            /** Sorts */
+            sorts: components["schemas"]["FilterOption"][];
+            /** Page Sizes */
+            page_sizes: number[];
+            /** Categories */
+            categories?: components["schemas"]["CategoryOption"][];
+            /** Categories Error */
+            categories_error?: string | null;
+        };
+        /** FilterOption */
+        FilterOption: {
+            /** Value */
+            value: string;
+            /** Label */
+            label: string;
+            /** Hint */
+            hint?: string | null;
+        };
         /** FormFieldIn */
         FormFieldIn: {
             /** Id */
@@ -1609,6 +2309,107 @@ export interface components {
              */
             value: string;
         };
+        /**
+         * FreelanceJobType
+         * @enum {string}
+         */
+        FreelanceJobType: "hourly" | "fixed";
+        /**
+         * FreelanceTrackStage
+         * @description The bidding pipeline, in the order a job moves through it.
+         *
+         *     A closed set: unlike interview stages, Upwork's own states are fixed, so a
+         *     native enum is right here and the tracking board can rely on the order.
+         * @enum {string}
+         */
+        FreelanceTrackStage: "focused" | "proposal_drafted" | "submitted" | "viewed" | "interviewing" | "hired" | "declined" | "withdrawn" | "closed";
+        /** FreelancerProfileIn */
+        FreelancerProfileIn: {
+            /** Name */
+            name: string;
+            /**
+             * Is Default
+             * @default false
+             */
+            is_default: boolean;
+            /** Title */
+            title?: string | null;
+            /** Overview */
+            overview?: string | null;
+            /** Hourly Rate */
+            hourly_rate?: number | null;
+            /** Skills */
+            skills?: string[];
+            /** Portfolio */
+            portfolio?: components["schemas"]["PortfolioItem"][];
+            /** Specialized Profiles */
+            specialized_profiles?: components["schemas"]["SpecializedProfile"][];
+            /** Upwork Profile Url */
+            upwork_profile_url?: string | null;
+            /** Raw Profile Markdown */
+            raw_profile_markdown?: string | null;
+        };
+        /** FreelancerProfileOut */
+        FreelancerProfileOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Is Default */
+            is_default: boolean;
+            /** Title */
+            title: string | null;
+            /** Overview */
+            overview: string | null;
+            /** Hourly Rate */
+            hourly_rate: number | null;
+            /** Skills */
+            skills: string[];
+            /** Portfolio */
+            portfolio: unknown[];
+            /** Specialized Profiles */
+            specialized_profiles: unknown[];
+            /** Upwork Profile Url */
+            upwork_profile_url: string | null;
+            /** Raw Profile Markdown */
+            raw_profile_markdown: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** FreelancerProfilePatch */
+        FreelancerProfilePatch: {
+            /** Name */
+            name?: string | null;
+            /** Is Default */
+            is_default?: boolean | null;
+            /** Title */
+            title?: string | null;
+            /** Overview */
+            overview?: string | null;
+            /** Hourly Rate */
+            hourly_rate?: number | null;
+            /** Skills */
+            skills?: string[] | null;
+            /** Portfolio */
+            portfolio?: components["schemas"]["PortfolioItem"][] | null;
+            /** Specialized Profiles */
+            specialized_profiles?: components["schemas"]["SpecializedProfile"][] | null;
+            /** Upwork Profile Url */
+            upwork_profile_url?: string | null;
+            /** Raw Profile Markdown */
+            raw_profile_markdown?: string | null;
+        };
         /** GenerateFromJob */
         GenerateFromJob: {
             /** Target Title */
@@ -1678,7 +2479,7 @@ export interface components {
          * GenerationKind
          * @enum {string}
          */
-        GenerationKind: "resume_story" | "resume_job" | "tailor_job" | "tailor_instruction" | "resume_repair" | "form_answer" | "jd_parse";
+        GenerationKind: "resume_story" | "resume_job" | "tailor_job" | "tailor_instruction" | "resume_repair" | "form_answer" | "jd_parse" | "proposal";
         /** GenerationOut */
         GenerationOut: {
             /**
@@ -1725,6 +2526,278 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** InterviewAssistStatus */
+        InterviewAssistStatus: {
+            /**
+             * Available
+             * @default false
+             */
+            available: boolean;
+            /** Planned */
+            planned?: string[];
+        };
+        /** JobBrief */
+        JobBrief: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string | null;
+            job_type: components["schemas"]["FreelanceJobType"] | null;
+            /** Budget Amount */
+            budget_amount: number | null;
+            /** Hourly Min */
+            hourly_min: number | null;
+            /** Hourly Max */
+            hourly_max: number | null;
+            /** Client Country */
+            client_country?: string | null;
+            /** Total Applicants */
+            total_applicants?: number | null;
+            /** Published At */
+            published_at?: string | null;
+            /** Focused At */
+            focused_at?: string | null;
+        };
+        /** JobCard */
+        JobCard: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Upwork Id */
+            upwork_id: string;
+            /** Ciphertext */
+            ciphertext: string | null;
+            /** Url */
+            url: string | null;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            job_type: components["schemas"]["FreelanceJobType"] | null;
+            /** Budget Amount */
+            budget_amount: number | null;
+            /** Budget Currency */
+            budget_currency: string | null;
+            /** Hourly Min */
+            hourly_min: number | null;
+            /** Hourly Max */
+            hourly_max: number | null;
+            /** Duration Label */
+            duration_label: string | null;
+            /** Workload */
+            workload: string | null;
+            /** Experience Level */
+            experience_level: string | null;
+            /** Category */
+            category: string | null;
+            /** Subcategory */
+            subcategory: string | null;
+            /** Skills */
+            skills: string[];
+            client: components["schemas"]["JobClient"];
+            /** Total Applicants */
+            total_applicants: number | null;
+            /** Freelancers To Hire */
+            freelancers_to_hire: number | null;
+            /** Is Premium */
+            is_premium: boolean;
+            /** Is Enterprise */
+            is_enterprise: boolean;
+            /** Preferred Freelancer Location */
+            preferred_freelancer_location: string[];
+            /** Published At */
+            published_at: string | null;
+            /** Renewed At */
+            renewed_at: string | null;
+            /**
+             * Last Seen At
+             * Format: date-time
+             */
+            last_seen_at: string;
+            /** Focused At */
+            focused_at: string | null;
+            /** Hidden At */
+            hidden_at: string | null;
+            /**
+             * Applied
+             * @default false
+             */
+            applied: boolean;
+            track_stage?: components["schemas"]["FreelanceTrackStage"] | null;
+            /**
+             * Proposal Count
+             * @default 0
+             */
+            proposal_count: number;
+            /** Connects Required */
+            connects_required?: number | null;
+            /**
+             * Featured
+             * @default false
+             */
+            featured: boolean;
+            /** Job Score */
+            job_score?: number | null;
+        };
+        /** JobClient */
+        JobClient: {
+            /** Company Name */
+            company_name?: string | null;
+            /** Contact Name */
+            contact_name?: string | null;
+            /** Hire Rate Percent */
+            hire_rate_percent?: number | null;
+            /** Avg Hourly Rate */
+            avg_hourly_rate?: number | null;
+            /** Industry */
+            industry?: string | null;
+            /** Phone Verified */
+            phone_verified?: boolean | null;
+            /** Country */
+            country?: string | null;
+            /** City */
+            city?: string | null;
+            /** State */
+            state?: string | null;
+            /** Timezone */
+            timezone?: string | null;
+            /** Payment Verified */
+            payment_verified?: boolean | null;
+            /** Verification Status */
+            verification_status?: string | null;
+            /** Total Spent */
+            total_spent?: number | null;
+            /** Total Spent Display */
+            total_spent_display?: string | null;
+            /** Total Hires */
+            total_hires?: number | null;
+            /** Total Posted Jobs */
+            total_posted_jobs?: number | null;
+            /** Total Reviews */
+            total_reviews?: number | null;
+            /** Feedback */
+            feedback?: number | null;
+            /** Last Contract Platform */
+            last_contract_platform?: string | null;
+            /** Has Financial Privacy */
+            has_financial_privacy?: boolean | null;
+        };
+        /** JobDetail */
+        JobDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Upwork Id */
+            upwork_id: string;
+            /** Ciphertext */
+            ciphertext: string | null;
+            /** Url */
+            url: string | null;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            job_type: components["schemas"]["FreelanceJobType"] | null;
+            /** Budget Amount */
+            budget_amount: number | null;
+            /** Budget Currency */
+            budget_currency: string | null;
+            /** Hourly Min */
+            hourly_min: number | null;
+            /** Hourly Max */
+            hourly_max: number | null;
+            /** Duration Label */
+            duration_label: string | null;
+            /** Workload */
+            workload: string | null;
+            /** Experience Level */
+            experience_level: string | null;
+            /** Category */
+            category: string | null;
+            /** Subcategory */
+            subcategory: string | null;
+            /** Skills */
+            skills: string[];
+            client: components["schemas"]["JobClient"];
+            /** Total Applicants */
+            total_applicants: number | null;
+            /** Freelancers To Hire */
+            freelancers_to_hire: number | null;
+            /** Is Premium */
+            is_premium: boolean;
+            /** Is Enterprise */
+            is_enterprise: boolean;
+            /** Preferred Freelancer Location */
+            preferred_freelancer_location: string[];
+            /** Published At */
+            published_at: string | null;
+            /** Renewed At */
+            renewed_at: string | null;
+            /**
+             * Last Seen At
+             * Format: date-time
+             */
+            last_seen_at: string;
+            /** Focused At */
+            focused_at: string | null;
+            /** Hidden At */
+            hidden_at: string | null;
+            /**
+             * Applied
+             * @default false
+             */
+            applied: boolean;
+            track_stage?: components["schemas"]["FreelanceTrackStage"] | null;
+            /**
+             * Proposal Count
+             * @default 0
+             */
+            proposal_count: number;
+            /** Connects Required */
+            connects_required?: number | null;
+            /**
+             * Featured
+             * @default false
+             */
+            featured: boolean;
+            /** Job Score */
+            job_score?: number | null;
+            /** Detail Fetched At */
+            detail_fetched_at?: string | null;
+            /** Screening Questions */
+            screening_questions?: string[];
+            /** Cover Letter Required */
+            cover_letter_required?: boolean | null;
+            /** Activity */
+            activity?: {
+                [key: string]: unknown;
+            };
+            /** Qualification */
+            qualification?: {
+                [key: string]: unknown;
+            };
+            /** Location Preference */
+            location_preference?: {
+                [key: string]: unknown;
+            };
+            /** Attachments */
+            attachments?: {
+                [key: string]: unknown;
+            }[];
+            /** On Site Type */
+            on_site_type?: string | null;
+            /** Status */
+            status?: string | null;
+        };
         /** JobLinkIn */
         JobLinkIn: {
             /** Url */
@@ -1761,6 +2834,220 @@ export interface components {
             base_resume_id?: string | null;
             resume?: components["schemas"]["LinkedResume"] | null;
             generation?: components["schemas"]["LinkGeneration"] | null;
+        };
+        /** JobSearchPage */
+        JobSearchPage: {
+            /** Items */
+            items: components["schemas"]["JobCard"][];
+            /** Total */
+            total?: number | null;
+            /**
+             * Has Next Page
+             * @default false
+             */
+            has_next_page: boolean;
+            /** End Cursor */
+            end_cursor?: string | null;
+            /**
+             * Hidden Count
+             * @default 0
+             */
+            hidden_count: number;
+            /**
+             * Pending
+             * @default false
+             */
+            pending: boolean;
+            /** Progress Note */
+            progress_note?: string | null;
+            /** Notice */
+            notice?: string | null;
+        };
+        /**
+         * JobSearchParams
+         * @description Every filter Upwork's job search accepts, in this API's own words.
+         *
+         *     Each field maps to exactly one entry of ``MarketplaceJobPostingsSearchFilter``
+         *     (see ``app.freelancing.upwork.filters``). Nothing here is invented: a
+         *     filter Upwork does not offer, such as "posted in the last N days", is not
+         *     offered either.
+         */
+        JobSearchParams: {
+            /**
+             * Query
+             * @description Lucene-style search
+             */
+            query?: string | null;
+            /**
+             * Title
+             * @description Words in the title
+             */
+            title?: string | null;
+            /**
+             * Skills
+             * @description Skill slugs, OR
+             */
+            skills?: string[];
+            /** And Terms */
+            and_terms?: string[];
+            /** Or Terms */
+            or_terms?: string[];
+            /** Exact Terms */
+            exact_terms?: string[];
+            /** Exclude Terms */
+            exclude_terms?: string[];
+            /** Category Ids */
+            category_ids?: string[];
+            /** Subcategory Ids */
+            subcategory_ids?: string[];
+            /** Occupation Ids */
+            occupation_ids?: string[];
+            /**
+             * Ontology Skill Ids
+             * @description AND
+             */
+            ontology_skill_ids?: string[];
+            /** Job Type */
+            job_type?: ("hourly" | "fixed") | null;
+            /** Workload */
+            workload?: ("full_time" | "part_time" | "as_needed" | "not_sure") | null;
+            /** Durations */
+            durations?: ("week" | "month" | "quarter" | "semester" | "ongoing")[];
+            /** Experience Level */
+            experience_level?: ("entry_level" | "intermediate" | "expert") | null;
+            /** Budget Min */
+            budget_min?: number | null;
+            /** Budget Max */
+            budget_max?: number | null;
+            /** Hourly Rate Min */
+            hourly_rate_min?: number | null;
+            /** Hourly Rate Max */
+            hourly_rate_max?: number | null;
+            /** Client Hires Min */
+            client_hires_min?: number | null;
+            /** Client Hires Max */
+            client_hires_max?: number | null;
+            /** Proposals Min */
+            proposals_min?: number | null;
+            /** Proposals Max */
+            proposals_max?: number | null;
+            /** Verified Payment Only */
+            verified_payment_only?: boolean | null;
+            /** Previous Clients Only */
+            previous_clients_only?: boolean | null;
+            /** Client Locations */
+            client_locations?: string[];
+            /** Client Timezone */
+            client_timezone?: string | null;
+            /** Enterprise Only */
+            enterprise_only?: boolean | null;
+            /** Talent Cloud Only */
+            talent_cloud_only?: boolean | null;
+            /** Talent Cloud Ids */
+            talent_cloud_ids?: string[];
+            /** User Location Match */
+            user_location_match?: boolean | null;
+            /** Visitor Country */
+            visitor_country?: string | null;
+            area?: components["schemas"]["AreaParam"] | null;
+            /** Posted Within Hours */
+            posted_within_hours?: number | null;
+            /** Client Min Rating */
+            client_min_rating?: number | null;
+            /** Client Min Spent */
+            client_min_spent?: number | null;
+            /** Client Max Spent */
+            client_max_spent?: number | null;
+            /** Client Min Hire Rate */
+            client_min_hire_rate?: number | null;
+            /** Phone Verified Only */
+            phone_verified_only?: boolean | null;
+            /** Exclude Client Locations */
+            exclude_client_locations?: string[];
+            /** Connects Min */
+            connects_min?: number | null;
+            /** Connects Max */
+            connects_max?: number | null;
+            /** English Level */
+            english_level?: ("basic" | "conversational" | "fluent" | "native") | null;
+            /** Contractor Type */
+            contractor_type?: ("freelancer" | "agency") | null;
+            /** Featured Only */
+            featured_only?: boolean | null;
+            /** Exclude With Questions */
+            exclude_with_questions?: boolean | null;
+            /**
+             * Sort
+             * @default recency
+             * @enum {string}
+             */
+            sort: "recency" | "relevance" | "client_total_charge" | "client_rating";
+            /**
+             * Page Size
+             * @default 20
+             */
+            page_size: number;
+            /**
+             * Cursor
+             * @description pageInfo.end_cursor of the previous page
+             */
+            cursor?: string | null;
+            /**
+             * Hide Hidden
+             * @default true
+             */
+            hide_hidden: boolean;
+            /**
+             * Hide Applied
+             * @default false
+             */
+            hide_applied: boolean;
+            /** Open To Country */
+            open_to_country?: string | null;
+        };
+        /**
+         * JobSourceInfo
+         * @description Which provider answers searches, and which controls it honours.
+         */
+        JobSourceInfo: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Filters */
+            filters: string[];
+            /** Sorts */
+            sorts: string[];
+            /** Detail */
+            detail: boolean;
+            /** Categories */
+            categories: boolean;
+            /** Skills */
+            skills: boolean;
+        };
+        /**
+         * JobSourceStatus
+         * @description The source, and whether this user can search with it right now.
+         */
+        JobSourceStatus: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Filters */
+            filters: string[];
+            /** Sorts */
+            sorts: string[];
+            /** Detail */
+            detail: boolean;
+            /** Categories */
+            categories: boolean;
+            /** Skills */
+            skills: boolean;
+            /** Ready */
+            ready: boolean;
+            /** Setup Hint */
+            setup_hint?: string | null;
         };
         /**
          * LLMProvider
@@ -1840,6 +3127,8 @@ export interface components {
             employment_type?: string | null;
             /** Job Application Id */
             job_application_id?: string | null;
+            /** Freelance Track Id */
+            freelance_track_id?: string | null;
             /** Onboarding Notes */
             onboarding_notes?: string | null;
         };
@@ -1850,6 +3139,10 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Job Application Id */
+            job_application_id?: string | null;
+            /** Freelance Track Id */
+            freelance_track_id?: string | null;
             /** Employer Name */
             employer_name: string;
             /** Role Title */
@@ -1901,6 +3194,8 @@ export interface components {
             stage_id?: string | null;
             /** Maintained Job Id */
             maintained_job_id?: string | null;
+            /** Freelance Track Id */
+            freelance_track_id?: string | null;
             /** Location */
             location?: string | null;
             /** Conferencing Url */
@@ -1953,6 +3248,8 @@ export interface components {
             stage_id: string | null;
             /** Maintained Job Id */
             maintained_job_id: string | null;
+            /** Freelance Track Id */
+            freelance_track_id?: string | null;
             /** Series Id */
             series_id: string | null;
             /** Is Exception */
@@ -2035,6 +3332,28 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[JobCard] */
+        Page_JobCard_: {
+            /** Items */
+            items: components["schemas"]["JobCard"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[ProposalOut] */
+        Page_ProposalOut_: {
+            /** Items */
+            items: components["schemas"]["ProposalOut"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** Page[ResumeSummaryOut] */
         Page_ResumeSummaryOut_: {
             /** Items */
@@ -2056,6 +3375,15 @@ export interface components {
             limit: number;
             /** Offset */
             offset: number;
+        };
+        /** PortfolioItem */
+        PortfolioItem: {
+            /** Title */
+            title: string;
+            /** Url */
+            url?: string | null;
+            /** Summary */
+            summary?: string | null;
         };
         /**
          * PreviewBlock
@@ -2164,6 +3492,169 @@ export interface components {
             keep_with_next: boolean;
             border_bottom: components["schemas"]["PreviewBorder"] | null;
         };
+        /** ProposalAnswer */
+        ProposalAnswer: {
+            /** Question */
+            question: string;
+            /**
+             * Answer
+             * @default
+             */
+            answer: string;
+        };
+        /** ProposalBrief */
+        ProposalBrief: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["ProposalStatus"];
+            bid_type: components["schemas"]["FreelanceJobType"] | null;
+            /** Bid Amount */
+            bid_amount: number | null;
+            /** Submitted At */
+            submitted_at: string | null;
+        };
+        /** ProposalCreate */
+        ProposalCreate: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Profile Id */
+            profile_id?: string | null;
+            bid_type?: components["schemas"]["FreelanceJobType"] | null;
+            /** Bid Amount */
+            bid_amount?: number | null;
+            /** Bid Currency */
+            bid_currency?: string | null;
+            /** Connects Estimate */
+            connects_estimate?: number | null;
+            /**
+             * Cover Letter Markdown
+             * @default
+             */
+            cover_letter_markdown: string;
+            /** Answers */
+            answers?: components["schemas"]["ProposalAnswer"][];
+        };
+        /**
+         * ProposalGenerateIn
+         * @description Ask the engine for a draft. Returns the queued generation, not the proposal.
+         */
+        ProposalGenerateIn: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Profile Id */
+            profile_id?: string | null;
+            /** Proposal Id */
+            proposal_id?: string | null;
+            /** Instructions */
+            instructions?: string | null;
+            /**
+             * Tone
+             * @default direct
+             * @enum {string}
+             */
+            tone: "direct" | "warm" | "formal";
+        };
+        /** ProposalGenerated */
+        ProposalGenerated: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Generation Id
+             * Format: uuid
+             */
+            generation_id: string;
+            /**
+             * Proposal Id
+             * Format: uuid
+             */
+            proposal_id: string;
+            /** Status */
+            status: string;
+            /** Engine Version */
+            engine_version: string;
+        };
+        /** ProposalOut */
+        ProposalOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Profile Id */
+            profile_id: string | null;
+            status: components["schemas"]["ProposalStatus"];
+            bid_type: components["schemas"]["FreelanceJobType"] | null;
+            /** Bid Amount */
+            bid_amount: number | null;
+            /** Bid Currency */
+            bid_currency: string | null;
+            /** Connects Estimate */
+            connects_estimate: number | null;
+            /** Cover Letter Markdown */
+            cover_letter_markdown: string;
+            /** Answers */
+            answers: unknown[];
+            /** Engine Version */
+            engine_version: string | null;
+            /** Generation Id */
+            generation_id: string | null;
+            /** Generation Meta */
+            generation_meta: {
+                [key: string]: unknown;
+            };
+            /** Submitted At */
+            submitted_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            job?: components["schemas"]["JobBrief"] | null;
+        };
+        /** ProposalPatch */
+        ProposalPatch: {
+            /** Profile Id */
+            profile_id?: string | null;
+            status?: components["schemas"]["ProposalStatus"] | null;
+            bid_type?: components["schemas"]["FreelanceJobType"] | null;
+            /** Bid Amount */
+            bid_amount?: number | null;
+            /** Bid Currency */
+            bid_currency?: string | null;
+            /** Connects Estimate */
+            connects_estimate?: number | null;
+            /** Cover Letter Markdown */
+            cover_letter_markdown?: string | null;
+            /** Answers */
+            answers?: components["schemas"]["ProposalAnswer"][] | null;
+        };
+        /**
+         * ProposalStatus
+         * @enum {string}
+         */
+        ProposalStatus: "draft" | "ready" | "submitted" | "archived";
         /** RefreshRequest */
         RefreshRequest: {
             /** Refresh Token */
@@ -2447,6 +3938,33 @@ export interface components {
             /** Notes Markdown */
             notes_markdown?: string | null;
         };
+        /** SavedSearchIn */
+        SavedSearchIn: {
+            /** Name */
+            name: string;
+            params: components["schemas"]["JobSearchParams"];
+        };
+        /** SavedSearchOut */
+        SavedSearchOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Params */
+            params: {
+                [key: string]: unknown;
+            };
+            /** Last Run At */
+            last_run_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /**
          * ScrapedJob
          * @description What the panel extracted from the page.
@@ -2579,6 +4097,22 @@ export interface components {
             allow_real_company_names?: boolean | null;
             /** Display Timezone */
             display_timezone?: string | null;
+        };
+        /** SkillSuggestion */
+        SkillSuggestion: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+        };
+        /** SpecializedProfile */
+        SpecializedProfile: {
+            /** Name */
+            name: string;
+            /** Title */
+            title?: string | null;
+            /** Overview */
+            overview?: string | null;
         };
         /** StageCreate */
         StageCreate: {
@@ -2908,6 +4442,221 @@ export interface components {
             /** Expires In */
             expires_in: number;
         };
+        /** TrackDetail */
+        TrackDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Proposal Id */
+            proposal_id: string | null;
+            stage: components["schemas"]["FreelanceTrackStage"];
+            /** Submitted At */
+            submitted_at: string | null;
+            bid_type: components["schemas"]["FreelanceJobType"] | null;
+            /** Bid Amount */
+            bid_amount: number | null;
+            /** Connects Spent */
+            connects_spent: number | null;
+            /** Client Replied At */
+            client_replied_at: string | null;
+            /** Next Action At */
+            next_action_at: string | null;
+            /** Notes Markdown */
+            notes_markdown: string | null;
+            /** Outcome Notes */
+            outcome_notes: string | null;
+            /** Closed At */
+            closed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            job: components["schemas"]["JobBrief"];
+            proposal?: components["schemas"]["ProposalBrief"] | null;
+            next_meeting?: components["schemas"]["TrackMeetingBrief"] | null;
+            /** Events */
+            events?: components["schemas"]["TrackEventOut"][];
+            /** Meetings */
+            meetings?: components["schemas"]["TrackMeetingBrief"][];
+        };
+        /** TrackEventOut */
+        TrackEventOut: {
+            /** Id */
+            id: number;
+            from_stage: components["schemas"]["FreelanceTrackStage"] | null;
+            to_stage: components["schemas"]["FreelanceTrackStage"];
+            /** Reason */
+            reason: string | null;
+            /** Actor */
+            actor: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+        };
+        /** TrackMeetingBrief */
+        TrackMeetingBrief: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Status */
+            status: string;
+            /** Conferencing Url */
+            conferencing_url?: string | null;
+        };
+        /** TrackOut */
+        TrackOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Proposal Id */
+            proposal_id: string | null;
+            stage: components["schemas"]["FreelanceTrackStage"];
+            /** Submitted At */
+            submitted_at: string | null;
+            bid_type: components["schemas"]["FreelanceJobType"] | null;
+            /** Bid Amount */
+            bid_amount: number | null;
+            /** Connects Spent */
+            connects_spent: number | null;
+            /** Client Replied At */
+            client_replied_at: string | null;
+            /** Next Action At */
+            next_action_at: string | null;
+            /** Notes Markdown */
+            notes_markdown: string | null;
+            /** Outcome Notes */
+            outcome_notes: string | null;
+            /** Closed At */
+            closed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            job: components["schemas"]["JobBrief"];
+            proposal?: components["schemas"]["ProposalBrief"] | null;
+            next_meeting?: components["schemas"]["TrackMeetingBrief"] | null;
+        };
+        /** TrackPatch */
+        TrackPatch: {
+            stage?: components["schemas"]["FreelanceTrackStage"] | null;
+            /** Reason */
+            reason?: string | null;
+            /** Proposal Id */
+            proposal_id?: string | null;
+            bid_type?: components["schemas"]["FreelanceJobType"] | null;
+            /** Bid Amount */
+            bid_amount?: number | null;
+            /** Connects Spent */
+            connects_spent?: number | null;
+            /** Submitted At */
+            submitted_at?: string | null;
+            /** Client Replied At */
+            client_replied_at?: string | null;
+            /** Next Action At */
+            next_action_at?: string | null;
+            /** Notes Markdown */
+            notes_markdown?: string | null;
+            /** Outcome Notes */
+            outcome_notes?: string | null;
+        };
+        /**
+         * TrackSummary
+         * @description Counts per stage, for the dashboard and the sidebar.
+         */
+        TrackSummary: {
+            /**
+             * Focused
+             * @default 0
+             */
+            focused: number;
+            /**
+             * Proposal Drafted
+             * @default 0
+             */
+            proposal_drafted: number;
+            /**
+             * Submitted
+             * @default 0
+             */
+            submitted: number;
+            /**
+             * Viewed
+             * @default 0
+             */
+            viewed: number;
+            /**
+             * Interviewing
+             * @default 0
+             */
+            interviewing: number;
+            /**
+             * Hired
+             * @default 0
+             */
+            hired: number;
+            /**
+             * Declined
+             * @default 0
+             */
+            declined: number;
+            /**
+             * Withdrawn
+             * @default 0
+             */
+            withdrawn: number;
+            /**
+             * Closed
+             * @default 0
+             */
+            closed: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
         /** UpcomingOut */
         UpcomingOut: {
             meeting: components["schemas"]["MeetingOut"];
@@ -2930,6 +4679,86 @@ export interface components {
              * @enum {string}
              */
             strategy: "existing" | "full";
+        };
+        /** UpworkAuthorizeOut */
+        UpworkAuthorizeOut: {
+            /** Url */
+            url: string;
+        };
+        /** UpworkConnectionOut */
+        UpworkConnectionOut: {
+            status: components["schemas"]["UpworkConnectionStatus"];
+            /** Configured */
+            configured: boolean;
+            /**
+             * Credentials Source
+             * @enum {string}
+             */
+            credentials_source: "user" | "environment" | "none";
+            /** Client Id */
+            client_id?: string | null;
+            /** Masked Client Secret */
+            masked_client_secret?: string | null;
+            /** Connected */
+            connected: boolean;
+            /** Upwork User Name */
+            upwork_user_name?: string | null;
+            /** Upwork User Id */
+            upwork_user_id?: string | null;
+            /** Tenant Id */
+            tenant_id?: string | null;
+            /** Redirect Uri */
+            redirect_uri: string;
+            /** Access Token Expires At */
+            access_token_expires_at?: string | null;
+            /** Connected At */
+            connected_at?: string | null;
+            /** Last Used At */
+            last_used_at?: string | null;
+            /** Last Error */
+            last_error?: string | null;
+        };
+        /**
+         * UpworkConnectionStatus
+         * @description Where a user's Upwork link is.
+         *
+         *     ``not_configured`` has no API key pair; ``pending_authorization`` has one
+         *     and is waiting on the OAuth round trip; ``expired`` means the refresh
+         *     token stopped working and the user has to authorize again.
+         * @enum {string}
+         */
+        UpworkConnectionStatus: "not_configured" | "pending_authorization" | "connected" | "expired" | "error";
+        /** UpworkCredentialsIn */
+        UpworkCredentialsIn: {
+            /** Client Id */
+            client_id: string;
+            /** Client Secret */
+            client_secret: string;
+        };
+        /** UpworkOrganization */
+        UpworkOrganization: {
+            /** Organization Id */
+            organization_id: string;
+            /** Title */
+            title: string;
+            /** Type Title */
+            type_title?: string | null;
+        };
+        /** UpworkTenantIn */
+        UpworkTenantIn: {
+            /** Tenant Id */
+            tenant_id?: string | null;
+        };
+        /** UpworkTestOut */
+        UpworkTestOut: {
+            /** Ok */
+            ok: boolean;
+            /** Detail */
+            detail: string;
+            /** Upwork User Name */
+            upwork_user_name?: string | null;
+            /** Organizations */
+            organizations?: components["schemas"]["UpworkOrganization"][];
         };
         /** UserOut */
         UserOut: {
@@ -3445,597 +5274,6 @@ export interface operations {
             };
         };
     };
-    list_resumes_api_v1_resumes_get: {
-        parameters: {
-            query?: {
-                /** @description full-text search */
-                q?: string | null;
-                include_archived?: boolean;
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Page_ResumeSummaryOut_"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    upload_resume_api_v1_resumes_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ResumeUpload"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ResumeCreated"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_resume_api_v1_resumes__resume_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                resume_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ResumeOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_resume_api_v1_resumes__resume_id__delete: {
-        parameters: {
-            query?: {
-                /** @description Also delete the tailored versions built from this resume. */
-                cascade?: boolean;
-            };
-            header?: never;
-            path: {
-                resume_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_resume_api_v1_resumes__resume_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                resume_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ResumePatch"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ResumeCreated"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    archive_resume_api_v1_resumes__resume_id__archive_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                resume_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ResumeOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    restore_resume_api_v1_resumes__resume_id__restore_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                resume_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ResumeOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_tailored_resumes_api_v1_tailored_resumes_get: {
-        parameters: {
-            query?: {
-                base_resume_id?: string | null;
-                /** @description full-text search */
-                q?: string | null;
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Page_TailoredResumeSummary_"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_tailored_resume_api_v1_tailored_resumes__resume_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                resume_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TailoredResumeOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_tailored_resume_api_v1_tailored_resumes__resume_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                resume_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_tailored_resume_api_v1_tailored_resumes__resume_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                resume_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TailoredResumePatch"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TailoredResumeOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    generate_from_story_api_v1_resumes_generate_story_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GenerateFromStory"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerationAccepted"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    generate_from_job_api_v1_resumes_generate_job_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GenerateFromJob"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerationAccepted"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    tailor_to_job_api_v1_tailoring_job_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TailorToJob"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerationAccepted"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    tailor_by_instruction_api_v1_tailoring_instruction_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TailorByInstruction"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerationAccepted"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    repair_resume_api_v1_resumes__resume_id__repair_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                resume_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerationAccepted"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    upgrade_tailored_resume_api_v1_tailored_resumes__resume_id__upgrade_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                resume_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpgradeTailored"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerationAccepted"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    tailor_for_application_api_v1_applications__application_id__tailor_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                application_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TailorApplication"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerationAccepted"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_generation_api_v1_generations__generation_id__get: {
         parameters: {
             query?: never;
@@ -4164,7 +5402,598 @@ export interface operations {
             };
         };
     };
-    export_docx_api_v1_export_docx_post: {
+    list_resumes_api_v1_remote_resumes_get: {
+        parameters: {
+            query?: {
+                /** @description full-text search */
+                q?: string | null;
+                include_archived?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ResumeSummaryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_resume_api_v1_remote_resumes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumeUpload"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_resume_api_v1_remote_resumes__resume_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_resume_api_v1_remote_resumes__resume_id__delete: {
+        parameters: {
+            query?: {
+                /** @description Also delete the tailored versions built from this resume. */
+                cascade?: boolean;
+            };
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_resume_api_v1_remote_resumes__resume_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_resume_api_v1_remote_resumes__resume_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_resume_api_v1_remote_resumes__resume_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tailored_resumes_api_v1_remote_tailored_resumes_get: {
+        parameters: {
+            query?: {
+                base_resume_id?: string | null;
+                /** @description full-text search */
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_TailoredResumeSummary_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tailored_resume_api_v1_remote_tailored_resumes__resume_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TailoredResumeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_tailored_resume_api_v1_remote_tailored_resumes__resume_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_tailored_resume_api_v1_remote_tailored_resumes__resume_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TailoredResumePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TailoredResumeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_from_story_api_v1_remote_resumes_generate_story_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateFromStory"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_from_job_api_v1_remote_resumes_generate_job_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateFromJob"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tailor_to_job_api_v1_remote_tailoring_job_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TailorToJob"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tailor_by_instruction_api_v1_remote_tailoring_instruction_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TailorByInstruction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    repair_resume_api_v1_remote_resumes__resume_id__repair_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upgrade_tailored_resume_api_v1_remote_tailored_resumes__resume_id__upgrade_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpgradeTailored"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tailor_for_application_api_v1_remote_applications__application_id__tailor_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TailorApplication"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_docx_api_v1_remote_export_docx_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -4198,7 +6027,7 @@ export interface operations {
             };
         };
     };
-    export_preview_api_v1_export_preview_post: {
+    export_preview_api_v1_remote_export_preview_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -4231,7 +6060,7 @@ export interface operations {
             };
         };
     };
-    list_applications_api_v1_applications_get: {
+    list_applications_api_v1_remote_applications_get: {
         parameters: {
             query?: {
                 status?: components["schemas"]["ApplicationStatus"] | null;
@@ -4264,7 +6093,7 @@ export interface operations {
             };
         };
     };
-    create_application_api_v1_applications_post: {
+    create_application_api_v1_remote_applications_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -4297,7 +6126,7 @@ export interface operations {
             };
         };
     };
-    get_application_api_v1_applications__application_id__get: {
+    get_application_api_v1_remote_applications__application_id__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -4328,7 +6157,7 @@ export interface operations {
             };
         };
     };
-    delete_application_api_v1_applications__application_id__delete: {
+    delete_application_api_v1_remote_applications__application_id__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -4357,7 +6186,7 @@ export interface operations {
             };
         };
     };
-    update_application_api_v1_applications__application_id__patch: {
+    update_application_api_v1_remote_applications__application_id__patch: {
         parameters: {
             query?: never;
             header?: never;
@@ -4392,7 +6221,7 @@ export interface operations {
             };
         };
     };
-    add_stage_api_v1_applications__application_id__stages_post: {
+    add_stage_api_v1_remote_applications__application_id__stages_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -4427,7 +6256,7 @@ export interface operations {
             };
         };
     };
-    update_stage_api_v1_stages__stage_id__patch: {
+    update_stage_api_v1_remote_stages__stage_id__patch: {
         parameters: {
             query?: never;
             header?: never;
@@ -4462,7 +6291,1427 @@ export interface operations {
             };
         };
     };
-    list_meetings_api_v1_meetings_get: {
+    extension_tailor_api_v1_remote_extension_tailor_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtensionTailorRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lookup_job_links_api_v1_remote_extension_job_links_lookup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobLinkLookup"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobLinkLookupOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    link_job_api_v1_remote_extension_job_links_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobLinkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobLinkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_facts_api_v1_remote_extension_resume_facts_get: {
+        parameters: {
+            query: {
+                kind: "base" | "tailored";
+                resume_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeFactsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    extension_autofill_api_v1_remote_extension_autofill_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutofillRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutofillResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    extension_save_application_api_v1_remote_extension_save_application_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveApplicationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_source_api_v1_freelancing_source_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobSourceStatus"];
+                };
+            };
+        };
+    };
+    read_connection_api_v1_freelancing_apify_connection_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApifyConnectionOut"];
+                };
+            };
+        };
+    };
+    put_token_api_v1_freelancing_apify_token_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApifyTokenIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApifyConnectionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_token_api_v1_freelancing_apify_token_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApifyConnectionOut"];
+                };
+            };
+        };
+    };
+    test_token_api_v1_freelancing_apify_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApifyTestOut"];
+                };
+            };
+        };
+    };
+    read_connection_api_v1_freelancing_upwork_connection_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpworkConnectionOut"];
+                };
+            };
+        };
+    };
+    put_credentials_api_v1_freelancing_upwork_credentials_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpworkCredentialsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpworkConnectionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_credentials_api_v1_freelancing_upwork_credentials_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpworkConnectionOut"];
+                };
+            };
+        };
+    };
+    authorize_api_v1_freelancing_upwork_authorize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpworkAuthorizeOut"];
+                };
+            };
+        };
+    };
+    disconnect_api_v1_freelancing_upwork_disconnect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpworkConnectionOut"];
+                };
+            };
+        };
+    };
+    test_connection_api_v1_freelancing_upwork_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpworkTestOut"];
+                };
+            };
+        };
+    };
+    put_tenant_api_v1_freelancing_upwork_tenant_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpworkTenantIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpworkConnectionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    filters_api_v1_freelancing_jobs_filters_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilterCatalogue"];
+                };
+            };
+        };
+    };
+    skills_api_v1_freelancing_jobs_skills_get: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillSuggestion"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_api_v1_freelancing_jobs_search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobSearchParams"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobSearchPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_snapshots_api_v1_freelancing_jobs_get: {
+        parameters: {
+            query?: {
+                focused?: boolean | null;
+                include_hidden?: boolean;
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_JobCard_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_saved_searches_api_v1_freelancing_jobs_saved_searches_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedSearchOut"][];
+                };
+            };
+        };
+    };
+    save_search_api_v1_freelancing_jobs_saved_searches_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedSearchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedSearchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_saved_search_api_v1_freelancing_jobs_saved_searches__saved_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                saved_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_saved_search_api_v1_freelancing_jobs_saved_searches__saved_id__run_post: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                saved_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobSearchPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job_api_v1_freelancing_jobs__job_id__get: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
+            };
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    focus_job_api_v1_freelancing_jobs__job_id__focus_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobCard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unfocus_job_api_v1_freelancing_jobs__job_id__focus_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobCard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hide_job_api_v1_freelancing_jobs__job_id__hide_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobCard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unhide_job_api_v1_freelancing_jobs__job_id__hide_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobCard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_profiles_api_v1_freelancing_profiles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreelancerProfileOut"][];
+                };
+            };
+        };
+    };
+    create_profile_api_v1_freelancing_profiles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FreelancerProfileIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreelancerProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_profile_api_v1_freelancing_profiles__profile_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreelancerProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_profile_api_v1_freelancing_profiles__profile_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_profile_api_v1_freelancing_profiles__profile_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FreelancerProfilePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreelancerProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_proposals_api_v1_freelancing_proposals_get: {
+        parameters: {
+            query?: {
+                job_id?: string | null;
+                status?: components["schemas"]["ProposalStatus"] | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ProposalOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_proposal_api_v1_freelancing_proposals_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_proposal_api_v1_freelancing_proposals_generate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalGenerateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalGenerated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_proposal_api_v1_freelancing_proposals__proposal_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_proposal_api_v1_freelancing_proposals__proposal_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_proposal_api_v1_freelancing_proposals__proposal_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_proposal_api_v1_freelancing_proposals__proposal_id__submit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    summary_api_v1_freelancing_tracks_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackSummary"];
+                };
+            };
+        };
+    };
+    list_tracks_api_v1_freelancing_tracks_get: {
+        parameters: {
+            query?: {
+                stage?: components["schemas"]["FreelanceTrackStage"] | null;
+                include_closed?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_track_api_v1_freelancing_tracks__track_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                track_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_track_api_v1_freelancing_tracks__track_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                track_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_track_api_v1_freelancing_tracks__track_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                track_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrackPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    promote_to_maintenance_api_v1_freelancing_tracks__track_id__promote_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                track_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintainedJobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_meetings_api_v1_shared_meetings_get: {
         parameters: {
             query: {
                 from: string;
@@ -4494,7 +7743,7 @@ export interface operations {
             };
         };
     };
-    create_meeting_api_v1_meetings_post: {
+    create_meeting_api_v1_shared_meetings_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -4527,7 +7776,7 @@ export interface operations {
             };
         };
     };
-    upcoming_api_v1_meetings_upcoming_get: {
+    upcoming_api_v1_shared_meetings_upcoming_get: {
         parameters: {
             query?: {
                 limit?: number;
@@ -4558,7 +7807,7 @@ export interface operations {
             };
         };
     };
-    next_meeting_api_v1_meetings_next_get: {
+    next_meeting_api_v1_shared_meetings_next_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -4578,7 +7827,7 @@ export interface operations {
             };
         };
     };
-    delete_meeting_api_v1_meetings__meeting_id__delete: {
+    delete_meeting_api_v1_shared_meetings__meeting_id__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -4607,7 +7856,7 @@ export interface operations {
             };
         };
     };
-    update_meeting_api_v1_meetings__meeting_id__patch: {
+    update_meeting_api_v1_shared_meetings__meeting_id__patch: {
         parameters: {
             query?: never;
             header?: never;
@@ -4642,7 +7891,7 @@ export interface operations {
             };
         };
     };
-    list_maintained_jobs_api_v1_maintained_jobs_get: {
+    list_maintained_jobs_api_v1_shared_maintained_jobs_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -4662,7 +7911,7 @@ export interface operations {
             };
         };
     };
-    create_maintained_job_api_v1_maintained_jobs_post: {
+    create_maintained_job_api_v1_shared_maintained_jobs_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -4695,7 +7944,7 @@ export interface operations {
             };
         };
     };
-    update_maintained_job_api_v1_maintained_jobs__job_id__patch: {
+    update_maintained_job_api_v1_shared_maintained_jobs__job_id__patch: {
         parameters: {
             query?: never;
             header?: never;
@@ -4732,7 +7981,7 @@ export interface operations {
             };
         };
     };
-    list_series_api_v1_maintained_jobs__job_id__series_get: {
+    list_series_api_v1_shared_maintained_jobs__job_id__series_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -4763,7 +8012,7 @@ export interface operations {
             };
         };
     };
-    create_series_api_v1_maintained_jobs__job_id__series_post: {
+    create_series_api_v1_shared_maintained_jobs__job_id__series_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -4798,7 +8047,7 @@ export interface operations {
             };
         };
     };
-    delete_series_api_v1_maintained_jobs_series__series_id__delete: {
+    delete_series_api_v1_shared_maintained_jobs_series__series_id__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -4827,7 +8076,7 @@ export interface operations {
             };
         };
     };
-    update_series_api_v1_maintained_jobs_series__series_id__patch: {
+    update_series_api_v1_shared_maintained_jobs_series__series_id__patch: {
         parameters: {
             query?: never;
             header?: never;
@@ -4864,111 +8113,9 @@ export interface operations {
             };
         };
     };
-    extension_tailor_api_v1_extension_tailor_post: {
+    read_status_api_v1_shared_interview_status_get: {
         parameters: {
             query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExtensionTailorRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerationAccepted"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    lookup_job_links_api_v1_extension_job_links_lookup_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["JobLinkLookup"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["JobLinkLookupOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    link_job_api_v1_extension_job_links_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["JobLinkIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["JobLinkOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    resume_facts_api_v1_extension_resume_facts_get: {
-        parameters: {
-            query: {
-                kind: "base" | "tailored";
-                resume_id: string;
-            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4981,82 +8128,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ResumeFactsOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    extension_autofill_api_v1_extension_autofill_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AutofillRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AutofillResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    extension_save_application_api_v1_extension_save_application_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SaveApplicationRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApplicationDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["InterviewAssistStatus"];
                 };
             };
         };

@@ -1,5 +1,5 @@
 {
-  "name": "resume-assist",
+  "name": "phoenix",
   "private": true,
   "version": "0.1.0",
   "workspaces": [
@@ -7,13 +7,13 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:web": "npm run dev -w @resume-assist/web",
-    "dev:ext": "npm run dev -w @resume-assist/extension",
-    "build:web": "npm run build -w @resume-assist/web",
-    "build:ext": "npm run build -w @resume-assist/extension",
-    "types": "npm run generate -w @resume-assist/api-types",
+    "dev:web": "npm run dev -w @phoenix/web",
+    "dev:ext": "npm run dev -w @phoenix/extension",
+    "build:web": "npm run build -w @phoenix/web",
+    "build:ext": "npm run build -w @phoenix/extension",
+    "types": "npm run generate -w @phoenix/api-types",
     "lint": "npm run lint --workspaces --if-present",
-    "zip:ext": "npm run zip -w @resume-assist/extension",
+    "zip:ext": "npm run zip -w @phoenix/extension",
     "brand": "node scripts/brand-assets.mjs"
   },
   "engines": {

@@ -45,7 +45,7 @@ export function ApplyTab({ portalUrl }: { portalUrl: string }) {
       >;
       if (stored[STRATEGY_KEY] === "full") setStrategy("full");
       try {
-        const list = await api<{ items: ResumeSummary[] }>("/api/v1/resumes");
+        const list = await api<{ items: ResumeSummary[] }>("/api/v1/remote/resumes");
         setBases(list.items.map((r) => ({ kind: "base", id: r.id, display_name: r.display_name })));
         const chosen = stored[BASE_RESUME_KEY];
         setBaseId(
@@ -55,7 +55,7 @@ export function ApplyTab({ portalUrl }: { portalUrl: string }) {
         setError((e as Error).message);
       }
       const recent = await api<{ items: ResumeSummary[] }>(
-        "/api/v1/tailored-resumes?limit=100",
+        "/api/v1/remote/tailored-resumes?limit=100",
       ).catch(() => null);
       if (recent) {
         setTailored(

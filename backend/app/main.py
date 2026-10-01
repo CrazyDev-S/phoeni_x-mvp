@@ -6,13 +6,15 @@ import asyncio
 import contextlib
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.db.session import engine
+from app.freelancing.errors import JobSourceError
 from app.worker.runner import run_workers
 
 settings = get_settings()
@@ -62,6 +64,23 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+
+@app.exception_handler(JobSourceError)
+async def job_source_error(_: Request, exc: JobSourceError) -> JSONResponse:
+    """One shape for every job-source failure, with the status the error chose.
+
+    The body matches the ``{"detail": {"code", "message"}}`` form the clients
+    already normalise, so a missing scope reads as a sentence, not a 502.
+    """
+    headers = {}
+    if exc.retry_after_seconds:
+        headers["Retry-After"] = str(exc.retry_after_seconds)
+    return JSONResponse(
+        status_code=exc.status,
+        content={"detail": {"code": exc.code, "message": exc.message, "retryable": exc.retryable}},
+        headers=headers,
+    )
 
 
 @app.get("/health", tags=["meta"])

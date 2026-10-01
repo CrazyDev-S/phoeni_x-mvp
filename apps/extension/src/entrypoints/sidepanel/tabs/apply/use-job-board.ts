@@ -62,7 +62,7 @@ export function useJobBoard(portalUrl: string) {
     const unique = [...new Set(urls.filter(isInjectable))];
     const found: JobLink[] = [];
     for (let i = 0; i < unique.length; i += LOOKUP_BATCH) {
-      const { items } = await api<{ items: JobLink[] }>("/api/v1/extension/job-links/lookup", {
+      const { items } = await api<{ items: JobLink[] }>("/api/v1/remote/extension/job-links/lookup", {
         method: "POST",
         body: JSON.stringify({ urls: unique.slice(i, i + LOOKUP_BATCH) }),
       });
@@ -172,7 +172,7 @@ export function useJobBoard(portalUrl: string) {
         }
 
         setRun(key, { label: "Sending to your backend", percent: 2 });
-        const accepted = await api<Accepted>("/api/v1/extension/tailor", {
+        const accepted = await api<Accepted>("/api/v1/remote/extension/tailor", {
           method: "POST",
           body: JSON.stringify({ base_resume_id: baseResumeId, job, strategy }),
         });
@@ -221,7 +221,7 @@ export function useJobBoard(portalUrl: string) {
     async (tab: TargetTab, resume: ResumeRef | null) => {
       // The posting is read too, so a form filled later has its description.
       const job = resume ? await extractJob(tab.tabId).catch(() => null) : null;
-      await api("/api/v1/extension/job-links", {
+      await api("/api/v1/remote/extension/job-links", {
         method: "PUT",
         body: JSON.stringify({
           url: tab.url,

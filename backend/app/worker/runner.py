@@ -34,13 +34,14 @@ from app.models.generation import Generation
 from app.models.job_link import JobLink
 from app.models.resume import CURRENT_MARKDOWN_VERSION, BaseResume, TailoredResume
 from app.models.user import UserSettings
-from app.orchestration import ats_report
-from app.orchestration.resume_pipeline import (
+from app.remote.orchestration import ats_report
+from app.remote.orchestration.resume_pipeline import (
     GenerationResult,
     PipelineInput,
     ResumePipeline,
 )
-from app.resume.parser import ResumeMarkdownError
+from app.remote.resume.parser import ResumeMarkdownError
+from app.remote.services.links import link_resume
 from app.services.generation import (
     claim_next,
     emit,
@@ -49,7 +50,6 @@ from app.services.generation import (
     reclaim_stale,
     record_calls,
 )
-from app.services.links import link_resume
 
 log = logging.getLogger("worker")
 POLL_SECONDS = 1.0
@@ -99,6 +99,14 @@ async def run_once() -> bool:
 
 async def _process(session, generation: Generation) -> None:
     payload = generation.input or {}
+    if generation.kind is GenerationKind.PROPOSAL:
+        # The Freelancing engine. Today it needs no model, so it must not go
+        # through get_provider, which would refuse a user with no API key.
+        from app.freelancing.proposals.run import run_proposal_generation
+
+        await run_proposal_generation(session, generation)
+        return
+
     settings = await session.get(UserSettings, generation.user_id)
     tier = "fast" if generation.kind is GenerationKind.JD_PARSE else "heavy"
 

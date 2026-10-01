@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { request } from "@/lib/api";
 import { streamGeneration } from "@/lib/sse";
-import type { Finding } from "@/components/findings";
+import type { Finding } from "@/components/remote/findings";
 
 export interface Step {
   phase: string;
@@ -134,12 +134,50 @@ export function useGeneration() {
     return accepted;
   }, []);
 
+  /** Follow a run that was started elsewhere - a dialog, another page. */
+  const attach = useCallback((id: string) => {
+    cancelRef.current?.();
+    setState({ ...IDLE, id, running: true, label: "Working…", startedAt: Date.now() });
+    cancelRef.current = streamGeneration(id, {
+      onEvent: (event) => {
+        setState((s) => {
+          const d = event.data as Record<string, never>;
+          switch (event.type) {
+            case "phase": {
+              const phase = String(d.phase ?? "");
+              const label = String(d.label ?? "");
+              const steps =
+                s.steps.at(-1)?.phase === phase ? s.steps : [...s.steps, { phase, label }];
+              return { ...s, phase, label, steps, percent: Number(d.percent ?? s.percent) };
+            }
+            case "complete":
+              return {
+                ...s,
+                percent: 100,
+                running: false,
+                label: "Done",
+                resultKind: (d.result_kind as string) ?? null,
+                resultId: (d.result_id as string) ?? null,
+                needsReview: Boolean(d.needs_review),
+              };
+            case "error":
+              return { ...s, running: false, error: `${d.code}: ${d.detail}` };
+            default:
+              return s;
+          }
+        });
+      },
+      onError: () => {},
+      onClose: () => setState((s) => ({ ...s, running: false })),
+    });
+  }, []);
+
   const reset = useCallback(() => {
     cancelRef.current?.();
     setState(IDLE);
   }, []);
 
-  return { state, start, reset };
+  return { state, start, attach, reset };
 }
 
 function describe(error: unknown): string {

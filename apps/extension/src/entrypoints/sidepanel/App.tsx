@@ -178,7 +178,7 @@ function Connect({ onOpenSettings }: { onOpenSettings: () => void }) {
       <div className="space-y-1">
         <p className="text-sm font-semibold">Connect the panel</p>
         <p className="text-muted-foreground text-xs leading-relaxed text-balance">
-          Point it at your Phoenix Eye backend and paste an access token to get started.
+          Point it at your PhoeniX backend and paste an access token to get started.
         </p>
       </div>
       <Button className="w-full" onClick={onOpenSettings}>

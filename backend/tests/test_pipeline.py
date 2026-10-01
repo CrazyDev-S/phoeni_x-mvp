@@ -13,13 +13,13 @@ from typing import ClassVar
 import pytest
 
 from app.llm.provider import LLMError, LLMRequest, LLMResponse, SystemBlock, Usage
-from app.orchestration.resume_pipeline import (
+from app.remote.orchestration.resume_pipeline import (
     MAX_REPAIRS,
     STALL_DRAFTS,
     PipelineInput,
     ResumePipeline,
 )
-from app.resume.parser import ResumeMarkdownError
+from app.remote.resume.parser import ResumeMarkdownError
 
 
 class StubProvider:

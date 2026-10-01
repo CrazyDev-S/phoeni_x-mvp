@@ -64,8 +64,8 @@ export function GenerateTab() {
     setPhase({ label: "Starting", percent: 2 });
     try {
       const path = useJd
-        ? "/api/v1/resumes/generate/job"
-        : "/api/v1/resumes/generate/story";
+        ? "/api/v1/remote/resumes/generate/job"
+        : "/api/v1/remote/resumes/generate/story";
       const accepted = await api<{ id: string }>(path, {
         method: "POST",
         body: JSON.stringify({

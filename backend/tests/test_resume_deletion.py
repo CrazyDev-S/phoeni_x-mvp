@@ -37,7 +37,7 @@ async def auth(client) -> dict[str, str]:
 
 async def make_base(headers, client, markdown: str, name: str) -> str:
     res = await client.post(
-        "/api/v1/resumes",
+        "/api/v1/remote/resumes",
         headers=headers,
         json={"display_name": name, "target_title": "Engineer", "content_markdown": markdown},
     )
@@ -65,8 +65,8 @@ async def add_tailored(base_id: str) -> uuid.UUID:
 async def test_delete_removes_it_permanently(client, auth, aran_markdown) -> None:
     resume_id = await make_base(auth, client, aran_markdown, "Solo")
 
-    assert (await client.delete(f"/api/v1/resumes/{resume_id}", headers=auth)).status_code == 204
-    assert (await client.get(f"/api/v1/resumes/{resume_id}", headers=auth)).status_code == 404
+    assert (await client.delete(f"/api/v1/remote/resumes/{resume_id}", headers=auth)).status_code == 204
+    assert (await client.get(f"/api/v1/remote/resumes/{resume_id}", headers=auth)).status_code == 404
 
     # Really gone from the table, not merely hidden.
     async with SessionLocal() as session:
@@ -79,7 +79,7 @@ async def test_delete_is_refused_while_tailored_versions_exist(
     resume_id = await make_base(auth, client, aran_markdown, "HasChildren")
     await add_tailored(resume_id)
 
-    res = await client.delete(f"/api/v1/resumes/{resume_id}", headers=auth)
+    res = await client.delete(f"/api/v1/remote/resumes/{resume_id}", headers=auth)
     assert res.status_code == 409
     detail = res.json()["detail"]
     assert detail["code"] == "HAS_TAILORED_VERSIONS"
@@ -87,7 +87,7 @@ async def test_delete_is_refused_while_tailored_versions_exist(
     assert detail["tailored_count"] == 1
 
     # And nothing was destroyed by the refused attempt.
-    assert (await client.get(f"/api/v1/resumes/{resume_id}", headers=auth)).status_code == 200
+    assert (await client.get(f"/api/v1/remote/resumes/{resume_id}", headers=auth)).status_code == 200
 
 
 async def test_cascade_deletes_the_tailored_versions_too(
@@ -96,7 +96,7 @@ async def test_cascade_deletes_the_tailored_versions_too(
     resume_id = await make_base(auth, client, aran_markdown, "Cascade")
     tailored_id = await add_tailored(resume_id)
 
-    res = await client.delete(f"/api/v1/resumes/{resume_id}?cascade=true", headers=auth)
+    res = await client.delete(f"/api/v1/remote/resumes/{resume_id}?cascade=true", headers=auth)
     assert res.status_code == 204
 
     async with SessionLocal() as session:
@@ -123,7 +123,7 @@ async def test_deleting_a_tailored_version_keeps_the_application(
         await session.commit()
         application_id = application.id
 
-    res = await client.delete(f"/api/v1/tailored-resumes/{tailored_id}", headers=auth)
+    res = await client.delete(f"/api/v1/remote/tailored-resumes/{tailored_id}", headers=auth)
     assert res.status_code == 204
 
     async with SessionLocal() as session:
@@ -136,17 +136,17 @@ async def test_deleting_a_tailored_version_keeps_the_application(
 async def test_archive_hides_without_destroying(client, auth, aran_markdown) -> None:
     resume_id = await make_base(auth, client, aran_markdown, "Archivable")
 
-    assert (await client.post(f"/api/v1/resumes/{resume_id}/archive", headers=auth)).status_code == 200
-    listed = (await client.get("/api/v1/resumes", headers=auth)).json()
+    assert (await client.post(f"/api/v1/remote/resumes/{resume_id}/archive", headers=auth)).status_code == 200
+    listed = (await client.get("/api/v1/remote/resumes", headers=auth)).json()
     assert resume_id not in [r["id"] for r in listed["items"]]
 
     with_archived = (
-        await client.get("/api/v1/resumes?include_archived=true", headers=auth)
+        await client.get("/api/v1/remote/resumes?include_archived=true", headers=auth)
     ).json()
     assert resume_id in [r["id"] for r in with_archived["items"]]
 
-    assert (await client.post(f"/api/v1/resumes/{resume_id}/restore", headers=auth)).status_code == 200
-    back = (await client.get("/api/v1/resumes", headers=auth)).json()
+    assert (await client.post(f"/api/v1/remote/resumes/{resume_id}/restore", headers=auth)).status_code == 200
+    back = (await client.get("/api/v1/remote/resumes", headers=auth)).json()
     assert resume_id in [r["id"] for r in back["items"]]
 
 
@@ -159,6 +159,6 @@ async def test_you_cannot_delete_someone_elses_resume(client, auth, aran_markdow
     )
     headers = {"Authorization": f"Bearer {other.json()['access_token']}"}
 
-    assert (await client.delete(f"/api/v1/resumes/{resume_id}", headers=headers)).status_code == 404
+    assert (await client.delete(f"/api/v1/remote/resumes/{resume_id}", headers=headers)).status_code == 404
     async with SessionLocal() as session:
         assert await session.get(BaseResume, uuid.UUID(resume_id)) is not None

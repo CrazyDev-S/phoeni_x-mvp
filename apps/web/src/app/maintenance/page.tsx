@@ -6,8 +6,8 @@ import { useState } from "react";
 
 import { EmptyState } from "@/components/empty-state";
 import { FormField } from "@/components/form-field";
-import { NextCallBanner } from "@/components/next-call";
-import { PageHero } from "@/components/page-hero";
+import { NextCallBanner } from "@/components/shared/next-call";
+import { PhoenixHeroBanner } from "@/components/phoenix-hero-banner";
 import { CheckList, SidePanel } from "@/components/side-panel";
 import { StepsBand } from "@/components/steps-band";
 import { StatusBadge } from "@/components/status-badge";
@@ -79,12 +79,12 @@ export default function MaintenancePage() {
 
   const { data: jobs, isLoading } = useQuery({
     queryKey: ["maintained-jobs"],
-    queryFn: () => request<Job[]>("/api/v1/maintained-jobs"),
+    queryFn: () => request<Job[]>("/api/v1/shared/maintained-jobs"),
   });
 
   const createJob = useMutation({
     mutationFn: (body: Record<string, unknown>) =>
-      request<Job>("/api/v1/maintained-jobs", {
+      request<Job>("/api/v1/shared/maintained-jobs", {
         method: "POST",
         body: JSON.stringify(body),
       }),
@@ -95,17 +95,37 @@ export default function MaintenancePage() {
   });
 
   return (
-    <div className="space-y-8">
-      <PageHero
-        eyebrow="After the offer"
-        eyebrowIcon={Wrench}
-        title="Job maintenance"
-        description="Roles you have started. Recurring team meetings materialise 90 days ahead so each occurrence can carry its own prep notes."
+    <div className="space-y-6">
+      <PhoenixHeroBanner
+        eyebrow="JOB MAINTENANCE"
+        title="Active Engagements"
+        description="Manage your clients, ongoing opportunities, and client relationships in one place."
         actions={
-          <Button size="lg" className="h-11" onClick={() => setCreating((v) => !v)}>
-            <Plus />
-            {creating ? "Cancel" : "Add a job"}
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2">
+              <div className="rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-3 py-1.5 text-center shadow-xs">
+                <span className="font-bold text-sm text-stone-900 dark:text-stone-100">12</span>
+                <span className="text-[10px] text-stone-400 block">Active Clients</span>
+              </div>
+              <div className="rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-3 py-1.5 text-center shadow-xs">
+                <span className="font-bold text-sm text-blue-600 dark:text-blue-400">28</span>
+                <span className="text-[10px] text-stone-400 block">Open Tasks</span>
+              </div>
+              <div className="rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-3 py-1.5 text-center shadow-xs">
+                <span className="font-bold text-sm text-purple-600 dark:text-purple-400">6</span>
+                <span className="text-[10px] text-stone-400 block">Meetings</span>
+              </div>
+            </div>
+
+            <Button
+              size="lg"
+              className="h-10 rounded-xl bg-[#ea580c] hover:bg-[#c2410c] text-white font-bold text-xs px-4 shadow-sm"
+              onClick={() => setCreating((v) => !v)}
+            >
+              <Plus className="size-4 mr-1.5" />
+              {creating ? "Cancel" : "Add Engagement"}
+            </Button>
+          </div>
         }
       />
 
@@ -253,7 +273,7 @@ function SeriesPanel({ jobId }: { jobId: string }) {
   const queryClient = useQueryClient();
   const { data } = useQuery({
     queryKey: ["series", jobId],
-    queryFn: () => request<Series[]>(`/api/v1/maintained-jobs/${jobId}/series`),
+    queryFn: () => request<Series[]>(`/api/v1/shared/maintained-jobs/${jobId}/series`),
   });
 
   const invalidate = () => {
@@ -263,7 +283,7 @@ function SeriesPanel({ jobId }: { jobId: string }) {
 
   const create = useMutation({
     mutationFn: (body: Record<string, unknown>) =>
-      request(`/api/v1/maintained-jobs/${jobId}/series`, {
+      request(`/api/v1/shared/maintained-jobs/${jobId}/series`, {
         method: "POST",
         body: JSON.stringify(body),
       }),
@@ -272,7 +292,7 @@ function SeriesPanel({ jobId }: { jobId: string }) {
 
   const update = useMutation({
     mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) =>
-      request(`/api/v1/maintained-jobs/series/${id}`, {
+      request(`/api/v1/shared/maintained-jobs/series/${id}`, {
         method: "PATCH",
         body: JSON.stringify(body),
       }),

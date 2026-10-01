@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 from app.core.timezone import local_to_utc
 from app.models.calendar import MeetingSeries
-from app.services.recurrence import _has_user_content, occurrences
+from app.shared.calendar.recurrence import _has_user_content, occurrences
 
 ET = ZoneInfo("America/New_York")
 

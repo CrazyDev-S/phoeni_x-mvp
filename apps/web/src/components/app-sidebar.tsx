@@ -6,11 +6,17 @@ import {
   Briefcase,
   CalendarDays,
   Download,
+  FileSignature,
   FileText,
   Home,
+  KanbanSquare,
+  LayoutDashboard,
+  MessageSquareText,
   Puzzle,
+  Search,
   Settings,
   Sparkles,
+  UserRound,
   Wrench,
 } from "lucide-react";
 import Link from "next/link";
@@ -27,8 +33,10 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
@@ -38,18 +46,48 @@ interface NavItem {
   href: string;
   label: string;
   Icon: ComponentType<{ className?: string }>;
-  /** Exact match only, so "/" does not light up on every route. */
+  /** Exact match only, so "/" and "/remote" do not light up on every child route. */
   exact?: boolean;
+  /** A short trailing word, for a page that exists but is not built yet. */
+  badge?: string;
 }
 
-const NAV: NavItem[] = [
-  { href: "/", label: "Home", Icon: Home, exact: true },
-  { href: "/resumes", label: "Resumes", Icon: FileText },
-  { href: "/tailor", label: "Tailor", Icon: Sparkles },
-  { href: "/applications", label: "Applications", Icon: Briefcase },
-  { href: "/calendar", label: "Calendar", Icon: CalendarDays },
-  { href: "/maintenance", label: "Maintenance", Icon: Wrench },
-  { href: "/settings", label: "Settings", Icon: Settings },
+interface NavSection {
+  /** No label for the entries that stand on their own (Home, Settings). */
+  label?: string;
+  items: NavItem[];
+}
+
+const SECTIONS: NavSection[] = [
+  { items: [{ href: "/", label: "Home", Icon: Home, exact: true }] },
+  {
+    label: "Freelancing",
+    items: [
+      { href: "/freelancing", label: "Overview", Icon: LayoutDashboard, exact: true },
+      { href: "/freelancing/jobs", label: "Jobs", Icon: Search },
+      { href: "/freelancing/proposals", label: "Proposals", Icon: FileSignature },
+      { href: "/freelancing/tracking", label: "Tracking", Icon: KanbanSquare },
+      { href: "/freelancing/profile", label: "Profile", Icon: UserRound },
+    ],
+  },
+  {
+    label: "Remote",
+    items: [
+      { href: "/remote", label: "Overview", Icon: LayoutDashboard, exact: true },
+      { href: "/remote/resumes", label: "Resumes", Icon: FileText },
+      { href: "/remote/tailor", label: "Tailor", Icon: Sparkles },
+      { href: "/remote/applications", label: "Applications", Icon: Briefcase },
+    ],
+  },
+  {
+    label: "Shared tools",
+    items: [
+      { href: "/calendar", label: "Calendar", Icon: CalendarDays },
+      { href: "/interview", label: "Interview Assist", Icon: MessageSquareText, badge: "Soon" },
+      { href: "/maintenance", label: "Job Maintenance", Icon: Wrench },
+    ],
+  },
+  { items: [{ href: "/settings", label: "Settings", Icon: Settings }] },
 ];
 
 export function AppSidebar() {
@@ -71,33 +109,43 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
-              {NAV.map(({ href, label, Icon, exact }) => {
-                const active = exact ? pathname === href : pathname.startsWith(href);
-                return (
-                  <SidebarMenuItem key={href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={active}
-                      className="h-10 gap-3 rounded-lg px-3 font-medium transition-colors duration-150"
-                    >
-                      <Link
-                        href={href}
-                        aria-current={active ? "page" : undefined}
-                        onClick={() => setOpenMobile(false)}
+        {SECTIONS.map((section, index) => (
+          <SidebarGroup key={section.label ?? index} className="py-1">
+            {section.label && <SidebarGroupLabel>{section.label}</SidebarGroupLabel>}
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1">
+                {section.items.map(({ href, label, Icon, exact, badge }) => {
+                  const active = exact ? pathname === href : pathname.startsWith(href);
+                  return (
+                    <SidebarMenuItem key={href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={active}
+                        className="h-10 gap-3 rounded-lg px-3 font-medium transition-colors duration-150"
                       >
-                        <Icon className="size-4.5" />
-                        <span>{label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                        <Link
+                          href={href}
+                          aria-current={active ? "page" : undefined}
+                          onClick={() => setOpenMobile(false)}
+                        >
+                          <Icon className="size-4.5" />
+                          <span>{label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                      {badge && (
+                        // The button is h-10 rather than the default h-8, so
+                        // the badge's own top offset is overridden to stay centred.
+                        <SidebarMenuBadge className="bg-warning/10 !text-warning !top-2.5 right-2 rounded-md px-1.5 text-[10px] font-semibold tracking-wide uppercase">
+                          {badge}
+                        </SidebarMenuBadge>
+                      )}
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="gap-3 p-3">
@@ -185,12 +233,12 @@ function PromoCard() {
     <div className="bg-accent text-accent-foreground relative overflow-hidden rounded-xl p-4">
       <span aria-hidden className="bg-gradient-brand absolute inset-x-0 top-0 h-1" />
       <Sparkles className="size-4.5" />
-      <p className="text-foreground mt-2.5 text-sm font-semibold">Get better results</p>
+      <p className="text-foreground mt-2.5 text-sm font-semibold">Bid smarter</p>
       <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-        Tailor your resume to each job and increase your chances of getting hired.
+        Focus the Upwork jobs worth your connects, then draft the proposal from your profile.
       </p>
       <Link
-        href="/tailor"
+        href="/freelancing/jobs"
         onClick={() => setOpenMobile(false)}
         className="text-primary hover:bg-background/60 mt-3 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg text-xs font-medium transition-colors"
       >

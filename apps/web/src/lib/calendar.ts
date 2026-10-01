@@ -30,6 +30,7 @@ export interface Meeting {
   notes: string | null;
   stage_id: string | null;
   maintained_job_id: string | null;
+  freelance_track_id?: string | null;
   series_id: string | null;
   is_exception: boolean;
   reminder_minutes: number;
@@ -37,6 +38,8 @@ export interface Meeting {
   // is nested under the stage that already says so.
   kind?: string;
   application_id?: string | null;
+  track_id?: string | null;
+  job_id?: string | null;
   company_name?: string | null;
   role_title?: string | null;
   stage_name?: string | null;
@@ -235,6 +238,7 @@ const COLOR_BY_TYPE: Record<string, number> = {
   team_sync: 3,
   standup: 3,
   offer: 5,
+  client_call: 2,
 };
 
 export function eventColor(meetingType: string): EventColor {

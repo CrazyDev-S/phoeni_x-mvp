@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Cpu, LogOut, Palette, User } from "lucide-react";
+import { ChevronDown, Cpu, LogOut, Palette, Plug, User } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -71,6 +71,12 @@ export function UserMenu() {
           <Link href="/settings?tab=models">
             <Cpu />
             Models & API keys
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/settings?tab=integrations">
+            <Plug />
+            Integrations
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>

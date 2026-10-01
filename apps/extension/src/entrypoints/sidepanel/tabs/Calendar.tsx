@@ -37,7 +37,7 @@ export function CalendarTab() {
   const load = useCallback(async (target: string) => {
     setBusy(true);
     try {
-      setItems(await api<Meeting[]>(`/api/v1/meetings?from=${target}&to=${target}`));
+      setItems(await api<Meeting[]>(`/api/v1/shared/meetings?from=${target}&to=${target}`));
       setError(null);
     } catch (e) {
       setError((e as Error).message);
@@ -52,7 +52,7 @@ export function CalendarTab() {
     // Optimistic: the panel is often used while a call is starting.
     setItems((list) => list.map((m) => (m.id === id ? { ...m, status } : m)));
     try {
-      await api(`/api/v1/meetings/${id}`, {
+      await api(`/api/v1/shared/meetings/${id}`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });

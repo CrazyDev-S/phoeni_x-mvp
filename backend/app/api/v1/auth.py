@@ -21,6 +21,7 @@ from app.core.security import (
 from app.core.timezone import utc_now
 from app.models.profile import AutofillProfile
 from app.models.user import ApiToken, User, UserSettings
+from app.remote.services.seed import seed_default_stage_templates
 from app.schemas.auth import (
     ApiTokenCreate,
     ApiTokenCreated,
@@ -31,7 +32,6 @@ from app.schemas.auth import (
     TokenPair,
     UserOut,
 )
-from app.services.seed import seed_default_stage_templates
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

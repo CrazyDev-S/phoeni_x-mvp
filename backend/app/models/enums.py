@@ -71,6 +71,8 @@ class GenerationKind(StrEnum):
     RESUME_REPAIR = "resume_repair"
     FORM_ANSWER = "form_answer"
     JD_PARSE = "jd_parse"
+    # Freelancing: a proposal drafted for an Upwork posting.
+    PROPOSAL = "proposal"
 
 
 class GenerationStatus(StrEnum):
@@ -131,3 +133,51 @@ class Severity(StrEnum):
     ERROR = "error"
     WARNING = "warning"
     INFO = "info"
+
+
+# --- Freelancing -------------------------------------------------------------
+
+
+class UpworkConnectionStatus(StrEnum):
+    """Where a user's Upwork link is.
+
+    ``not_configured`` has no API key pair; ``pending_authorization`` has one
+    and is waiting on the OAuth round trip; ``expired`` means the refresh
+    token stopped working and the user has to authorize again.
+    """
+
+    NOT_CONFIGURED = "not_configured"
+    PENDING_AUTHORIZATION = "pending_authorization"
+    CONNECTED = "connected"
+    EXPIRED = "expired"
+    ERROR = "error"
+
+
+class FreelanceJobType(StrEnum):
+    HOURLY = "hourly"
+    FIXED = "fixed"
+
+
+class FreelanceTrackStage(StrEnum):
+    """The bidding pipeline, in the order a job moves through it.
+
+    A closed set: unlike interview stages, Upwork's own states are fixed, so a
+    native enum is right here and the tracking board can rely on the order.
+    """
+
+    FOCUSED = "focused"
+    PROPOSAL_DRAFTED = "proposal_drafted"
+    SUBMITTED = "submitted"
+    VIEWED = "viewed"
+    INTERVIEWING = "interviewing"
+    HIRED = "hired"
+    DECLINED = "declined"
+    WITHDRAWN = "withdrawn"
+    CLOSED = "closed"
+
+
+class ProposalStatus(StrEnum):
+    DRAFT = "draft"
+    READY = "ready"
+    SUBMITTED = "submitted"
+    ARCHIVED = "archived"

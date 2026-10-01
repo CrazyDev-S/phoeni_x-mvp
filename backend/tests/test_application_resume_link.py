@@ -42,7 +42,7 @@ async def auth(client) -> dict[str, str]:
 
 async def make_tailored(client, headers, markdown: str) -> tuple[str, str]:
     res = await client.post(
-        "/api/v1/resumes",
+        "/api/v1/remote/resumes",
         headers=headers,
         json={"display_name": f"Base {uuid.uuid4().hex[:6]}", "target_title": "Engineer",
               "content_markdown": markdown},
@@ -76,7 +76,7 @@ async def test_linking_and_unlinking_is_written_on_both_sides(client, auth, aran
     """Regression: only the application's side was ever written."""
     _, tailored_id = await make_tailored(client, auth, aran_markdown)
     res = await client.post(
-        "/api/v1/applications",
+        "/api/v1/remote/applications",
         headers=auth,
         json={"company_name": "Acme", "role_title": "Senior AI Engineer",
               "tailored_resume_id": tailored_id},
@@ -86,7 +86,7 @@ async def test_linking_and_unlinking_is_written_on_both_sides(client, auth, aran
     assert str(await reverse_link(tailored_id)) == application_id
 
     res = await client.patch(
-        f"/api/v1/applications/{application_id}", headers=auth, json={"tailored_resume_id": None}
+        f"/api/v1/remote/applications/{application_id}", headers=auth, json={"tailored_resume_id": None}
     )
     assert res.status_code == 200, res.text
     assert res.json()["tailored_resume"] is None
@@ -98,11 +98,11 @@ async def test_an_unlinked_application_suggests_the_resume_for_its_posting(
 ) -> None:
     base_id, tailored_id = await make_tailored(client, auth, aran_markdown)
     res = await client.post(
-        "/api/v1/applications",
+        "/api/v1/remote/applications",
         headers=auth,
         json={"company_name": "Acme", "role_title": "Senior AI Engineer", "job_url": JOB_URL},
     )
-    detail = (await client.get(f"/api/v1/applications/{res.json()['id']}", headers=auth)).json()
+    detail = (await client.get(f"/api/v1/remote/applications/{res.json()['id']}", headers=auth)).json()
 
     assert detail["tailored_resume"] is None
     assert detail["suggested_tailored_resume"]["id"] == tailored_id
@@ -113,23 +113,23 @@ async def test_an_unlinked_application_suggests_the_resume_for_its_posting(
 async def test_tailoring_from_an_application_uses_its_posting(client, auth, aran_markdown) -> None:
     base_id, _ = await make_tailored(client, auth, aran_markdown)
     without_jd = await client.post(
-        "/api/v1/applications", headers=auth,
+        "/api/v1/remote/applications", headers=auth,
         json={"company_name": "Blank", "role_title": "Engineer"},
     )
     refused = await client.post(
-        f"/api/v1/applications/{without_jd.json()['id']}/tailor",
+        f"/api/v1/remote/applications/{without_jd.json()['id']}/tailor",
         headers=auth, json={"base_resume_id": base_id},
     )
     assert refused.status_code == 409
 
     with_jd = await client.post(
-        "/api/v1/applications", headers=auth,
+        "/api/v1/remote/applications", headers=auth,
         json={"company_name": "Globex", "role_title": "Staff Engineer",
               "job_description_text": JD + " Globex only."},
     )
     application_id = with_jd.json()["id"]
     res = await client.post(
-        f"/api/v1/applications/{application_id}/tailor",
+        f"/api/v1/remote/applications/{application_id}/tailor",
         headers=auth, json={"base_resume_id": base_id, "strategy": "full"},
     )
     assert res.status_code == 202, res.text

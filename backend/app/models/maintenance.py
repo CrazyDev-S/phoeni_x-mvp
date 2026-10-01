@@ -1,4 +1,4 @@
-"""Post-hire job maintenance."""
+"""Post-hire job maintenance, for a remote role or a won freelancing contract."""
 
 from __future__ import annotations
 
@@ -27,6 +27,12 @@ class MaintainedJob(PrimaryKey, Timestamps, Base):
     job_application_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("job_applications.id", ondelete="SET NULL"),
+        unique=True,
+    )
+    # A won Upwork bid, promoted from the Freelancing tracker.
+    freelance_track_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("freelance_job_tracks.id", ondelete="SET NULL"),
         unique=True,
     )
 

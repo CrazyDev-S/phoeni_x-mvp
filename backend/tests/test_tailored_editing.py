@@ -39,7 +39,7 @@ async def auth(client) -> dict[str, str]:
 
 async def make_tailored(client, headers, markdown: str) -> str:
     res = await client.post(
-        "/api/v1/resumes",
+        "/api/v1/remote/resumes",
         headers=headers,
         json={"display_name": "Base", "target_title": "Engineer", "content_markdown": markdown},
     )
@@ -70,7 +70,7 @@ async def test_an_edit_rescores_against_the_keyword_plan(client, auth, aran_mark
     resume_id = await make_tailored(client, auth, aran_markdown)
 
     res = await client.patch(
-        f"/api/v1/tailored-resumes/{resume_id}",
+        f"/api/v1/remote/tailored-resumes/{resume_id}",
         headers=auth,
         json={"content_markdown": aran_markdown},
     )
@@ -86,7 +86,7 @@ async def test_an_edit_that_breaks_a_rule_is_held_for_review(client, auth, aran_
     broken = aran_markdown.replace("Mentored 4 engineers", "Mentored several engineers")
 
     res = await client.patch(
-        f"/api/v1/tailored-resumes/{resume_id}",
+        f"/api/v1/remote/tailored-resumes/{resume_id}",
         headers=auth,
         json={"content_markdown": broken},
     )

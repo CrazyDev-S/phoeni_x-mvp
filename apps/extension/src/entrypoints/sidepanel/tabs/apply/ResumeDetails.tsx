@@ -30,7 +30,7 @@ export function ResumeDetails({ resume }: { resume: LinkedResume }) {
     setFacts(null);
     setError(null);
     api<{ facts: ResumeFacts }>(
-      `/api/v1/extension/resume-facts?kind=${resume.kind}&resume_id=${resume.id}`,
+      `/api/v1/remote/extension/resume-facts?kind=${resume.kind}&resume_id=${resume.id}`,
     )
       .then((r) => live && setFacts(r.facts))
       .catch((e: Error) => live && setError(e.message));

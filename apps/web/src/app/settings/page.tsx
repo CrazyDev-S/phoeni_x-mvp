@@ -12,6 +12,7 @@ import {
   Monitor,
   Moon,
   Palette,
+  Plug,
   Plus,
   Puzzle,
   ShieldCheck,
@@ -26,7 +27,10 @@ import { useTheme } from "next-themes";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
-import { AutofillProfileCard } from "@/components/autofill-profile-card";
+import { ApifyConnectCard } from "@/components/freelancing/apify-connect-card";
+import { useJobSource } from "@/components/freelancing/job-source";
+import { UpworkConnectCard } from "@/components/freelancing/upwork-connect-card";
+import { AutofillProfileCard } from "@/components/remote/autofill-profile-card";
 import { ErrorAlert } from "@/components/error-alert";
 import { FormField } from "@/components/form-field";
 import { PageHero } from "@/components/page-hero";
@@ -130,6 +134,11 @@ const STORAGE_NOTES: PointItem[] = [
     detail: "The API never returns one — only a mask and a status you can check.",
   },
   {
+    Icon: Plug,
+    title: "Job-source tokens are encrypted too",
+    detail: "An Apify token or an Upwork key pair is sealed like an API key; only a mask is shown.",
+  },
+  {
     Icon: Puzzle,
     title: "Extension tokens are hashed",
     detail: "The value is shown exactly once, at the moment you create it.",
@@ -151,6 +160,7 @@ const SETTINGS_TIPS = [
 const SECTIONS = [
   "profile",
   "models",
+  "integrations",
   "generation",
   "autofill",
   "extension",
@@ -183,6 +193,14 @@ function SettingsSections() {
   const section: Section = SECTIONS.includes(requested as Section)
     ? (requested as Section)
     : "profile";
+  // The Upwork OAuth callback lands here with the outcome in the URL.
+  const upworkOutcome = searchParams.get("upwork");
+  const upworkNotice =
+    upworkOutcome === "connected"
+      ? { kind: "connected" as const }
+      : upworkOutcome === "error"
+        ? { kind: "error" as const, reason: searchParams.get("reason") ?? undefined }
+        : null;
 
   const queryClient = useQueryClient();
 
@@ -222,7 +240,7 @@ function SettingsSections() {
         eyebrow="Configuration"
         eyebrowIcon={SlidersHorizontal}
         title="Settings"
-        description="Your account, the models that do the work, and how the generator behaves."
+        description="Your account, the models that do the work, the services PhoeniX connects to, and how the generator behaves."
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
@@ -244,6 +262,10 @@ function SettingsSections() {
               <TabsTrigger value="models" className="gap-1.5" title="Models">
                 <Cpu className="size-4" />
                 <span className="sr-only sm:not-sr-only">Models</span>
+              </TabsTrigger>
+              <TabsTrigger value="integrations" className="gap-1.5" title="Integrations">
+                <Plug className="size-4" />
+                <span className="sr-only sm:not-sr-only">Integrations</span>
               </TabsTrigger>
               <TabsTrigger value="generation" className="gap-1.5" title="Generation">
                 <Sparkles className="size-4" />
@@ -273,6 +295,10 @@ function SettingsSections() {
             <TabsContent value="models" className="space-y-6">
               <ApiKeysCard credentials={data.credentials} />
               <ModelsCard data={data} models={models ?? []} onPatch={patch.mutate} />
+            </TabsContent>
+
+            <TabsContent value="integrations" className="space-y-6">
+              <JobSourceSettings upworkNotice={upworkNotice} />
             </TabsContent>
 
             <TabsContent value="generation">
@@ -346,6 +372,30 @@ function SettingsSections() {
         </aside>
       </div>
     </div>
+  );
+}
+
+/**
+ * The card for whichever job source the deployment uses.
+ *
+ * The source is chosen on the backend (FREELANCING_JOB_SOURCE), so the other
+ * one's settings would only be noise here.
+ */
+function JobSourceSettings({
+  upworkNotice,
+}: {
+  upworkNotice: { kind: "connected" | "error"; reason?: string } | null;
+}) {
+  const { data, isLoading } = useJobSource();
+  if (isLoading || !data) return <Skeleton className="h-64 w-full" />;
+  return (
+    <>
+      <p className="text-muted-foreground text-sm">
+        Freelancing job search runs through <strong className="text-foreground">{data.label}</strong>.
+        The backend chooses it with <code className="font-mono text-xs">FREELANCING_JOB_SOURCE</code>.
+      </p>
+      {data.key === "upwork" ? <UpworkConnectCard notice={upworkNotice} /> : <ApifyConnectCard />}
+    </>
   );
 }
 

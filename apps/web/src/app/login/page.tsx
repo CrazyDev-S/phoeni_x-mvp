@@ -50,7 +50,7 @@ export default function LoginPage() {
         return;
       }
       tokens.save(body.access_token, body.refresh_token);
-      router.replace("/resumes");
+      router.replace("/");
     } catch {
       setError(`Cannot reach the API at ${API_URL}. Is the backend running?`);
     } finally {

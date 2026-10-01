@@ -88,9 +88,10 @@ class MeetingSeries(PrimaryKey, Timestamps, Base):
 class Meeting(PrimaryKey, Timestamps, Base):
     __tablename__ = "meetings"
     __table_args__ = (
-        # Exactly one owner: an interview stage, or a maintained job.
+        # Exactly one owner: an interview stage, a maintained job, or a
+        # freelancing track (a client call about an Upwork bid).
         CheckConstraint(
-            "num_nonnulls(stage_id, maintained_job_id) = 1",
+            "num_nonnulls(stage_id, maintained_job_id, freelance_track_id) = 1",
             name="exactly_one_owner",
         ),
         Index("ix_meetings_user_starts", "user_id", "starts_at"),
@@ -121,6 +122,9 @@ class Meeting(PrimaryKey, Timestamps, Base):
     )
     maintained_job_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("maintained_jobs.id", ondelete="CASCADE")
+    )
+    freelance_track_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("freelance_job_tracks.id", ondelete="CASCADE")
     )
     series_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("meeting_series.id", ondelete="SET NULL")

@@ -44,7 +44,7 @@ export async function fillApplication(
 
   onPhase("Working out the answers", 30);
   const job = await extractJob(tab.tabId).catch(() => null);
-  const response = await api<AutofillResponse>("/api/v1/extension/autofill", {
+  const response = await api<AutofillResponse>("/api/v1/remote/extension/autofill", {
     method: "POST",
     body: JSON.stringify({
       job_url: tab.url,

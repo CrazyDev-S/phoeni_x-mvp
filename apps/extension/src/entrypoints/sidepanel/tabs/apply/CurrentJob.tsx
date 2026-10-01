@@ -123,7 +123,7 @@ export function CurrentJob({
 
   function save() {
     void act("save", async () => {
-      await api("/api/v1/extension/save-application", {
+      await api("/api/v1/remote/extension/save-application", {
         method: "POST",
         body: JSON.stringify({
           tailored_resume_id: resume?.kind === "tailored" ? resume.id : null,
@@ -264,7 +264,7 @@ export function CurrentJob({
                 asChild
                 aria-label="Open your applications in the web portal"
               >
-                <a href={`${portalUrl}/applications`} target="_blank" rel="noreferrer">
+                <a href={`${portalUrl}/remote/applications`} target="_blank" rel="noreferrer">
                   <ExternalLink />
                 </a>
               </Button>

@@ -24,6 +24,21 @@ const config: NextConfig = {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000",
   },
   ...(allowedDevOrigins.length > 0 ? { allowedDevOrigins } : {}),
+  // The Remote pages used to live at the root. Temporary (307), not permanent:
+  // a cached 308 would outlive any later change of mind.
+  async redirects() {
+    return [
+      { source: "/resumes", destination: "/remote/resumes", permanent: false },
+      { source: "/resumes/:path*", destination: "/remote/resumes/:path*", permanent: false },
+      { source: "/tailor", destination: "/remote/tailor", permanent: false },
+      { source: "/applications", destination: "/remote/applications", permanent: false },
+      {
+        source: "/applications/:path*",
+        destination: "/remote/applications/:path*",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default config;

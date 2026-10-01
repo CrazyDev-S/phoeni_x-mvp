@@ -16,7 +16,7 @@ from app.core.timezone import app_today
 from app.db.session import SessionLocal
 from app.main import app
 from app.models.resume import BaseResume, TailoredResume
-from app.services.seed import DEFAULT_PIPELINE
+from app.remote.services.seed import DEFAULT_PIPELINE
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ async def auth(client) -> dict[str, str]:
 
 async def make_application(client, auth) -> dict:
     res = await client.post(
-        "/api/v1/applications",
+        "/api/v1/remote/applications",
         headers=auth,
         json={
             "company_name": "Acme",
@@ -57,7 +57,7 @@ def stage_of(application: dict, kind: str) -> dict:
 async def book(client, auth, stage_id: str, *, local_time: str = "10:00") -> dict:
     day = app_today() + timedelta(days=3)
     res = await client.post(
-        "/api/v1/meetings",
+        "/api/v1/shared/meetings",
         headers=auth,
         json={
             "title": "Recruiter Screen — Acme",
@@ -73,7 +73,7 @@ async def book(client, auth, stage_id: str, *, local_time: str = "10:00") -> dic
 
 
 async def row_for(client, auth, application_id: str) -> dict:
-    res = await client.get("/api/v1/applications", headers=auth)
+    res = await client.get("/api/v1/remote/applications", headers=auth)
     assert res.status_code == 200, res.text
     return next(r for r in res.json()["items"] if r["id"] == application_id)
 
@@ -108,7 +108,7 @@ async def test_booking_a_stage_schedules_it_everywhere(client, auth) -> None:
 
     day = meeting["starts_at"][:10]
     res = await client.get(
-        f"/api/v1/meetings?from={app_today().isoformat()}&to={day}", headers=auth
+        f"/api/v1/shared/meetings?from={app_today().isoformat()}&to={day}", headers=auth
     )
     listed = next(m for m in res.json() if m["id"] == meeting["id"])
     assert listed["company_name"] == "Acme"
@@ -120,7 +120,7 @@ async def test_moving_the_meeting_moves_the_stage(client, auth) -> None:
     meeting = await book(client, auth, screen["id"])
 
     res = await client.patch(
-        f"/api/v1/meetings/{meeting['id']}", headers=auth, json={"local_time": "15:30"}
+        f"/api/v1/shared/meetings/{meeting['id']}", headers=auth, json={"local_time": "15:30"}
     )
     assert res.status_code == 200, res.text
     moved = res.json()
@@ -143,7 +143,7 @@ async def test_meeting_outcome_is_reflected_on_the_stage(
     meeting = await book(client, auth, screen["id"])
 
     res = await client.patch(
-        f"/api/v1/meetings/{meeting['id']}", headers=auth, json={"status": meeting_status}
+        f"/api/v1/shared/meetings/{meeting['id']}", headers=auth, json={"status": meeting_status}
     )
     assert res.status_code == 200, res.text
 
@@ -159,7 +159,7 @@ async def test_deleting_the_only_meeting_returns_the_stage_to_pending(client, au
     screen = stage_of(application, "recruiter_screen")
     meeting = await book(client, auth, screen["id"])
 
-    res = await client.delete(f"/api/v1/meetings/{meeting['id']}", headers=auth)
+    res = await client.delete(f"/api/v1/shared/meetings/{meeting['id']}", headers=auth)
     assert res.status_code == 204
 
     cell = stage_of(await row_for(client, auth, application["id"]), "recruiter_screen")
@@ -174,11 +174,11 @@ async def test_a_decided_stage_is_not_overruled_by_the_calendar(client, auth) ->
     meeting = await book(client, auth, screen["id"])
 
     res = await client.patch(
-        f"/api/v1/stages/{screen['id']}", headers=auth, json={"status": "passed"}
+        f"/api/v1/remote/stages/{screen['id']}", headers=auth, json={"status": "passed"}
     )
     assert res.status_code == 200, res.text
     await client.patch(
-        f"/api/v1/meetings/{meeting['id']}", headers=auth, json={"status": "held"}
+        f"/api/v1/shared/meetings/{meeting['id']}", headers=auth, json={"status": "held"}
     )
 
     cell = stage_of(await row_for(client, auth, application["id"]), "recruiter_screen")
@@ -190,12 +190,12 @@ async def test_undoing_a_failed_stage_reopens_the_application(client, auth) -> N
     screen = stage_of(application, "recruiter_screen")
 
     res = await client.patch(
-        f"/api/v1/stages/{screen['id']}", headers=auth, json={"status": "failed"}
+        f"/api/v1/remote/stages/{screen['id']}", headers=auth, json={"status": "failed"}
     )
     assert res.json()["application_status"] == "rejected"
 
     res = await client.patch(
-        f"/api/v1/stages/{screen['id']}", headers=auth, json={"status": "pending"}
+        f"/api/v1/remote/stages/{screen['id']}", headers=auth, json={"status": "pending"}
     )
     assert res.json()["application_status"] == "in_process"
 
@@ -204,7 +204,7 @@ async def test_detail_carries_the_resume_sent_and_the_company(
     client, auth, aran_markdown
 ) -> None:
     res = await client.post(
-        "/api/v1/resumes",
+        "/api/v1/remote/resumes",
         headers=auth,
         json={
             "display_name": "Platform Engineer",
@@ -236,7 +236,7 @@ async def test_detail_carries_the_resume_sent_and_the_company(
 
     application = await make_application(client, auth)
     res = await client.patch(
-        f"/api/v1/applications/{application['id']}",
+        f"/api/v1/remote/applications/{application['id']}",
         headers=auth,
         json={
             "tailored_resume_id": tailored_id,
@@ -249,7 +249,7 @@ async def test_detail_carries_the_resume_sent_and_the_company(
     assert res.status_code == 200, res.text
 
     detail = (
-        await client.get(f"/api/v1/applications/{application['id']}", headers=auth)
+        await client.get(f"/api/v1/remote/applications/{application['id']}", headers=auth)
     ).json()
     assert detail["job_url"] == "https://acme.example/jobs/1"
     assert detail["company_domain"] == "acme.example"
@@ -262,20 +262,20 @@ async def test_detail_carries_the_resume_sent_and_the_company(
 
     # Unlinking forgets the association and leaves the resume alone.
     res = await client.patch(
-        f"/api/v1/applications/{application['id']}",
+        f"/api/v1/remote/applications/{application['id']}",
         headers=auth,
         json={"tailored_resume_id": None},
     )
     assert res.json()["tailored_resume"] is None
     assert (
-        await client.get(f"/api/v1/tailored-resumes/{tailored_id}", headers=auth)
+        await client.get(f"/api/v1/remote/tailored-resumes/{tailored_id}", headers=auth)
     ).status_code == 200
 
 
 async def test_linking_a_resume_you_do_not_own_is_refused(client, auth) -> None:
     application = await make_application(client, auth)
     res = await client.patch(
-        f"/api/v1/applications/{application['id']}",
+        f"/api/v1/remote/applications/{application['id']}",
         headers=auth,
         json={"tailored_resume_id": str(uuid.uuid4())},
     )

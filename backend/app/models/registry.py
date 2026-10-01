@@ -15,6 +15,16 @@ from app.models.application import (
     StageTemplateItem,
 )
 from app.models.calendar import Meeting, MeetingSeries
+from app.models.freelancing import (
+    ApifyConnection,
+    FreelanceJob,
+    FreelanceJobTrack,
+    FreelanceJobTrackEvent,
+    FreelancerProfile,
+    FreelanceSavedSearch,
+    Proposal,
+    UpworkConnection,
+)
 from app.models.generation import Generation, GenerationEvent, LLMCall
 from app.models.job_link import JobLink
 from app.models.maintenance import MaintainedJob
@@ -29,6 +39,7 @@ from app.models.user import ApiToken, LLMCredential, ModelCatalog, User, UserSet
 
 __all__ = [
     "ApiToken",
+    "ApifyConnection",
     "ApplicationFormAnswer",
     "ApplicationStage",
     "ApplicationStageEvent",
@@ -36,6 +47,11 @@ __all__ = [
     "Base",
     "BaseResume",
     "CandidateProfile",
+    "FreelanceJob",
+    "FreelanceJobTrack",
+    "FreelanceJobTrackEvent",
+    "FreelanceSavedSearch",
+    "FreelancerProfile",
     "Generation",
     "GenerationEvent",
     "JobApplication",
@@ -47,9 +63,11 @@ __all__ = [
     "MeetingSeries",
     "ModelCatalog",
     "ProfileEmployment",
+    "Proposal",
     "StageTemplate",
     "StageTemplateItem",
     "TailoredResume",
+    "UpworkConnection",
     "User",
     "UserSettings",
 ]

@@ -59,9 +59,9 @@ export function PanelHeader({
       <span className="text-base font-semibold tracking-tight">
         {/* Same stops as the portal's Brand: the phoenix's gold, orange and red. */}
         <span className="bg-linear-to-r from-[#f78d24] via-[#f4562c] to-[#d32127] bg-clip-text text-transparent">
-          Phoenix
+          Phoeni
         </span>
-        <span className="text-primary">Eye</span>
+        <span className="text-primary">X</span>
       </span>
 
       <StatusDot state={state} />

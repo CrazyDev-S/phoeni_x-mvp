@@ -1,5 +1,5 @@
 {
-  "name": "@resume-assist/api-types",
+  "name": "@phoenix/api-types",
   "version": "0.1.0",
   "private": true,
   "type": "module",

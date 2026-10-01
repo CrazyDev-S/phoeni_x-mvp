@@ -5,11 +5,11 @@ from __future__ import annotations
 import json
 
 from app.llm.provider import MissingCredentialError
-from app.orchestration.form_pipeline import FormContext, answer_form, fact_for, is_sensitive
-from app.orchestration.resume_facts import build_facts, flat_facts
-from app.resume.parser import parse
+from app.remote.orchestration.form_pipeline import FormContext, answer_form, fact_for, is_sensitive
+from app.remote.orchestration.resume_facts import build_facts, flat_facts
+from app.remote.resume.parser import parse
+from app.remote.services.job_links import job_key
 from app.schemas.extension import AutofillRequest, FormFieldIn
-from app.services.job_links import job_key
 from tests.test_pipeline import StubProvider
 
 

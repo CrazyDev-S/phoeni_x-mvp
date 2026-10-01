@@ -1,4 +1,4 @@
-"""Envelope encryption for per-user LLM API keys.
+"""Envelope encryption for per-user secrets: LLM API keys, Upwork credentials, Apify tokens.
 
 AES-256-GCM with a fresh 96-bit nonce per row. The AAD binds the ciphertext
 to its owner, so a row copied into another user's record fails to decrypt
@@ -70,5 +70,5 @@ def fingerprint(plaintext: str) -> bytes:
 
 
 def mask(last4: str, provider: str) -> str:
-    prefix = {"anthropic": "sk-ant-", "openai": "sk-"}.get(provider, "sk-")
+    prefix = {"anthropic": "sk-ant-", "openai": "sk-", "upwork": "", "apify": "apify_api_"}.get(provider, "sk-")
     return f"{prefix}...{last4}" if last4 else "not configured"

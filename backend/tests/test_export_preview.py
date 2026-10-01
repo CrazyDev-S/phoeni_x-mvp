@@ -9,11 +9,11 @@ import docx
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.export.docx_renderer import render_docx
-from app.export.preview import render_preview
-from app.export.profiles import ExportOptions, RenderProfile
 from app.main import app
-from app.resume.parser import parse
+from app.remote.export.docx_renderer import render_docx
+from app.remote.export.preview import render_preview
+from app.remote.export.profiles import ExportOptions, RenderProfile
+from app.remote.resume.parser import parse
 
 
 def _block_text(block) -> str:
@@ -81,7 +81,7 @@ async def test_preview_endpoint_accepts_unsaved_markdown(client, aran_markdown: 
     headers = {"Authorization": f"Bearer {res.json()['access_token']}"}
 
     res = await client.post(
-        "/api/v1/export/preview", headers=headers, json={"content_markdown": aran_markdown}
+        "/api/v1/remote/export/preview", headers=headers, json={"content_markdown": aran_markdown}
     )
     assert res.status_code == 200, res.text
     body = res.json()
@@ -95,6 +95,6 @@ async def test_preview_endpoint_accepts_unsaved_markdown(client, aran_markdown: 
     }
 
     res = await client.post(
-        "/api/v1/export/preview", headers=headers, json={"content_markdown": "not a resume"}
+        "/api/v1/remote/export/preview", headers=headers, json={"content_markdown": "not a resume"}
     )
     assert res.status_code == 422

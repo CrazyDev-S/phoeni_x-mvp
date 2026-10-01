@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Brand } from "@/components/brand";
 import { ModeToggle } from "@/components/mode-toggle";
-import { NotificationsMenu } from "@/components/notifications-menu";
+import { NotificationsMenu } from "@/components/shared/notifications-menu";
 import { UserMenu } from "@/components/user-menu";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -50,7 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header className="bg-background/85 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-20 flex h-16 shrink-0 items-center gap-2 border-b px-4 backdrop-blur md:px-6">
           <SidebarTrigger className="-ml-1 md:hidden" />
           {/* Below md the sidebar is off-canvas, taking the brand with it. */}
-          <Link href="/" aria-label="Phoenix Eye home" className="flex md:hidden">
+          <Link href="/" aria-label="PhoeniX home" className="flex md:hidden">
             <Brand size="sm" />
           </Link>
           <div className="ml-auto flex items-center gap-1">

@@ -9,9 +9,9 @@ import zipfile
 import docx2txt
 import pytest
 
-from app.export.docx_renderer import render_docx
-from app.export.profiles import ExportOptions, RenderProfile
-from app.resume.parser import parse
+from app.remote.export.docx_renderer import render_docx
+from app.remote.export.profiles import ExportOptions, RenderProfile
+from app.remote.resume.parser import parse
 
 # ECMA-376 CT_TblPr child sequence.
 TBLPR_SCHEMA_ORDER = [
@@ -169,7 +169,7 @@ class TestContentDisposition:
     """Resume names routinely contain em dashes; HTTP headers are latin-1 only."""
 
     def test_non_ascii_name_does_not_raise(self) -> None:
-        from app.api.v1.exports import content_disposition, safe_filename
+        from app.api.v1.remote.exports import content_disposition, safe_filename
 
         for name in (
             "Senior AI Fullstack — Python/FastAPI",
@@ -181,13 +181,13 @@ class TestContentDisposition:
             assert "filename*=UTF-8''" in header
 
     def test_ascii_fallback_is_always_present(self) -> None:
-        from app.api.v1.exports import content_disposition
+        from app.api.v1.remote.exports import content_disposition
 
         header = content_disposition("日本語だけ")
         assert 'filename="Resume.docx"' in header
 
     def test_path_traversal_is_stripped(self) -> None:
-        from app.api.v1.exports import safe_filename
+        from app.api.v1.remote.exports import safe_filename
 
         assert "/" not in safe_filename("../../etc/passwd")
         assert ".." not in safe_filename("../../etc/passwd")

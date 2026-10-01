@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.resume.parser import ResumeMarkdownError, parse
-from app.resume.renderer import render_plain_text, render_resume_markdown
+from app.remote.resume.parser import ResumeMarkdownError, parse
+from app.remote.resume.renderer import render_plain_text, render_resume_markdown
 
 
 def test_parses_reference_resume(aran_markdown: str) -> None:

@@ -40,7 +40,7 @@ async def auth(client) -> dict[str, str]:
 
 async def upload_base(client, auth, markdown: str) -> str:
     res = await client.post(
-        "/api/v1/resumes",
+        "/api/v1/remote/resumes",
         headers=auth,
         json={"display_name": "Base", "target_title": "Engineer", "content_markdown": markdown},
     )
@@ -57,7 +57,7 @@ def tailor_body(base_id: str) -> dict:
 
 async def lookup(client, auth, *urls: str) -> list[dict]:
     res = await client.post(
-        "/api/v1/extension/job-links/lookup", headers=auth, json={"urls": list(urls)}
+        "/api/v1/remote/extension/job-links/lookup", headers=auth, json={"urls": list(urls)}
     )
     assert res.status_code == 200, res.text
     return res.json()["items"]
@@ -76,7 +76,7 @@ async def test_a_resume_linked_without_tailoring_follows_the_posting_to_its_form
 ) -> None:
     base_id = await upload_base(client, auth, aran_markdown)
     res = await client.put(
-        "/api/v1/extension/job-links",
+        "/api/v1/remote/extension/job-links",
         headers=auth,
         json={"url": POSTING + "?utm_source=linkedin", "resume": {"kind": "base", "id": base_id}},
     )
@@ -91,7 +91,7 @@ async def test_a_resume_linked_without_tailoring_follows_the_posting_to_its_form
     assert other_tab["resume"] is None
 
     facts = await client.get(
-        "/api/v1/extension/resume-facts",
+        "/api/v1/remote/extension/resume-facts",
         headers=auth,
         params={"kind": "base", "resume_id": base_id},
     )
@@ -100,7 +100,7 @@ async def test_a_resume_linked_without_tailoring_follows_the_posting_to_its_form
     assert facts.json()["facts"]["current_company"] == "Veeva Systems"
 
     res = await client.put(
-        "/api/v1/extension/job-links", headers=auth, json={"url": POSTING, "resume": None}
+        "/api/v1/remote/extension/job-links", headers=auth, json={"url": POSTING, "resume": None}
     )
     assert res.json()["resume"] is None
 
@@ -109,7 +109,7 @@ async def test_tailoring_from_a_tab_links_the_result_to_its_posting(
     client, auth, aran_markdown, monkeypatch
 ) -> None:
     base_id = await upload_base(client, auth, aran_markdown)
-    res = await client.post("/api/v1/extension/tailor", headers=auth, json=tailor_body(base_id))
+    res = await client.post("/api/v1/remote/extension/tailor", headers=auth, json=tailor_body(base_id))
     assert res.status_code == 202, res.text
     generation_id = res.json()["id"]
 
@@ -140,14 +140,14 @@ async def test_tailoring_from_a_tab_links_the_result_to_its_posting(
 
 async def test_a_failed_tailoring_can_be_tried_again(client, auth, aran_markdown) -> None:
     base_id = await upload_base(client, auth, aran_markdown)
-    first = (await client.post("/api/v1/extension/tailor", headers=auth, json=tailor_body(base_id))).json()
+    first = (await client.post("/api/v1/remote/extension/tailor", headers=auth, json=tailor_body(base_id))).json()
     double_click = (
-        await client.post("/api/v1/extension/tailor", headers=auth, json=tailor_body(base_id))
+        await client.post("/api/v1/remote/extension/tailor", headers=auth, json=tailor_body(base_id))
     ).json()
     assert double_click["id"] == first["id"]
 
     await set_status(first["id"], GenerationStatus.FAILED)
-    retry = await client.post("/api/v1/extension/tailor", headers=auth, json=tailor_body(base_id))
+    retry = await client.post("/api/v1/remote/extension/tailor", headers=auth, json=tailor_body(base_id))
     assert retry.status_code == 202, retry.text
     assert retry.json()["id"] != first["id"]
 
@@ -162,7 +162,7 @@ async def test_a_form_is_answered_from_its_postings_resume(
 ) -> None:
     base_id = await upload_base(client, auth, aran_markdown)
     await client.put(
-        "/api/v1/extension/job-links",
+        "/api/v1/remote/extension/job-links",
         headers=auth,
         json={
             "url": POSTING,
@@ -175,7 +175,7 @@ async def test_a_form_is_answered_from_its_postings_resume(
     async def fast_model(session, user_id, tier):
         return stub
 
-    monkeypatch.setattr("app.api.v1.extension.get_provider", fast_model)
+    monkeypatch.setattr("app.api.v1.remote.extension.get_provider", fast_model)
 
     fields = [
         {"id": "f0:0", "type": "email", "label": "Email"},
@@ -183,7 +183,7 @@ async def test_a_form_is_answered_from_its_postings_resume(
         {"id": "f0:2", "type": "textarea", "label": "Anything else we should know?"},
     ]
     body = {"job_url": POSTING + "/application", "frames": [{"frame_key": "f0", "fields": fields}]}
-    res = await client.post("/api/v1/extension/autofill", headers=auth, json=body)
+    res = await client.post("/api/v1/remote/extension/autofill", headers=auth, json=body)
     assert res.status_code == 200, res.text
     data = res.json()
     assert data["resume"]["id"] == base_id
@@ -192,7 +192,7 @@ async def test_a_form_is_answered_from_its_postings_resume(
     # The posting's description reached the model, not the form page's text.
     assert "Must have FastAPI" in stub.requests[0].messages[0]["content"]
 
-    again = (await client.post("/api/v1/extension/autofill", headers=auth, json=body)).json()
+    again = (await client.post("/api/v1/remote/extension/autofill", headers=auth, json=body)).json()
     assert again["cached"] is True
     assert again["facts"]["full_name"] == "Aran Thammasiri"
     assert len(stub.requests) == 1
@@ -201,7 +201,7 @@ async def test_a_form_is_answered_from_its_postings_resume(
     stub.replies = ["not json", "not json"]
     body["frames"][0]["fields"].append({"id": "f0:3", "type": "text", "label": "Pronunciation"})
     for _ in range(2):
-        retried = (await client.post("/api/v1/extension/autofill", headers=auth, json=body)).json()
+        retried = (await client.post("/api/v1/remote/extension/autofill", headers=auth, json=body)).json()
         assert retried["cached"] is False
         assert retried["complete"] is False
 
@@ -235,7 +235,7 @@ async def test_a_resume_tailored_in_the_panel_is_listed_once_it_is_saved(
     from_portal = await tailored_row(base_id, aran_markdown, source="web", url=None)
 
     async def listed() -> set[str]:
-        res = await client.get("/api/v1/tailored-resumes", headers=auth)
+        res = await client.get("/api/v1/remote/tailored-resumes", headers=auth)
         assert res.status_code == 200, res.text
         assert res.json()["total"] == len(res.json()["items"])
         return {item["id"] for item in res.json()["items"]}
@@ -247,7 +247,7 @@ async def test_a_resume_tailored_in_the_panel_is_listed_once_it_is_saved(
     assert tab["resume"]["application_id"] is None
 
     res = await client.post(
-        "/api/v1/extension/save-application",
+        "/api/v1/remote/extension/save-application",
         headers=auth,
         json={
             "tailored_resume_id": from_panel,

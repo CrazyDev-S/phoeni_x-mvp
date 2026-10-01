@@ -7,7 +7,7 @@
  * localStorage. A 401 triggers exactly one refresh attempt, and concurrent
  * callers share it rather than each firing their own.
  */
-import { createApi, toApiError, type TokenStore } from "@resume-assist/api-types";
+import { createApi, toApiError, type TokenStore } from "@phoenix/api-types";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
@@ -124,7 +124,7 @@ export async function downloadDocx(
   const access = tokens.access();
   if (access) headers.set("Authorization", `Bearer ${access}`);
 
-  const res = await fetch(`${API_URL}/api/v1/export/docx`, {
+  const res = await fetch(`${API_URL}/api/v1/remote/export/docx`, {
     method: "POST",
     headers,
     body: JSON.stringify(body),

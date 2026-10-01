@@ -89,7 +89,7 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}): Pr
 /** A stored resume rendered as .docx, in memory. */
 export async function fetchDocx(body: Record<string, unknown>): Promise<Blob> {
   const { apiBase, token } = await getSettings();
-  const res = await fetch(`${apiBase}/api/v1/export/docx`, {
+  const res = await fetch(`${apiBase}/api/v1/remote/export/docx`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),

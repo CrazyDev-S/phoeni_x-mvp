@@ -30,6 +30,7 @@ class MeetingOut(ORMModel):
     notes: str | None
     stage_id: uuid.UUID | None
     maintained_job_id: uuid.UUID | None
+    freelance_track_id: uuid.UUID | None = None
     series_id: uuid.UUID | None
     is_exception: bool
     reminder_minutes: int
@@ -38,8 +39,10 @@ class MeetingOut(ORMModel):
 class CalendarMeetingOut(MeetingOut):
     """A meeting with its owner named, so a calendar block can say who it is with."""
 
-    kind: str = "maintained"  # application | maintained
+    kind: str = "maintained"  # application | maintained | freelance
     application_id: uuid.UUID | None = None
+    track_id: uuid.UUID | None = None
+    job_id: uuid.UUID | None = None
     company_name: str | None = None
     role_title: str | None = None
     stage_name: str | None = None
@@ -206,6 +209,8 @@ class MeetingCreate(BaseModel):
     meeting_type: str = "interview"
     stage_id: uuid.UUID | None = None
     maintained_job_id: uuid.UUID | None = None
+    # A call about an Upwork bid, owned by the Freelancing tracker.
+    freelance_track_id: uuid.UUID | None = None
     location: str | None = None
     conferencing_url: str | None = None
     agenda: str | None = None
@@ -214,8 +219,11 @@ class MeetingCreate(BaseModel):
 
     @model_validator(mode="after")
     def _exactly_one_owner(self):
-        if bool(self.stage_id) == bool(self.maintained_job_id):
-            raise ValueError("supply exactly one of stage_id or maintained_job_id")
+        owners = [self.stage_id, self.maintained_job_id, self.freelance_track_id]
+        if sum(1 for owner in owners if owner) != 1:
+            raise ValueError(
+                "supply exactly one of stage_id, maintained_job_id or freelance_track_id"
+            )
         return self
 
 
@@ -236,6 +244,8 @@ class MeetingPatch(BaseModel):
 
 class MaintainedJobOut(ORMModel):
     id: uuid.UUID
+    job_application_id: uuid.UUID | None = None
+    freelance_track_id: uuid.UUID | None = None
     employer_name: str
     role_title: str
     start_date: date
@@ -255,6 +265,8 @@ class MaintainedJobCreate(BaseModel):
     team: str | None = None
     employment_type: str | None = None
     job_application_id: uuid.UUID | None = None
+    # A won Upwork bid. At most one of the two ids.
+    freelance_track_id: uuid.UUID | None = None
     onboarding_notes: str | None = None
 
 
@@ -298,5 +310,5 @@ class UpcomingOut(BaseModel):
     company_name: str | None = None
     role_title: str | None = None
     stage_name: str | None = None
-    kind: str  # application | maintained
+    kind: str  # application | maintained | freelance
     starts_in_minutes: int

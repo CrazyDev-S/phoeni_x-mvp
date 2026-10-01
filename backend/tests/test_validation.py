@@ -6,8 +6,8 @@ negative test alongside the clean-document assertion.
 
 from __future__ import annotations
 
-from app.resume.parser import parse
-from app.validation.rules import Context, blocks_autodownload, validate
+from app.remote.resume.parser import parse
+from app.remote.validation.rules import Context, blocks_autodownload, validate
 from tests.conftest import TODAY
 
 

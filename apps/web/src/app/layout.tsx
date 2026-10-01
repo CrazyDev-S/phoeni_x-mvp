@@ -20,8 +20,8 @@ const carlito = Carlito({
 });
 
 export const metadata: Metadata = {
-  title: "Phoenix Eye",
-  description: "Tailor, track and follow through on every application.",
+  title: "PhoeniX",
+  description: "Find work, tailor resumes, and follow through on every opportunity.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

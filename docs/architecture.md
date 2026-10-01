@@ -2,6 +2,96 @@
 
 Decisions that are cheap now and expensive later, with the reasoning attached.
 
+## Two categories and the shared tools
+
+The product has two ways of finding work - **Freelancing** (bidding on
+Upwork) and **Remote** (resumes, applications, the browser extension) - and
+tools that serve both: the calendar, job maintenance, Interview Assist. The
+code is laid out the same way, on purpose:
+
+- `app/remote/`, `app/freelancing/`, `app/shared/` hold each part's own
+  engine code; `app/core`, `app/db`, `app/llm`, `app/worker`, `app/services`
+  are the platform underneath.
+- `app/api/v1/{remote,freelancing,shared}/` hold the routers, and
+  `router.py` adds the prefix once, so the URL space says which part an
+  endpoint belongs to: `/api/v1/remote/...`, `/api/v1/freelancing/...`,
+  `/api/v1/shared/...`. Account-level routes (`/auth`, `/settings`,
+  `/generations`) stay at the top.
+- `apps/web/src/app/{remote,freelancing}/` and `components/{remote,freelancing,shared}/`
+  mirror it. The primitives every page uses stay at the component root.
+
+`models/` and `schemas/` stay flat: the schema builder needs one registry,
+and a shared tool's table (a meeting) refers to both categories' tables.
+
+The old root routes of the portal (`/resumes`, `/tailor`, `/applications`)
+redirect to `/remote/...` rather than 404, because the extension deep-links
+to the applications page.
+
+## A meeting has exactly one of three owners
+
+A meeting used to belong to an interview stage or a maintained job, enforced
+by `num_nonnulls(stage_id, maintained_job_id) = 1`. A client call about an
+Upwork bid is the third case, so `freelance_track_id` joined the check. The
+calendar, the next-call banner and the extension's badge all read
+`describe_meetings`, which names the owner in one extra query per kind, so a
+bid's call shows up everywhere an interview does without any surface knowing
+a new kind exists.
+
+## Schema upgrades for existing tables
+
+`create_all` only ever adds whole tables. Adding that third column and
+replacing the check constraint on a table with rows in it therefore lives in
+`UPGRADES` in `app/db/schema.py`, as SQL that is safe to run again
+(`ADD COLUMN IF NOT EXISTS`, `DROP CONSTRAINT IF EXISTS` then `ADD`). A plain
+`python -m app.db.schema` brings an older database up to date without a reset.
+It is a list, newest last, and the alternative - Alembic - is still open once
+the schema stops moving.
+
+## Freelancing: snapshots, not a mirror
+
+Upwork's job search is paged by cursor and re-ranked on every call, and its
+terms allow caching a posting for 24 hours. So nothing in the product refers
+to a posting by its position in a result set: every node returned is upserted
+into `freelance_jobs` by `(user, upwork_id)`, and focus, proposals and
+tracking hang off that row. After every search, snapshots not seen for a day
+that nothing refers to are pruned. A focused job is the user's own list and
+stays - that is what makes a tracker possible at all.
+
+Upwork's field names have one home, `app/freelancing/upwork/filters.py`.
+`JobSearchParams` speaks this API's vocabulary, the mapping translates, and
+`tests/test_freelancing.py` asserts the exact filter that reaches the wire
+for every parameter. A field Upwork renames is a one-line change in one file,
+and one failing assertion says whether it reached the request.
+
+Search itself goes through a `JobSource` (`app/freelancing/sources/`), and
+the default is not Upwork's API at all but an Apify actor. Two actors that
+both scrape Upwork disagree on nearly everything - field names, how a page is
+addressed, the shape of a job - so the Apify source runs actors and the
+actor's `ActorProfile` says what to ask for; one reads by Upwork page number,
+the other by posted-date window. A scrape takes tens of seconds, longer than one request should block,
+so a source may answer `pending` with a cursor, and the portal asks again
+until the page arrives; the Apify cursor names the run, then an offset into
+its dataset. Every run is billed, so "load more" never starts one while the
+dataset has rows left, and an identical search within half an hour reuses its
+run. A source declares which search parameters it can apply, and the form
+renders only those: a filter that silently did nothing would be worse than no
+filter.
+
+The OAuth callback is the one unauthenticated endpoint in the category: it
+arrives as a browser redirect from upwork.com with no bearer token. The
+signed `state` names the user instead, and expires in fifteen minutes.
+
+## The proposal engine is a seam
+
+Phase 2 of Freelancing is a generator whose prompt has not been supplied.
+Rather than wait, the contract exists now - `ProposalEngine.draft(context) ->
+ProposalDraft` - and one engine meets it without a model: a deterministic
+scaffold that labels itself `template-v0`, so nobody mistakes it for the real
+thing. A draft goes through the same generation queue and event stream as a
+resume, so the portal follows it with the same hook and progress card, and
+the worker branches before resolving an LLM provider so a user with no API
+key can still draft. Swapping the engine changes one function.
+
 ## The generator prompt is a specification, not a hint
 
 `backend/prompts/resume_generator_v1.md` ships verbatim. An output contract is

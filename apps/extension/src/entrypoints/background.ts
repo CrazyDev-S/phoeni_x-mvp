@@ -53,7 +53,7 @@ async function refreshNextCall(): Promise<void> {
       return;
     }
 
-    const res = await fetch(`${base}/api/v1/meetings/next`, {
+    const res = await fetch(`${base}/api/v1/shared/meetings/next`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) return;

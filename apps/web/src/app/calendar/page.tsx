@@ -14,15 +14,16 @@ import {
   CLOSED_STATUSES,
   currentStage,
   type ApplicationRow,
-} from "@/components/applications/shared";
-import { EventPopover } from "@/components/calendar/event-popover";
-import { MeetingDialog, type MeetingDialogState } from "@/components/calendar/meeting-dialog";
-import { MiniMonth } from "@/components/calendar/mini-month";
-import { MonthGrid } from "@/components/calendar/month-grid";
-import { TimeGrid } from "@/components/calendar/time-grid";
-import { rangeTitle, Toolbar, type CalendarView } from "@/components/calendar/toolbar";
-import { NextCallBanner } from "@/components/next-call";
+} from "@/components/remote/applications/shared";
+import { EventPopover } from "@/components/shared/calendar/event-popover";
+import { MeetingDialog, type MeetingDialogState } from "@/components/shared/calendar/meeting-dialog";
+import { MiniMonth } from "@/components/shared/calendar/mini-month";
+import { MonthGrid } from "@/components/shared/calendar/month-grid";
+import { TimeGrid } from "@/components/shared/calendar/time-grid";
+import { rangeTitle, Toolbar, type CalendarView } from "@/components/shared/calendar/toolbar";
+import { NextCallBanner } from "@/components/shared/next-call";
 import { PageHero } from "@/components/page-hero";
+import { PhoenixHeroBanner } from "@/components/phoenix-hero-banner";
 import { SidePanel } from "@/components/side-panel";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -67,6 +68,7 @@ interface UpcomingItem {
 
 const FILTERS = [
   ["interviews", "Interviews"],
+  ["bids", "Client calls"],
   ["jobs", "Team meetings"],
   ["cancelled", "Cancelled"],
 ] as const;
@@ -83,6 +85,7 @@ export default function CalendarPage() {
   const [dialog, setDialog] = useState<MeetingDialogState>(null);
   const [show, setShow] = useState<Record<Filter, boolean>>({
     interviews: true,
+    bids: true,
     jobs: true,
     cancelled: true,
   });
@@ -97,7 +100,7 @@ export default function CalendarPage() {
 
   const { data, isFetching } = useQuery({
     queryKey: ["meetings", from, to],
-    queryFn: () => request<Meeting[]>(`/api/v1/meetings?from=${from}&to=${to}`),
+    queryFn: () => request<Meeting[]>(`/api/v1/shared/meetings?from=${from}&to=${to}`),
     // Keep the previous grid on screen while the next range loads, so paging
     // does not blink through an empty week.
     placeholderData: keepPreviousData,
@@ -106,7 +109,7 @@ export default function CalendarPage() {
     () =>
       (data ?? []).filter(
         (m) =>
-          (m.stage_id ? show.interviews : show.jobs) &&
+          (m.stage_id ? show.interviews : m.freelance_track_id ? show.bids : show.jobs) &&
           (show.cancelled || m.status !== "cancelled"),
       ),
     [data, show],
@@ -114,13 +117,13 @@ export default function CalendarPage() {
 
   const upcoming = useQuery({
     queryKey: ["upcoming", "calendar"],
-    queryFn: () => request<UpcomingItem[]>("/api/v1/meetings/upcoming?limit=5"),
+    queryFn: () => request<UpcomingItem[]>("/api/v1/shared/meetings/upcoming?limit=5"),
     refetchInterval: 60_000,
   });
 
   const applications = useQuery({
     queryKey: ["applications", "all"],
-    queryFn: () => request<{ items: ApplicationRow[] }>("/api/v1/applications"),
+    queryFn: () => request<{ items: ApplicationRow[] }>("/api/v1/remote/applications"),
   });
   // Active applications whose next step has no call booked.
   const toBook = useMemo(
@@ -137,7 +140,7 @@ export default function CalendarPage() {
 
   const patch = useMutation({
     mutationFn: ({ id, body }: PatchVariables) =>
-      request<Meeting>(`/api/v1/meetings/${id}`, {
+      request<Meeting>(`/api/v1/shared/meetings/${id}`, {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
@@ -161,7 +164,7 @@ export default function CalendarPage() {
   });
 
   const remove = useMutation({
-    mutationFn: (id: string) => request(`/api/v1/meetings/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => request(`/api/v1/shared/meetings/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       setSelected(null);
       invalidateSchedule(queryClient);
@@ -291,12 +294,37 @@ export default function CalendarPage() {
   const busyDays = useMemo(() => new Set(meetings.map(dayOf)), [meetings]);
 
   return (
-    <div className="space-y-8">
-      <PageHero
-        eyebrow="Schedule"
-        eyebrowIcon={CalendarDays}
-        title="Calendar"
-        description="Interviews and team meetings in one place. Click or drag across empty time to schedule; drag a meeting to move it, or its bottom edge to change its length."
+    <div className="space-y-6">
+      <PhoenixHeroBanner
+        eyebrow="CALENDAR"
+        title="Your Career Calendar"
+        description="Stay on top of interviews, deadlines, follow-ups, and meetings across all your opportunities."
+        actions={
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-3 py-1.5 text-center shadow-xs">
+                <span className="font-bold text-sm text-stone-900 dark:text-stone-100">8</span>
+                <span className="text-[10px] text-stone-400 block">Upcoming Events</span>
+              </div>
+              <div className="rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-3 py-1.5 text-center shadow-xs">
+                <span className="font-bold text-sm text-purple-600 dark:text-purple-400">3</span>
+                <span className="text-[10px] text-stone-400 block">Interviews</span>
+              </div>
+              <div className="rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-3 py-1.5 text-center shadow-xs">
+                <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">2</span>
+                <span className="text-[10px] text-stone-400 block">Deadlines</span>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => setDialog({ mode: "create", draft: {} })}
+              className="rounded-xl bg-[#ea580c] hover:bg-[#c2410c] text-white font-bold text-xs h-10 px-4 shadow-sm"
+            >
+              <CalendarPlus className="size-4 mr-1.5" />
+              Add Event
+            </Button>
+          </div>
+        }
       />
 
       <NextCallBanner />
@@ -380,7 +408,7 @@ export default function CalendarPage() {
                 {toBook.length > TO_BOOK_LIMIT && (
                   <li>
                     <Link
-                      href="/applications"
+                      href="/remote/applications"
                       className="text-muted-foreground text-xs hover:underline"
                     >
                       {toBook.length - TO_BOOK_LIMIT} more in Applications
