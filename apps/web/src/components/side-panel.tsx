@@ -10,19 +10,26 @@ export function SidePanel({
   title,
   children,
   className,
+  tone = "default",
 }: {
   icon: ComponentType<{ className?: string }>;
   title: string;
   children: ReactNode;
   className?: string;
+  tone?: "default" | "soft" | "dark";
 }) {
   return (
-    <Card className={className}>
-      <CardHeader className="flex flex-row items-center gap-2.5 space-y-0">
-        <span className="bg-accent text-accent-foreground flex size-8 shrink-0 items-center justify-center rounded-lg">
-          <Icon className="size-4" />
+    <Card tone={tone} className={className}>
+      <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+        <span
+          className={cn(
+            "flex size-10 shrink-0 items-center justify-center rounded-xl",
+            tone === "dark" ? "bg-panel-raised text-panel-foreground" : "bg-accent text-accent-foreground",
+          )}
+        >
+          <Icon className="size-[18px]" />
         </span>
-        <CardTitle className="text-base">{title}</CardTitle>
+        <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
@@ -35,8 +42,8 @@ export function CheckList({ items }: { items: string[] }) {
     <ul className="space-y-3">
       {items.map((item) => (
         <li key={item} className="flex gap-2.5 text-sm">
-          <Check className="text-success mt-0.5 size-4 shrink-0" />
-          <span className="text-muted-foreground leading-relaxed">{item}</span>
+          <span className="bg-primary text-brand mt-0.5 grid size-5 shrink-0 place-items-center rounded-md"><Check className="size-3 stroke-[3]" /></span>
+          <span className="text-foreground/80 leading-snug font-medium">{item}</span>
         </li>
       ))}
     </ul>
@@ -55,7 +62,7 @@ export function PointList({ items }: { items: PointItem[] }) {
     <ul className="space-y-4">
       {items.map(({ Icon, title, detail }) => (
         <li key={title} className="flex gap-3">
-          <span className="bg-accent text-accent-foreground flex size-8 shrink-0 items-center justify-center rounded-full">
+          <span className="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-xl">
             <Icon className="size-4" />
           </span>
           <div className="space-y-0.5">

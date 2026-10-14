@@ -11,6 +11,8 @@ disagreements are 400-level errors rather than soft failures:
 * ``output_config.effort`` errors on Haiku 4.5 - it is not a no-op.
 * Haiku 4.5 still uses ``thinking={"type": "enabled", "budget_tokens": N}``;
   Opus 5 and Sonnet 5 use adaptive thinking and reject ``budget_tokens``.
+* Sonnet 5.5 400s on ``thinking={"type": "disabled"}``; its thinking-off
+  setting is ``{"type": "between_tools"}``, at effort ``high`` or below.
 * Minimum cacheable prefixes are NOT monotonic across generations: 512 tokens
   on Opus 5 but 4096 on Haiku 4.5. Below the minimum, caching silently does
   nothing - no error, just ``cache_creation_input_tokens: 0``.
@@ -51,6 +53,7 @@ def _anthropic_caps(
     adaptive_thinking: bool,
     mid_conversation_system: bool = False,
     server_fallbacks: bool = False,
+    between_tools: bool = False,
 ) -> dict:
     return {
         "explicit_cache_breakpoints": True,
@@ -66,11 +69,32 @@ def _anthropic_caps(
         "web_search_tool_type": "web_search_20260209",
         "mid_conversation_system": mid_conversation_system,
         "server_fallbacks": server_fallbacks,
+        "between_tools": between_tools,
         "streaming": True,
     }
 
 
 ANTHROPIC_MODELS = [
+    ModelSpec(
+        provider=LLMProvider.ANTHROPIC,
+        model_id="claude-sonnet-5-5",
+        display_name="Claude Sonnet 5.5",
+        tier="heavy",
+        context_window=1_000_000,
+        max_output_tokens=128_000,
+        min_cacheable_prefix_tokens=512,
+        price_in_usd_micros=2 * M,
+        price_out_usd_micros=10 * M,
+        price_cache_read_usd_micros=int(0.2 * M),
+        price_cache_write_5m_usd_micros=int(2.5 * M),
+        price_cache_write_1h_usd_micros=4 * M,
+        caps=_anthropic_caps(
+            effort=True,
+            adaptive_thinking=True,
+            mid_conversation_system=True,
+            between_tools=True,
+        ),
+    ),
     ModelSpec(
         provider=LLMProvider.ANTHROPIC,
         model_id="claude-opus-5",
@@ -128,6 +152,35 @@ ANTHROPIC_MODELS = [
 OPENAI_MODELS = [
     ModelSpec(
         provider=LLMProvider.OPENAI,
+        model_id="gpt-6.1-sol",
+        display_name="GPT-6.1 Sol",
+        tier="heavy",
+        # 1.05M total, of which at most 922K may be input.
+        context_window=1_050_000,
+        max_output_tokens=128_000,
+        min_cacheable_prefix_tokens=1024,
+        # From OpenAI's model page. Cached input has no separate write price.
+        price_in_usd_micros=2 * M,
+        price_out_usd_micros=10 * M,
+        price_cache_read_usd_micros=int(0.1 * M),
+        caps={
+            "explicit_cache_breakpoints": False,
+            "native_json_schema": True,
+            "strict_tools": True,
+            # Reasoning is always on; temperature support is undocumented, so
+            # it is never sent rather than risked as a 400.
+            "temperature": False,
+            "effort": True,
+            "adaptive_thinking": False,
+            "thinking_budget_tokens": False,
+            "server_web_search": False,
+            "mid_conversation_system": False,
+            "server_fallbacks": False,
+            "streaming": True,
+        },
+    ),
+    ModelSpec(
+        provider=LLMProvider.OPENAI,
         model_id="gpt-5.2",
         display_name="GPT-5.2",
         tier="heavy",
@@ -163,16 +216,27 @@ BY_ID = {(m.provider, m.model_id): m for m in ALL_MODELS}
 
 DEFAULT_TIERS = {
     LLMProvider.ANTHROPIC: {
-        "heavy": "claude-opus-5",
-        "mid": "claude-sonnet-5",
-        "fast": "claude-haiku-4-5",
+        "heavy": "claude-sonnet-5-5",
+        "mid": "claude-sonnet-5-5",
+        "fast": "claude-sonnet-5-5",
     },
-    LLMProvider.OPENAI: {"heavy": "gpt-5.2", "mid": "gpt-5.2", "fast": "gpt-5.2"},
+    LLMProvider.OPENAI: {
+        "heavy": "gpt-6.1-sol",
+        "mid": "gpt-6.1-sol",
+        "fast": "gpt-6.1-sol",
+    },
 }
 
 
 def spec_for(provider: LLMProvider, model_id: str) -> ModelSpec | None:
     return BY_ID.get((provider, model_id))
+
+
+def belongs_to_other_provider(provider: LLMProvider, model_id: str) -> bool:
+    """A catalog model of a different provider. Unknown ids are left alone."""
+    return any(
+        spec_for(other, model_id) for other in LLMProvider if other is not provider
+    )
 
 
 def cost_micros(spec: ModelSpec | None, usage: dict) -> int:

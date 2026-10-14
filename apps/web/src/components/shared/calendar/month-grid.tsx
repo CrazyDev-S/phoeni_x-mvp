@@ -6,10 +6,10 @@ import { useMemo } from "react";
 import {
   dayLabel,
   dayOf,
+  clockShort,
   eventColor,
   isSameMonth,
   minutesInto,
-  minutesLabel,
   todayKey,
   type DayKey,
   type Meeting,
@@ -52,12 +52,12 @@ export function MonthGrid({
   }, [meetings]);
 
   return (
-    <div className="bg-card overflow-hidden rounded-xl border">
-      <div className="grid grid-cols-7 border-b">
+    <div className="bg-card shadow-card overflow-hidden rounded-[2rem]">
+      <div className="border-border grid grid-cols-7 border-b">
         {WEEKDAYS.map((weekday) => (
           <span
             key={weekday}
-            className="text-muted-foreground py-2 text-center text-[11px] font-medium tracking-wide uppercase"
+            className="text-muted-foreground py-4 text-center text-[11.5px] font-bold tracking-widest uppercase"
           >
             {weekday}
           </span>
@@ -75,18 +75,18 @@ export function MonthGrid({
             <div
               key={day}
               className={cn(
-                "group relative flex min-h-28 flex-col gap-0.5 p-1",
-                outside ? "bg-muted/40" : "bg-card",
+                "group relative flex min-h-32 flex-col gap-1 p-1.5",
+                outside ? "bg-soft" : isToday ? "bg-brand-soft/55" : "bg-card",
               )}
             >
               <button
                 type="button"
                 onClick={() => onPickDay(day)}
                 className={cn(
-                  "mx-auto flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs whitespace-nowrap transition-colors",
+                  "mx-auto flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-[0.8125rem] font-semibold whitespace-nowrap transition-colors",
                   isToday
-                    ? "bg-primary text-primary-foreground font-medium"
-                    : cn("hover:bg-muted", outside && "text-muted-foreground"),
+                    ? "bg-brand text-brand-foreground"
+                    : cn("hover:bg-soft-2", outside && "text-subtle"),
                 )}
               >
                 {dayLabel(day, day.endsWith("-01") ? "d MMM" : "d")}
@@ -95,7 +95,7 @@ export function MonthGrid({
                 type="button"
                 aria-label={`Schedule on ${dayLabel(day, "EEEE d MMMM")}`}
                 onClick={() => onCreate(day)}
-                className="text-muted-foreground hover:bg-muted hover:text-foreground absolute top-1 right-1 flex size-6 items-center justify-center rounded-full opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                className="text-muted-foreground hover:bg-soft-2 hover:text-foreground absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-full opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
               >
                 <Plus className="size-3.5" />
               </button>
@@ -113,17 +113,20 @@ export function MonthGrid({
                     }
                     onDoubleClick={() => onEdit(meeting)}
                     className={cn(
-                      "hover:bg-muted flex items-center gap-1.5 rounded px-1 py-0.5 text-left text-[11px] transition-colors",
-                      cancelled && "line-through opacity-60",
-                      selectedId === meeting.id && "bg-muted",
+                      "flex items-center gap-1.5 rounded-[10px] px-2 py-1 text-left text-[11.5px] font-bold transition-shadow hover:shadow-md",
+                      cancelled &&
+                        "border-foreground/20 text-muted-foreground border-[1.5px] border-dashed line-through",
                     )}
+                    style={{
+                      backgroundColor: cancelled ? "var(--card)" : color.fill,
+                      color: cancelled ? undefined : color.foreground,
+                      outline:
+                        selectedId === meeting.id ? "2px solid var(--foreground)" : undefined,
+                      outlineOffset: 1,
+                    }}
                   >
-                    <span
-                      className="size-1.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: color.fill }}
-                    />
-                    <span className="text-muted-foreground shrink-0 tabular-nums">
-                      {minutesLabel(minutesInto(meeting.starts_at))}
+                    <span className="shrink-0 tabular-nums">
+                      {clockShort(minutesInto(meeting.starts_at))}
                     </span>
                     <span className="truncate">{meeting.title}</span>
                   </button>
@@ -134,7 +137,7 @@ export function MonthGrid({
                 <button
                   type="button"
                   onClick={() => onPickDay(day)}
-                  className="text-muted-foreground px-1 text-left text-[11px] font-medium hover:underline"
+                  className="text-muted-foreground px-1 text-left text-[11.5px] font-semibold hover:underline"
                 >
                   {hidden} more
                 </button>

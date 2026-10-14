@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { findExtensionPackage } from "@/lib/extension-package";
+import { findExtensionPackage, OUTPUT_DIR } from "@/lib/extension-package";
 
 // Reads the filesystem at request time: the answer changes whenever the
 // extension is rebuilt, so it must not be baked in at build time.
@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const pkg = await findExtensionPackage();
   if (!pkg) {
-    return NextResponse.json({ available: false }, { headers: { "Cache-Control": "no-store" } });
+    // Says where it looked, so "unavailable" on someone's machine is diagnosable.
+    return NextResponse.json({ available: false, searched: OUTPUT_DIR }, { headers: { "Cache-Control": "no-store" } });
   }
   return NextResponse.json(
     {

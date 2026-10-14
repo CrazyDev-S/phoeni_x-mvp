@@ -110,10 +110,14 @@ class OpenAIAdapter:
         text = getattr(resp, "output_text", "") or ""
         u = getattr(resp, "usage", None)
         details = getattr(u, "input_tokens_details", None)
+        cached = getattr(details, "cached_tokens", 0) or 0
         usage = Usage(
-            input_tokens=getattr(u, "input_tokens", 0) or 0,
+            # OpenAI counts cached tokens inside input_tokens; Usage means the
+            # uncached rest, as Anthropic reports it, so cost never bills a
+            # cached token twice.
+            input_tokens=max(0, (getattr(u, "input_tokens", 0) or 0) - cached),
             output_tokens=getattr(u, "output_tokens", 0) or 0,
-            cache_read_tokens=getattr(details, "cached_tokens", 0) or 0,
+            cache_read_tokens=cached,
         )
         try:
             parsed = json.loads(text) if text else None

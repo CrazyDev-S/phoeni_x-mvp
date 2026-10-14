@@ -1,10 +1,11 @@
 "use client";
 
 import { ChevronDown, RotateCcw, Search } from "lucide-react";
+import type { ComponentProps } from "react";
 import { useState, type ReactNode } from "react";
 
-import { TagInput } from "@/components/freelancing/tag-input";
-import { FormField } from "@/components/form-field";
+import { FilterTags } from "@/components/freelancing/filter-tags";
+import { FormField, type ControlProps } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -54,6 +55,18 @@ const POSTED_WITHIN: [number, string][] = [
   [720, "Last 30 days"],
 ];
 
+/** The panel's fields are tighter than the app's: a bold small label, a small hint. */
+function PanelField(props: ComponentProps<typeof FormField>) {
+  return (
+    <FormField
+      {...props}
+      className="gap-1.5 *:data-[slot=field-label]:text-[12.5px] *:data-[slot=field-label]:font-bold *:data-[slot=field-description]:text-xs *:data-[slot=field-description]:leading-snug *:data-[slot=field-description]:font-medium"
+    />
+  );
+}
+
+const PANEL_LABEL = "text-[12.5px] font-bold";
+
 /** A labelled group of controls that folds away, so the panel stays scannable. */
 function Group({
   title,
@@ -68,22 +81,22 @@ function Group({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="border-b pb-3 last:border-b-0">
+    <Collapsible open={open} onOpenChange={setOpen} className="border-t first:border-t-0">
       <CollapsibleTrigger asChild>
         <button
           type="button"
-          className="flex w-full items-center gap-2 py-2 text-left text-sm font-semibold"
+          className="flex h-[46px] w-full items-center gap-2.5 text-left text-[15px] font-bold"
         >
           <span className="flex-1">{title}</span>
           {count ? (
-            <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs tabular-nums">
+            <span className="bg-accent text-accent-foreground grid h-[22px] min-w-[22px] place-items-center rounded-full px-1.5 text-[11.5px] font-bold tabular-nums">
               {count}
             </span>
           ) : null}
-          <ChevronDown className={cn("text-subtle size-4 transition-transform", open && "rotate-180")} />
+          <ChevronDown className={cn("text-subtle size-[17px] transition-transform", open && "rotate-180")} />
         </button>
       </CollapsibleTrigger>
-      <CollapsibleContent className="space-y-3 pt-1">{children}</CollapsibleContent>
+      <CollapsibleContent className="space-y-3.5 pt-0.5 pb-4">{children}</CollapsibleContent>
     </Collapsible>
   );
 }
@@ -102,7 +115,7 @@ function OptionSelect({
   anyLabel?: string;
 }) {
   return (
-    <FormField label={label}>
+    <PanelField label={label}>
       {(control) => (
         <Select value={value ?? ANY} onValueChange={(v) => onChange(v === ANY ? null : v)}>
           <SelectTrigger {...control} className="w-full">
@@ -119,7 +132,7 @@ function OptionSelect({
           </SelectContent>
         </Select>
       )}
-    </FormField>
+    </PanelField>
   );
 }
 
@@ -139,10 +152,10 @@ function RangeFields({
   const parse = (raw: string) => (raw.trim() === "" ? null : Math.max(0, Math.floor(Number(raw))));
   return (
     <div className="space-y-1.5">
-      <Label className="text-sm">{label}</Label>
+      <Label className={PANEL_LABEL}>{label}</Label>
       <div className="grid grid-cols-2 gap-2">
         <div className="relative">
-          {prefix && <span className="text-subtle pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs">{prefix}</span>}
+          {prefix && <span className="text-subtle pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm font-semibold">{prefix}</span>}
           <Input
             type="number"
             min={0}
@@ -151,11 +164,11 @@ function RangeFields({
             aria-label={`${label} minimum`}
             value={low ?? ""}
             onChange={(e) => onChange(parse(e.target.value), high)}
-            className={cn(prefix && "pl-6")}
+            className={cn(prefix && "pl-7!")}
           />
         </div>
         <div className="relative">
-          {prefix && <span className="text-subtle pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs">{prefix}</span>}
+          {prefix && <span className="text-subtle pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm font-semibold">{prefix}</span>}
           <Input
             type="number"
             min={0}
@@ -164,7 +177,7 @@ function RangeFields({
             aria-label={`${label} maximum`}
             value={high ?? ""}
             onChange={(e) => onChange(low, parse(e.target.value))}
-            className={cn(prefix && "pl-6")}
+            className={cn(prefix && "pl-7!")}
           />
         </div>
       </div>
@@ -190,11 +203,10 @@ function TriSwitch({
         checked={value === true}
         onCheckedChange={(checked) => onChange(checked ? true : null)}
         aria-label={label}
-        className="mt-0.5"
       />
-      <div className="min-w-0">
-        <p className="text-sm">{label}</p>
-        {hint && <p className="text-subtle text-xs">{hint}</p>}
+      <div className="flex min-h-7 min-w-0 flex-col justify-center">
+        <p className="text-sm leading-snug font-semibold">{label}</p>
+        {hint && <p className="text-muted-foreground text-xs font-medium">{hint}</p>}
       </div>
     </div>
   );
@@ -262,19 +274,23 @@ export function JobFilters({
 
   return (
     <form
-      className="space-y-3"
+      className={cn(
+        "space-y-3",
+        "[&_[data-slot=input]]:h-11 [&_[data-slot=input]]:rounded-[14px] [&_[data-slot=input]]:px-3.5 [&_[data-slot=input]]:text-sm",
+        "[&_[data-slot=select-trigger]]:h-11 [&_[data-slot=select-trigger]]:rounded-[14px] [&_[data-slot=select-trigger]]:pl-3.5 [&_[data-slot=select-trigger]]:text-sm",
+      )}
       onSubmit={(event) => {
         event.preventDefault();
         onSearch();
       }}
     >
       <div className="relative">
-        <Search className="text-subtle pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+        <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 z-10 size-4 -translate-y-1/2" />
         <Input
           value={value.query}
           onChange={(e) => set("query", e.target.value)}
           placeholder={queryPlaceholder}
-          className="h-11 pl-9"
+          className="bg-card h-[50px]! rounded-[18px]! pl-10! shadow-[inset_0_0_0_1.5px_var(--foreground)] focus-visible:border-transparent"
           aria-label="Search"
         />
       </div>
@@ -307,14 +323,14 @@ export function JobFilters({
       </div>
 
       <div className="flex gap-2">
-        <Button type="submit" variant="brand" className="h-10 flex-1" disabled={searching}>
+        <Button type="submit" variant="brand" size="lg" className="flex-1" disabled={searching}>
           {searching ? <Spinner /> : <Search />}
           Search {source?.label ?? "jobs"}
         </Button>
         <Button
           type="button"
           variant="outline"
-          className="h-10"
+          size="icon-lg"
           onClick={onReset}
           disabled={activeFilterCount(value) === 0 && !value.query}
           aria-label="Reset filters"
@@ -327,14 +343,14 @@ export function JobFilters({
         {has("title", "skills", "and_terms", "or_terms", "exact_terms", "exclude_terms") && (
         <Group title="Text" count={textCount} defaultOpen>
           {has("title") && (
-          <FormField label="Words in the title">
+          <PanelField label="Words in the title">
             {(control) => (
               <Input {...control} value={value.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. FastAPI" />
             )}
-          </FormField>
+          </PanelField>
           )}
           {has("skills") && (
-          <FormField
+          <PanelField
             label="Skills"
             hint={
               source?.key === "upwork"
@@ -343,9 +359,9 @@ export function JobFilters({
             }
           >
             {(control) => (
-              <TagInput {...control} value={value.skills} onChange={(v) => set("skills", v)} placeholder="python, fastapi" />
+              <FilterTags {...control} value={value.skills} onChange={(v) => set("skills", v)} placeholder="python, fastapi" />
             )}
-          </FormField>
+          </PanelField>
           )}
           {has("and_terms", "or_terms", "exact_terms", "exclude_terms") && (
           <Collapsible>
@@ -359,18 +375,18 @@ export function JobFilters({
               <p className="text-subtle text-xs">
                 Used only when the search box above is empty; Upwork ignores these next to a query.
               </p>
-              <FormField label="All of these words">
-                {(control) => <TagInput {...control} value={value.and_terms} onChange={(v) => set("and_terms", v)} />}
-              </FormField>
-              <FormField label="Any of these words">
-                {(control) => <TagInput {...control} value={value.or_terms} onChange={(v) => set("or_terms", v)} />}
-              </FormField>
-              <FormField label="Exact phrases">
-                {(control) => <TagInput {...control} value={value.exact_terms} onChange={(v) => set("exact_terms", v)} />}
-              </FormField>
-              <FormField label="None of these words">
-                {(control) => <TagInput {...control} value={value.exclude_terms} onChange={(v) => set("exclude_terms", v)} />}
-              </FormField>
+              <PanelField label="All of these words">
+                {(control) => <FilterTags {...control} value={value.and_terms} onChange={(v) => set("and_terms", v)} />}
+              </PanelField>
+              <PanelField label="Any of these words">
+                {(control) => <FilterTags {...control} value={value.or_terms} onChange={(v) => set("or_terms", v)} />}
+              </PanelField>
+              <PanelField label="Exact phrases">
+                {(control) => <FilterTags {...control} value={value.exact_terms} onChange={(v) => set("exact_terms", v)} />}
+              </PanelField>
+              <PanelField label="None of these words">
+                {(control) => <FilterTags {...control} value={value.exclude_terms} onChange={(v) => set("exclude_terms", v)} />}
+              </PanelField>
             </CollapsibleContent>
           </Collapsible>
           )}
@@ -379,7 +395,7 @@ export function JobFilters({
 
         {has("posted_within_hours") && (
         <Group title="Posted" count={value.posted_within_hours ? 1 : 0} defaultOpen>
-          <FormField label="Posted within" hint="Fresh postings get fewer proposals.">
+          <PanelField label="Posted within" hint="Fresh postings get fewer proposals.">
             {(control) => (
               <Select
                 value={value.posted_within_hours ? String(value.posted_within_hours) : ANY}
@@ -398,7 +414,7 @@ export function JobFilters({
                 </SelectContent>
               </Select>
             )}
-          </FormField>
+          </PanelField>
         </Group>
         )}
 
@@ -409,7 +425,7 @@ export function JobFilters({
           ) : categories.length === 0 ? (
             <p className="text-subtle text-xs">Categories load from {source?.label ?? "the job source"} once connected.</p>
           ) : (
-            <ScrollArea className="h-64 rounded-lg border">
+            <ScrollArea className="h-64 rounded-[14px] border">
               <ul className="space-y-1 p-2">
                 {categories.map((category) => {
                   const on = value.category_ids.includes(category.id);
@@ -441,14 +457,14 @@ export function JobFilters({
             </ScrollArea>
           )}
           {has("occupation_ids") && (
-          <FormField label="Occupation IDs" hint="Ontology occupation UIDs, any of them.">
-            {(control) => <TagInput {...control} value={value.occupation_ids} onChange={(v) => set("occupation_ids", v)} />}
-          </FormField>
+          <PanelField label="Occupation IDs" hint="Ontology occupation UIDs, any of them.">
+            {(control) => <FilterTags {...control} value={value.occupation_ids} onChange={(v) => set("occupation_ids", v)} />}
+          </PanelField>
           )}
           {has("ontology_skill_ids") && (
-          <FormField label="Ontology skill IDs" hint="All of them must match.">
-            {(control) => <TagInput {...control} value={value.ontology_skill_ids} onChange={(v) => set("ontology_skill_ids", v)} />}
-          </FormField>
+          <PanelField label="Ontology skill IDs" hint="All of them must match.">
+            {(control) => <FilterTags {...control} value={value.ontology_skill_ids} onChange={(v) => set("ontology_skill_ids", v)} />}
+          </PanelField>
           )}
         </Group>
         )}
@@ -481,11 +497,11 @@ export function JobFilters({
           )}
           {has("durations") && (
           <div className="space-y-1.5">
-            <Label className="text-sm">Duration</Label>
-            <ul className="space-y-1">
+            <Label className={PANEL_LABEL}>Duration</Label>
+            <ul className="space-y-2">
               {(catalogue?.durations ?? []).map((o) => (
                 <li key={o.value}>
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className="flex items-center gap-2.5 text-sm font-medium">
                     <Checkbox
                       checked={value.durations.includes(o.value)}
                       onCheckedChange={() => toggleIn("durations", o.value)}
@@ -550,7 +566,7 @@ export function JobFilters({
           />
           )}
           {has("client_min_rating") && (
-          <FormField label="Client rating">
+          <PanelField label="Client rating">
             {(control) => (
               <Select
                 value={value.client_min_rating == null ? ANY : String(value.client_min_rating)}
@@ -569,7 +585,7 @@ export function JobFilters({
                 </SelectContent>
               </Select>
             )}
-          </FormField>
+          </PanelField>
           )}
           {has("client_min_spent") && (
           <RangeFields
@@ -581,7 +597,7 @@ export function JobFilters({
           />
           )}
           {has("client_min_hire_rate") && (
-          <FormField label="Client hire rate at least (%)" hint="Share of their postings that ended in a hire.">
+          <PanelField label="Client hire rate at least (%)" hint="Share of their postings that ended in a hire.">
             {(control) => (
               <Input
                 {...control}
@@ -599,7 +615,7 @@ export function JobFilters({
                 }
               />
             )}
-          </FormField>
+          </PanelField>
           )}
           {has("client_hires_min") && (
           <RangeFields
@@ -618,31 +634,31 @@ export function JobFilters({
           />
           )}
           {has("client_locations") && (
-          <FormField
+          <PanelField
             label="Client location"
             hint={source?.key === "apify" ? "Region, subregion or country, e.g. Europe, Northern America, Germany." : "Country or city."}
           >
-            {(control) => <TagInput {...control} value={value.client_locations} onChange={(v) => set("client_locations", v)} placeholder="Germany, New York" />}
-          </FormField>
+            {(control) => <FilterTags {...control} value={value.client_locations} onChange={(v) => set("client_locations", v)} placeholder="Germany, New York" />}
+          </PanelField>
           )}
           {has("exclude_client_locations") && (
-          <FormField label="Not from these client locations" hint="Region, subregion or country.">
+          <PanelField label="Not from these client locations" hint="Region, subregion or country.">
             {(control) => (
-              <TagInput
+              <FilterTags
                 {...control}
                 value={value.exclude_client_locations}
                 onChange={(v) => set("exclude_client_locations", v)}
                 placeholder="Pakistan, Southern Asia"
               />
             )}
-          </FormField>
+          </PanelField>
           )}
           {has("client_timezone") && (
-          <FormField label="Client timezone">
+          <PanelField label="Client timezone">
             {(control) => (
               <Input {...control} value={value.client_timezone} onChange={(e) => set("client_timezone", e.target.value)} placeholder="Europe/Berlin" />
             )}
-          </FormField>
+          </PanelField>
           )}
         </Group>
         )}
@@ -658,7 +674,7 @@ export function JobFilters({
           />
           )}
           {has("english_level") && (
-          <FormField label="English asked for">
+          <PanelField label="English asked for">
             {(control) => (
               <Select
                 value={value.english_level ?? ANY}
@@ -677,10 +693,10 @@ export function JobFilters({
                 </SelectContent>
               </Select>
             )}
-          </FormField>
+          </PanelField>
           )}
           {has("contractor_type") && (
-          <FormField label="Open to">
+          <PanelField label="Open to">
             {(control) => (
               <Select
                 value={value.contractor_type ?? ANY}
@@ -696,7 +712,7 @@ export function JobFilters({
                 </SelectContent>
               </Select>
             )}
-          </FormField>
+          </PanelField>
           )}
           {has("featured_only") && (
           <TriSwitch
@@ -727,15 +743,15 @@ export function JobFilters({
           />
           )}
           {has("visitor_country") && (
-          <FormField label="Visitor country" hint="Two-letter code.">
+          <PanelField label="Visitor country" hint="Two-letter code.">
             {(control) => (
               <Input {...control} maxLength={2} value={value.visitor_country} onChange={(e) => set("visitor_country", e.target.value.toUpperCase())} placeholder="US" className="w-24 uppercase" />
             )}
-          </FormField>
+          </PanelField>
           )}
           {has("area") && (
           <div className="space-y-1.5">
-            <Label className="text-sm">Within an area</Label>
+            <Label className={PANEL_LABEL}>Within an area</Label>
             <div className="grid grid-cols-3 gap-2">
               {(["latitude", "longitude", "radius_miles"] as const).map((key) => (
                 <Input
@@ -768,9 +784,9 @@ export function JobFilters({
           />
           )}
           {has("talent_cloud_ids") && (
-          <FormField label="Talent cloud IDs">
-            {(control) => <TagInput {...control} value={value.talent_cloud_ids} onChange={(v) => set("talent_cloud_ids", v)} />}
-          </FormField>
+          <PanelField label="Talent cloud IDs">
+            {(control) => <FilterTags {...control} value={value.talent_cloud_ids} onChange={(v) => set("talent_cloud_ids", v)} />}
+          </PanelField>
           )}
         </Group>
         )}
@@ -786,7 +802,7 @@ export function JobFilters({
             value={value.hide_applied ? true : null}
             onChange={(v) => set("hide_applied", v === true)}
           />
-          <FormField
+          <PanelField
             label="Open to applicants from"
             hint="Drops postings that only accept freelancers from other countries."
           >
@@ -798,7 +814,7 @@ export function JobFilters({
                 onChange={(e) => set("open_to_country", e.target.value)}
               />
             )}
-          </FormField>
+          </PanelField>
         </Group>
       </div>
 

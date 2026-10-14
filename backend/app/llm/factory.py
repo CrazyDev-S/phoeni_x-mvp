@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crypto import unseal
 from app.llm.anthropic_adapter import AnthropicAdapter
-from app.llm.catalog import DEFAULT_TIERS
+from app.llm.catalog import DEFAULT_TIERS, belongs_to_other_provider
 from app.llm.openai_adapter import OpenAIAdapter
 from app.llm.provider import LLMProviderPort, MissingCredentialError
 from app.models.enums import CredentialStatus, LLMProvider
@@ -50,6 +50,10 @@ async def get_provider(
     if settings:
         model = {"heavy": settings.heavy_model, "mid": settings.mid_model,
                  "fast": settings.fast_model}.get(tier)
+    if model and belongs_to_other_provider(provider, model):
+        # Left over from before the provider was switched; sending a Claude
+        # model id to OpenAI (or the reverse) only fails at the first call.
+        model = None
     model = model or DEFAULT_TIERS[provider][tier]
 
     key = await load_api_key(session, user_id, provider)

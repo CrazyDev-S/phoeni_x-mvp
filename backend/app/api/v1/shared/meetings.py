@@ -11,7 +11,7 @@ import uuid
 from datetime import date, time, timedelta
 
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, or_, select
 
 from app.core.deps import CurrentUser, Session
 from app.core.timezone import local_day_bounds, local_to_utc, to_display, utc_now
@@ -21,10 +21,27 @@ from app.models.enums import MeetingStatus
 from app.models.freelancing import FreelanceJobTrack
 from app.models.maintenance import MaintainedJob
 from app.models.user import UserSettings
-from app.schemas.tracking import CalendarMeetingOut, MeetingCreate, MeetingPatch, UpcomingOut
+from app.schemas.tracking import Category, CalendarMeetingOut, MeetingCreate, MeetingPatch, UpcomingOut
 from app.shared.calendar.tracking import describe_meetings, sync_stage
 
 router = APIRouter(prefix="/meetings", tags=["calendar"])
+
+
+def _in_category(category: Category | None) -> list[ColumnElement[bool]]:
+    """A WHERE clause for one portal's meetings, or none for all of them.
+
+    Every meeting has exactly one owner: a remote stage, a freelancing track, or
+    a maintained job, which names its own portal.
+    """
+    if category is None:
+        return []
+    jobs = select(MaintainedJob.id).where(MaintainedJob.category == category)
+    direct = (
+        Meeting.stage_id.is_not(None)
+        if category == "remote"
+        else Meeting.freelance_track_id.is_not(None)
+    )
+    return [or_(direct, Meeting.maintained_job_id.in_(jobs))]
 
 
 async def _display_timezone(session: Session, user: CurrentUser) -> str:
@@ -123,6 +140,7 @@ async def list_meetings(
     session: Session,
     from_: date = Query(alias="from"),
     to: date = Query(),
+    category: Category | None = Query(default=None),
 ) -> list[CalendarMeetingOut]:
     """Meetings overlapping a local date range.
 
@@ -140,6 +158,7 @@ async def list_meetings(
                 Meeting.user_id == user.id,
                 Meeting.starts_at >= start,
                 Meeting.starts_at < end,
+                *_in_category(category),
             )
             .order_by(Meeting.starts_at)
         )
@@ -149,7 +168,10 @@ async def list_meetings(
 
 @router.get("/upcoming", response_model=list[UpcomingOut])
 async def upcoming(
-    user: CurrentUser, session: Session, limit: int = Query(default=10, le=50)
+    user: CurrentUser,
+    session: Session,
+    limit: int = Query(default=10, le=50),
+    category: Category | None = Query(default=None),
 ) -> list[UpcomingOut]:
     """The notification feed. Also backs the extension's top banner."""
     now = utc_now()
@@ -160,6 +182,7 @@ async def upcoming(
                 Meeting.user_id == user.id,
                 Meeting.status == MeetingStatus.SCHEDULED,
                 Meeting.starts_at >= now,
+                *_in_category(category),
             )
             .order_by(Meeting.starts_at)
             .limit(limit)
@@ -179,9 +202,11 @@ async def upcoming(
 
 
 @router.get("/next", response_model=UpcomingOut | None)
-async def next_meeting(user: CurrentUser, session: Session) -> UpcomingOut | None:
+async def next_meeting(
+    user: CurrentUser, session: Session, category: Category | None = Query(default=None)
+) -> UpcomingOut | None:
     """The single next call, across applications, maintained jobs and freelancing tracks."""
-    rows = await upcoming(user, session, limit=1)
+    rows = await upcoming(user, session, limit=1, category=category)
     return rows[0] if rows else None
 
 

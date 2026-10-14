@@ -23,7 +23,7 @@ export function ApplicationSheet({
     <Sheet open={id !== null} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="right"
-        className="w-full gap-0 overflow-y-auto p-0 data-[side=right]:sm:max-w-2xl"
+        className="w-full gap-0 overflow-y-auto p-0 data-[side=right]:sm:max-w-[29rem]"
       >
         <SheetHeader className="sr-only">
           {/* Names the dialog without a second heading: the view renders the visible one. */}
@@ -35,7 +35,7 @@ export function ApplicationSheet({
           </SheetDescription>
         </SheetHeader>
         {id && (
-          <div className="p-5 sm:p-6">
+          <div className="p-5 sm:p-[26px]">
             <ApplicationDetailView id={id} layout="sheet" onDeleted={onClose} />
           </div>
         )}

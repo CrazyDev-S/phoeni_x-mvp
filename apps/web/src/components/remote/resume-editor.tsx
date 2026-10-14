@@ -5,9 +5,12 @@ import { Code, Eye } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { ErrorAlert } from "@/components/error-alert";
-import { ResumePreview, type ResumePreviewData } from "@/components/remote/resume-preview";
+import {
+  ResumePreview,
+  type ResumePreviewData,
+} from "@/components/remote/resume-preview";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
@@ -33,61 +36,82 @@ import { cn } from "@/lib/utils";
  * the two editors cannot drift apart.
  */
 
+/** The pill segmented control used for the document's view switches. */
+const SEG_LIST =
+  "bg-soft h-auto gap-0.5 p-1 shadow-none group-data-horizontal/tabs:h-auto";
+const SEG_TRIGGER =
+  "h-9 flex-none px-4 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground [&_svg:not([class*='size-'])]:size-[15px]";
+
 /** The document itself: a live preview, or the Markdown it is written in. */
 export function DocumentPane({
   draft,
   onChange,
   dirty,
+  actions,
 }: {
   draft: string;
   onChange: (next: string) => void;
   dirty: boolean;
+  /** Buttons that act on the document, shown at the end of the toolbar. */
+  actions?: React.ReactNode;
 }) {
   const [view, setView] = useState<"preview" | "markdown">("preview");
   return (
-      <Card className="min-w-0 gap-0 overflow-hidden py-0">
-        <Tabs value={view} onValueChange={(v) => setView(v as "preview" | "markdown")} className="gap-0">
-          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
-            <TabsList>
-              <TabsTrigger value="preview" className="text-xs">
-                <Eye />
-                Preview
-              </TabsTrigger>
-              <TabsTrigger value="markdown" className="text-xs">
-                <Code />
-                Markdown
-              </TabsTrigger>
-            </TabsList>
+    <Card className="min-w-0 gap-0 overflow-hidden py-0">
+      <Tabs
+        value={view}
+        onValueChange={(v) => setView(v as "preview" | "markdown")}
+        className="gap-0"
+      >
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-3 border-b p-4">
+          <TabsList className={SEG_LIST}>
+            <TabsTrigger value="preview" className={SEG_TRIGGER}>
+              <Eye />
+              Preview
+            </TabsTrigger>
+            <TabsTrigger value="markdown" className={SEG_TRIGGER}>
+              <Code />
+              Markdown
+            </TabsTrigger>
+          </TabsList>
+          <div className="ml-auto flex flex-wrap items-center gap-2.5">
             <span
               className={cn(
-                "text-xs",
-                dirty ? "text-warning font-medium" : "text-muted-foreground",
+                "text-muted-foreground mr-1 inline-flex items-center gap-2 text-[0.8125rem] font-semibold",
+                dirty && "text-warning",
               )}
             >
+              <span
+                aria-hidden
+                className={cn(
+                  "size-2 rounded-full",
+                  dirty ? "bg-warning" : "bg-success",
+                )}
+              />
               {dirty ? "Unsaved edits" : "In sync"}
             </span>
-          </CardHeader>
+            {actions}
+          </div>
+        </div>
 
-          <TabsContent value="preview">
-            <PreviewPane markdown={draft} />
-          </TabsContent>
+        <TabsContent value="preview">
+          <PreviewPane markdown={draft} />
+        </TabsContent>
 
-          <TabsContent value="markdown">
-            <CardContent className="px-0">
-              {/* field-sizing-fixed defeats the shadcn default of growing to fit
-                  content: a 600-line resume would otherwise make the page itself
-                  scroll and leave the panel beside it stranded at the top. */}
-              <Textarea
-                aria-label="Resume Markdown"
-                spellCheck={false}
-                value={draft}
-                onChange={(e) => onChange(e.target.value)}
-                className="field-sizing-fixed h-[70vh] resize-none rounded-none border-0 bg-transparent font-mono text-xs focus-visible:ring-0 dark:bg-transparent"
-              />
-            </CardContent>
-          </TabsContent>
-        </Tabs>
-      </Card>
+        <TabsContent value="markdown">
+          {/* field-sizing-fixed defeats the shadcn default of growing to fit
+              content: a 600-line resume would otherwise make the page itself
+              scroll and leave the panel beside it stranded at the top. */}
+          <Textarea
+            aria-label="Resume Markdown"
+            spellCheck={false}
+            value={draft}
+            onChange={(e) => onChange(e.target.value)}
+            className="field-sizing-fixed h-[70vh] resize-none rounded-none border-0 bg-transparent px-5 py-4 font-mono text-xs focus-visible:bg-transparent"
+          />
+        </TabsContent>
+      </Tabs>
+    </Card>
   );
 }
 
@@ -105,7 +129,8 @@ function useDebounced<T>(value: T, ms: number): T {
  * unsaved edits included - so there is no need to download to see a change.
  */
 export function PreviewPane({ markdown }: { markdown: string }) {
-  const [profile, setProfile] = useState<ResumePreviewData["profile"]>("designed");
+  const [profile, setProfile] =
+    useState<ResumePreviewData["profile"]>("designed");
   const [pageCount, setPageCount] = useState<number | null>(null);
   const source = useDebounced(markdown, 400);
 
@@ -128,28 +153,38 @@ export function PreviewPane({ markdown }: { markdown: string }) {
   }, [preview.data, preview.isPlaceholderData]);
   const shown = preview.data ?? lastGood;
 
-  const error = preview.error as { message?: string; detail?: Record<string, unknown> } | null;
+  const error = preview.error as {
+    message?: string;
+    detail?: Record<string, unknown>;
+  } | null;
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
+      <div className="bg-soft/40 flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
         <Tabs
           value={profile}
           onValueChange={(v) => setProfile(v as ResumePreviewData["profile"])}
         >
-          <TabsList>
-            <TabsTrigger value="designed" className="text-xs">
+          <TabsList className={SEG_LIST}>
+            <TabsTrigger
+              value="designed"
+              className={cn(SEG_TRIGGER, "h-[30px] px-3.5 text-[0.8125rem]")}
+            >
               Designed
             </TabsTrigger>
-            <TabsTrigger value="ats_plain" className="text-xs">
+            <TabsTrigger
+              value="ats_plain"
+              className={cn(SEG_TRIGGER, "h-[30px] px-3.5 text-[0.8125rem]")}
+            >
               ATS version
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        <span className="text-muted-foreground text-xs tabular-nums">
+        <span className="text-muted-foreground text-[0.8125rem] font-medium tabular-nums">
           {preview.isFetching || source !== markdown
             ? "Updating…"
-            : pageCount !== null && `${pageCount} ${pageCount === 1 ? "page" : "pages"} · Letter`}
+            : pageCount !== null &&
+              `${pageCount} ${pageCount === 1 ? "page" : "pages"} · Letter`}
         </span>
       </div>
 
@@ -164,11 +199,13 @@ export function PreviewPane({ markdown }: { markdown: string }) {
         </div>
       )}
 
-      <div className="bg-muted/60 h-[70vh] overflow-y-auto p-4 sm:p-6">
+      <div className="bg-soft-2 h-[70vh] overflow-y-auto p-4 sm:p-7">
         {shown ? (
           <ResumePreview data={shown} onPageCount={setPageCount} />
         ) : (
-          !error && <Skeleton className="mx-auto aspect-[8.5/11] w-full max-w-[816px]" />
+          !error && (
+            <Skeleton className="mx-auto aspect-[8.5/11] w-full max-w-[816px]" />
+          )
         )}
       </div>
     </div>
@@ -179,11 +216,16 @@ export function PanelNote({ children }: { children: React.ReactNode }) {
   return <p className="text-muted-foreground px-4 py-6 text-sm">{children}</p>;
 }
 
-export function AtsPanel({ report }: { report: Record<string, unknown> | null }) {
+export function AtsPanel({
+  report,
+}: {
+  report: Record<string, unknown> | null;
+}) {
   if (!report) {
     return (
       <PanelNote>
-        No ATS report — generate or tailor this resume against a job description to get one.
+        No ATS report — generate or tailor this resume against a job description
+        to get one.
       </PanelNote>
     );
   }
@@ -199,13 +241,19 @@ export function AtsPanel({ report }: { report: Record<string, unknown> | null })
             `${stat("must_have_covered")}/${stat("must_have_total")} · ${stat("must_have_coverage_percent")}%`,
           ],
           ["Nice-to-have", `${stat("nice_to_have_coverage_percent")}%`],
-          ["Years required / shown", `${stat("years_required")} / ${stat("years_shown")}`],
+          [
+            "Years required / shown",
+            `${stat("years_required")} / ${stat("years_shown")}`,
+          ],
           [
             "Scenario gate",
             `${stat("scenario_gate_passed")}/${stat("scenario_gate_total")}`,
           ],
           ["Parse integrity", stat("parse_integrity")],
-          ["Companies · categories", `${stat("companies")} · ${stat("skill_categories")}`],
+          [
+            "Companies · categories",
+            `${stat("companies")} · ${stat("skill_categories")}`,
+          ],
         ].map(([label, value]) => (
           <div key={label} className="bg-card px-4 py-3">
             <dt className="text-muted-foreground text-xs">{label}</dt>
@@ -219,18 +267,27 @@ export function AtsPanel({ report }: { report: Record<string, unknown> | null })
           <Table className="text-xs">
             <TableHeader className="bg-muted sticky top-0 z-10">
               <TableRow>
-                {["Keyword", "Priority", "Skills", "Experience", "Summary"].map((h) => (
-                  <TableHead key={h} className="h-8">
-                    {h}
-                  </TableHead>
-                ))}
+                {["Keyword", "Priority", "Skills", "Experience", "Summary"].map(
+                  (h) => (
+                    <TableHead key={h} className="h-8">
+                      {h}
+                    </TableHead>
+                  ),
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((row, i) => (
-                <TableRow key={i} className={row.covered ? undefined : "bg-destructive/5"}>
-                  <TableCell className="py-1.5">{String(row.keyword)}</TableCell>
-                  <TableCell className="py-1.5">{String(row.priority)}</TableCell>
+                <TableRow
+                  key={i}
+                  className={row.covered ? undefined : "bg-destructive/5"}
+                >
+                  <TableCell className="py-1.5">
+                    {String(row.keyword)}
+                  </TableCell>
+                  <TableCell className="py-1.5">
+                    {String(row.priority)}
+                  </TableCell>
                   {(["skills", "experience", "summary"] as const).map((k) => (
                     <TableCell key={k} className="py-1.5">
                       {row[k] ? "yes" : "—"}
@@ -244,8 +301,8 @@ export function AtsPanel({ report }: { report: Record<string, unknown> | null })
       )}
 
       <p className="text-muted-foreground border-t px-4 py-2 text-xs">
-        Every count here is computed from the parsed resume, not written by the model — so
-        it cannot disagree with the document.
+        Every count here is computed from the parsed resume, not written by the
+        model — so it cannot disagree with the document.
       </p>
     </div>
   );
@@ -277,7 +334,13 @@ export interface Flags {
  * it. The original object stays available underneath for anything the schema
  * does not cover.
  */
-export function PrepPanel({ value, empty }: { value: Flags | null; empty: string }) {
+export function PrepPanel({
+  value,
+  empty,
+}: {
+  value: Flags | null;
+  empty: string;
+}) {
   if (!value) return <PanelNote>{empty}</PanelNote>;
 
   const sections: [string, React.ReactNode][] = [];
@@ -322,7 +385,9 @@ export function PrepPanel({ value, empty }: { value: Flags | null; empty: string
               <span className="text-muted-foreground"> · {figure.where}</span>
             )}
             {figure.derivation && (
-              <span className="text-muted-foreground block">{figure.derivation}</span>
+              <span className="text-muted-foreground block">
+                {figure.derivation}
+              </span>
             )}
           </li>
         ))}
@@ -338,7 +403,9 @@ export function PrepPanel({ value, empty }: { value: Flags | null; empty: string
           <li key={i} className="break-words">
             {gap.requirement}
             {gap.how_to_close && (
-              <span className="text-muted-foreground block">{gap.how_to_close}</span>
+              <span className="text-muted-foreground block">
+                {gap.how_to_close}
+              </span>
             )}
           </li>
         ))}

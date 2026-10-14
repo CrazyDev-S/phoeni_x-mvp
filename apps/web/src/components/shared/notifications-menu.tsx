@@ -5,7 +5,6 @@ import { Bell, CalendarDays } from "lucide-react";
 import Link from "next/link";
 
 import type { Upcoming } from "@/components/shared/next-call";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,8 +13,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { usePortal } from "@/hooks/use-portal";
 import { request } from "@/lib/api";
 import { formatDateTime, relative, IMMINENT_MINUTES } from "@/lib/format";
+import { portalPath } from "@/lib/portals";
 
 /**
  * What is coming up, rather than a generic notification feed.
@@ -25,9 +26,14 @@ import { formatDateTime, relative, IMMINENT_MINUTES } from "@/lib/format";
  * close enough to act on.
  */
 export function NotificationsMenu() {
+  const portal = usePortal();
+  const calendar = portal ? portalPath(portal, "calendar") : "/";
   const { data } = useQuery({
-    queryKey: ["upcoming"],
-    queryFn: () => request<Upcoming[]>("/api/v1/shared/meetings/upcoming?limit=6"),
+    queryKey: ["upcoming", portal],
+    queryFn: () =>
+      request<Upcoming[]>(
+        `/api/v1/shared/meetings/upcoming?limit=6${portal ? `&category=${portal}` : ""}`,
+      ),
     refetchInterval: 60_000,
   });
 
@@ -37,17 +43,15 @@ export function NotificationsMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="relative"
+        <button
+          className="bg-card text-card-foreground focus-visible:ring-brand/60 relative grid size-12 shrink-0 place-items-center rounded-full outline-none focus-visible:ring-3"
           aria-label={imminent ? `${imminent} upcoming calls` : "Upcoming calls"}
         >
-          <Bell />
+          <Bell className="size-[18px]" />
           {imminent > 0 && (
-            <span className="bg-primary ring-background absolute top-1 right-1 size-2 rounded-full ring-2" />
+            <span className="bg-destructive ring-card absolute top-3 right-3.5 size-2.5 rounded-full ring-2" />
           )}
-        </Button>
+        </button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-80">
@@ -65,7 +69,7 @@ export function NotificationsMenu() {
               asChild
               className="items-start gap-2.5 py-2"
             >
-              <Link href="/calendar">
+              <Link href={calendar}>
                 <CalendarDays className="text-muted-foreground mt-0.5" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">
@@ -83,7 +87,7 @@ export function NotificationsMenu() {
 
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/calendar">Open calendar</Link>
+          <Link href={calendar}>Open calendar</Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -2,15 +2,21 @@ import Image from "next/image";
 
 import { cn } from "@/lib/utils";
 
+/** Intrinsic size of public/phoenix-avatar.png, which `npm run brand` generates. */
+const ART = { width: 640, height: 272 } as const;
+
+/** CSS widths: the wordmark is wide, so it is sized by width and keeps its ratio. */
 const SIZES = {
-  // The phone top bar, where the sidebar - and the mark in it - is off-canvas.
-  sm: { px: 32, text: "text-base" },
-  default: { px: 48, text: "text-xl" },
-  lg: { px: 64, text: "text-3xl" },
-  x_lg: { px: 300, text: "text-3xl" },
+  // The phone top bar, where the sidebar - and the wordmark in it - is off-canvas.
+  sm: 88,
+  // The black top bar: 40px tall at the artwork's ratio.
+  bar: 94,
+  default: 184,
+  lg: 224,
+  x_lg: 300,
 } as const;
 
-/** The mark and wordmark. One definition, used by the sidebar, the top bar and the login page. */
+/** The PhoeniX wordmark. One definition, used by the sidebar, the top bar and the login page. */
 export function Brand({
   className,
   size = "x_lg",
@@ -18,21 +24,20 @@ export function Brand({
   className?: string;
   size?: keyof typeof SIZES;
 }) {
-  // The mark leads: well over the cap height, so it reads as the logo rather
-  // than an inline glyph.
-  const { px, text } = SIZES[size];
+  const width = SIZES[size];
   return (
-    <span className={cn("inline-flex items-center gap-2", className)}>
-      {/* Generated from branding/ by `npm run brand`. Decorative: the wordmark
-          beside it already names the app. Eager: the mark sits at the top of
-          every page, often as its largest paint. */}
+    <span className={cn("inline-flex items-center", className)}>
+      {/* Generated from branding/ by `npm run brand`. The artwork spells out
+          the name, so the alt text carries it. Eager: the wordmark sits at the
+          top of every page, often as its largest paint. */}
       <Image
         src="/phoenix-avatar.png"
-        alt=""
-        width={px}
-        height={px}
+        alt="PhoeniX"
+        width={ART.width}
+        height={ART.height}
         loading="eager"
-        className="shrink-0"
+        style={{ width, height: "auto" }}
+        className="h-auto max-w-full shrink-0"
       />
     </span>
   );

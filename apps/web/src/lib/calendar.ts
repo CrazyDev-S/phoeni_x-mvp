@@ -128,6 +128,32 @@ export function minutesLabel(minutes: number): string {
   return `${String(hours).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
+/** "9 am", "2 pm": a ruler label. */
+export function hourLabel(hour: number): string {
+  const h = hour % 24;
+  return `${((h + 11) % 12) + 1} ${h >= 12 ? "pm" : "am"}`;
+}
+
+/** "10:30", the clock without its meridiem, for a block too short to say more. */
+export function clockShort(minutes: number): string {
+  const h = Math.floor(minutes / 60) % 24;
+  return `${((h + 11) % 12) + 1}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+/** "2:15 pm". */
+export function clockLabel(minutes: number): string {
+  const h = Math.floor(minutes / 60) % 24;
+  return `${clockShort(minutes)} ${h >= 12 ? "pm" : "am"}`;
+}
+
+/** "2:00 – 3:00 pm", or "11:30 am – 12:30 pm" when the span crosses noon. */
+export function spanLabel(start: number, end: number): string {
+  const meridiem = (minutes: number) => (Math.floor(minutes / 60) % 24 >= 12 ? "pm" : "am");
+  return meridiem(start) === meridiem(end)
+    ? `${clockShort(start)} – ${clockShort(end)} ${meridiem(end)}`
+    : `${clockLabel(start)} – ${clockLabel(end)}`;
+}
+
 /** The zone as the user reads it on the day in question — EST or EDT. */
 export function zoneAbbreviation(key: DayKey): string {
   return formatInTimeZone(civil(key), DISPLAY_TIME_ZONE, "zzz");
@@ -214,7 +240,9 @@ export interface EventColor {
 }
 
 /**
- * Muted hues, so a full week still reads as one surface rather than confetti.
+ * Soft hues, so a full week still reads as one surface rather than confetti:
+ * the portal accent for interviews, lavender for calls, green for one to ones,
+ * grey for team meetings.
  *
  * Each entry points at theme tokens rather than a literal colour: the same
  * meeting has to stay legible on a white canvas and on a near-black one, and
@@ -233,12 +261,12 @@ const COLOR_BY_TYPE: Record<string, number> = {
   screening: 1,
   recruiter_screen: 1,
   phone_screen: 1,
-  panel: 2,
+  panel: 1,
   one_on_one: 2,
   team_sync: 3,
   standup: 3,
   offer: 5,
-  client_call: 2,
+  client_call: 1,
 };
 
 export function eventColor(meetingType: string): EventColor {

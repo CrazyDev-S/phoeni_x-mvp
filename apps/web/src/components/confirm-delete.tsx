@@ -32,17 +32,23 @@ export function ConfirmDelete({
   onDelete,
   onDeleted,
   size = "default",
+  trigger,
 }: {
   label: string;
   /** Resolves when deleted; throws an ApiError the caller can inspect. */
   onDelete: (cascade: boolean) => Promise<void>;
   onDeleted?: () => void;
   size?: "sm" | "default";
+  /** Replaces the default ghost "Delete" button as the thing that opens the dialog. */
+  trigger?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cascade, setCascade] = useState<{ message: string; count: number } | null>(null);
+  const [cascade, setCascade] = useState<{
+    message: string;
+    count: number;
+  } | null>(null);
 
   async function run(withCascade: boolean) {
     setBusy(true);
@@ -82,15 +88,19 @@ export function ConfirmDelete({
       }}
     >
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size={size}>
-          <Trash2 />
-          Delete
-        </Button>
+        {trigger ?? (
+          <Button variant="ghost" size={size}>
+            <Trash2 />
+            Delete
+          </Button>
+        )}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {cascade ? "This will delete more than one resume" : `Delete “${label}”?`}
+            {cascade
+              ? "This will delete more than one resume"
+              : `Delete “${label}”?`}
           </AlertDialogTitle>
           <AlertDialogDescription>
             {cascade

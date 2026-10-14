@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import time
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
 
 from app.core.deps import CurrentUser, Session
@@ -16,6 +16,7 @@ from app.models.freelancing import FreelanceJobTrack
 from app.models.maintenance import MaintainedJob
 from app.models.user import UserSettings
 from app.schemas.tracking import (
+    Category,
     MaintainedJobCreate,
     MaintainedJobOut,
     SeriesCreate,
@@ -72,7 +73,15 @@ async def create_maintained_job(
             )
         application.status = ApplicationStatus.HIRED
 
-    row = MaintainedJob(user_id=user.id, **body.model_dump())
+    # A link decides the portal; a job added by hand takes the one it was added in.
+    category = (
+        "freelancing"
+        if body.freelance_track_id
+        else "remote"
+        if body.job_application_id
+        else body.category or "remote"
+    )
+    row = MaintainedJob(user_id=user.id, **{**body.model_dump(), "category": category})
     session.add(row)
     await session.flush()
     return row
@@ -80,15 +89,12 @@ async def create_maintained_job(
 
 @router.get("", response_model=list[MaintainedJobOut])
 async def list_maintained_jobs(
-    user: CurrentUser, session: Session
+    user: CurrentUser, session: Session, category: Category | None = Query(default=None)
 ) -> list[MaintainedJob]:
-    return list(
-        await session.scalars(
-            select(MaintainedJob)
-            .where(MaintainedJob.user_id == user.id)
-            .order_by(MaintainedJob.start_date.desc())
-        )
-    )
+    query = select(MaintainedJob).where(MaintainedJob.user_id == user.id)
+    if category:
+        query = query.where(MaintainedJob.category == category)
+    return list(await session.scalars(query.order_by(MaintainedJob.start_date.desc())))
 
 
 @router.patch("/{job_id}", response_model=MaintainedJobOut)

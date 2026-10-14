@@ -23,10 +23,10 @@ export function StepsBand({
   return (
     // Container queries, not viewport ones: this band sits in a main column
     // whose width depends on whether the page has an aside beside it.
-    <Card className="bg-accent/40 @container border-dashed">
+    <Card tone="soft" className="@container">
       <CardContent className="grid gap-6 @3xl:grid-cols-[minmax(0,1fr)_2.2fr] @3xl:items-center">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+          <h2 className="text-xl font-medium tracking-tight">{title}</h2>
           <p className="text-muted-foreground mt-1 text-sm">{description}</p>
         </div>
 
@@ -38,11 +38,11 @@ export function StepsBand({
               (two 1.5rem gaps between them). */}
           <span
             aria-hidden
-            className="bg-gradient-brand absolute top-4 right-[calc((100%_-_3rem)/3_-_1rem)] left-4 hidden h-px opacity-50 @xl:block"
+            className="bg-foreground/15 absolute top-4 right-[calc((100%_-_3rem)/3_-_1rem)] left-4 hidden h-px @xl:block"
           />
           {steps.map((step, index) => (
             <li key={step.title} className="relative space-y-1.5">
-              <span className="bg-gradient-brand-strong text-primary-foreground relative flex size-8 items-center justify-center rounded-full text-xs font-semibold tabular-nums shadow-sm">
+              <span className="bg-primary text-brand relative flex size-8 items-center justify-center rounded-full text-xs font-bold tabular-nums">
                 {String(index + 1).padStart(2, "0")}
               </span>
               <p className="pt-1 text-sm font-medium">{step.title}</p>

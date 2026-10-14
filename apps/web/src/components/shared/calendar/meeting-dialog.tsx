@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { usePortal } from "@/hooks/use-portal";
 import { request } from "@/lib/api";
 import {
   dayLabel,
@@ -116,7 +117,7 @@ export function MeetingDialog({
 }) {
   return (
     <Dialog open={state !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl">
         {state && (
           <MeetingForm
             key={state.mode === "edit" ? state.meeting.id : JSON.stringify(state.draft)}
@@ -140,20 +141,24 @@ function MeetingForm({
   const editing = state.mode === "edit" ? state.meeting : null;
   const draft: MeetingDraft = state.mode === "create" ? state.draft : {};
 
+  // A meeting is booked for something in the portal it is opened from:
+  // applications in Remote, bids in Freelancing, maintained jobs in either.
+  const portal = usePortal();
   const applications = useQuery({
     queryKey: ["applications", "all"],
     queryFn: () => request<{ items: ApplicationRow[] }>("/api/v1/remote/applications"),
-    enabled: !editing,
+    enabled: !editing && portal !== "freelancing",
   });
   const jobs = useQuery({
-    queryKey: ["maintained-jobs"],
-    queryFn: () => request<Job[]>("/api/v1/shared/maintained-jobs"),
+    queryKey: ["maintained-jobs", portal],
+    queryFn: () =>
+      request<Job[]>(`/api/v1/shared/maintained-jobs${portal ? `?category=${portal}` : ""}`),
     enabled: !editing,
   });
   const tracks = useQuery({
     queryKey: ["freelancing", "tracks", "open"],
     queryFn: () => request<Track[]>("/api/v1/freelancing/tracks?include_closed=false"),
-    enabled: !editing,
+    enabled: !editing && portal !== "remote",
   });
 
   const rows = useMemo(() => applications.data?.items ?? [], [applications.data]);
@@ -298,9 +303,9 @@ function MeetingForm({
   const error = (save.error ?? remove.error) as Error | null;
   const nothingToBook =
     !editing &&
-    applications.isSuccess &&
+    (portal === "freelancing" || applications.isSuccess) &&
     jobs.isSuccess &&
-    tracks.isSuccess &&
+    (portal === "remote" || tracks.isSuccess) &&
     !rows.length &&
     !(jobs.data ?? []).length &&
     !(tracks.data ?? []).length;
@@ -326,9 +331,14 @@ function MeetingForm({
 
       {nothingToBook ? (
         <p className="text-muted-foreground text-sm">
-          Meetings belong to an application, a current job or a freelancing bid.{" "}
-          <Link href="/remote/applications" className="text-primary hover:underline">
-            Add an application
+          {portal === "freelancing"
+            ? "Meetings belong to a freelancing bid or a current contract. "
+            : "Meetings belong to an application or a current job. "}
+          <Link
+            href={portal === "freelancing" ? "/freelancing/jobs" : "/remote/applications"}
+            className="text-primary hover:underline"
+          >
+            {portal === "freelancing" ? "Find a job to bid on" : "Add an application"}
           </Link>{" "}
           first.
         </p>
@@ -340,7 +350,11 @@ function MeetingForm({
                 {(control) => (
                   <Select value={effectiveTarget} onValueChange={pickTarget}>
                     <SelectTrigger {...control} className="w-full">
-                      <SelectValue placeholder="Pick an application, job or bid" />
+                      <SelectValue placeholder={
+                        portal === "freelancing"
+                          ? "Pick a bid or contract"
+                          : "Pick an application or job"
+                      } />
                     </SelectTrigger>
                     <SelectContent>
                       {rows.map((row) => (
@@ -350,7 +364,7 @@ function MeetingForm({
                       ))}
                       {(jobs.data ?? []).map((j) => (
                         <SelectItem key={j.id} value={`job:${j.id}`}>
-                          Job · {j.employer_name}
+                          {portal === "freelancing" ? "Contract" : "Job"} · {j.employer_name}
                         </SelectItem>
                       ))}
                       {(tracks.data ?? []).map((t) => (

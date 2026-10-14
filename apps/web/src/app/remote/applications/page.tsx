@@ -1,16 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Activity,
-  Archive,
-  Briefcase,
-  CalendarPlus,
-  Columns3,
-  Search,
-  Table2,
-  Trophy,
-} from "lucide-react";
+import { Briefcase, CalendarPlus, Columns3, Search, Table2 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -23,14 +14,15 @@ import {
   type ApplicationRow,
   type StageUpdated,
 } from "@/components/remote/applications/shared";
-import { MeetingDialog, type MeetingDialogState } from "@/components/shared/calendar/meeting-dialog";
+import {
+  MeetingDialog,
+  type MeetingDialogState,
+} from "@/components/shared/calendar/meeting-dialog";
 import { EmptyState } from "@/components/empty-state";
-import { NextCallBanner } from "@/components/shared/next-call";
 import { PageHero } from "@/components/page-hero";
-import { StatCard } from "@/components/stat-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -107,8 +99,7 @@ export default function ApplicationsPage() {
 
   const counts = useMemo(() => {
     const items = data?.items ?? [];
-    const has = (...statuses: string[]) =>
-      items.filter((r) => statuses.includes(r.status)).length;
+    const has = (...statuses: string[]) => items.filter((r) => statuses.includes(r.status)).length;
     return {
       open: has("saved", "applied", "in_process"),
       inProcess: has("in_process"),
@@ -128,88 +119,60 @@ export default function ApplicationsPage() {
 
   const pending = setStage.isPending || setStatus.isPending;
 
+  const stats = isLoading
+    ? undefined
+    : [
+        { value: counts.open, label: "In the pipeline" },
+        { value: counts.inProcess, label: "In process" },
+        { value: counts.offers, label: counts.offers === 1 ? "Offer" : "Offers" },
+        { value: counts.closed, label: "Closed" },
+      ];
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-7">
       <PageHero
-        eyebrow="Pipeline"
-        eyebrowIcon={Briefcase}
         title="Applications"
-        description="One row per application, one column per interview step. Click a step to schedule it or set its status; click the row for the whole picture."
+        stats={stats}
         actions={
-          <>
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-11"
-              onClick={() => setDialog({ mode: "create", draft: {} })}
-            >
-              <CalendarPlus />
-              Schedule
-            </Button>
-            <Tabs value={view} onValueChange={(v) => setView(v as View)}>
-              <TabsList className="h-11">
-                <TabsTrigger value="table" className="gap-1.5">
-                  <Table2 className="size-4" />
-                  Table
-                </TabsTrigger>
-                <TabsTrigger value="board" className="gap-1.5">
-                  <Columns3 className="size-4" />
-                  Board
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </>
+          <Button
+            variant="secondary"
+            size="lg"
+            onClick={() => setDialog({ mode: "create", draft: {} })}
+          >
+            <CalendarPlus />
+            Schedule
+          </Button>
         }
       />
 
-      <NextCallBanner />
-
-      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <StatCard
-          label="In the pipeline"
-          Icon={Briefcase}
-          loading={isLoading}
-          value={counts.open}
-          hint="Saved, applied or in process"
-        />
-        <StatCard
-          label="In process"
-          Icon={Activity}
-          tone="info"
-          loading={isLoading}
-          value={counts.inProcess}
-          hint="Reached a real conversation"
-        />
-        <StatCard
-          label="Offers"
-          Icon={Trophy}
-          tone="success"
-          loading={isLoading}
-          value={counts.offers}
-          hint="Offer or hired"
-        />
-        <StatCard
-          label="Closed"
-          Icon={Archive}
-          tone="warning"
-          loading={isLoading}
-          value={counts.closed}
-          hint="Rejected, withdrawn or ghosted"
-        />
-      </section>
-
       <div className="flex flex-wrap items-center gap-3">
+        <Tabs value={view} onValueChange={(v) => setView(v as View)}>
+          <TabsList className="h-12">
+            <TabsTrigger value="table" className="gap-2 px-5">
+              <Table2 />
+              Table
+            </TabsTrigger>
+            <TabsTrigger value="board" className="gap-2 px-5">
+              <Columns3 />
+              Board
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
         <div className="relative min-w-56 flex-1 sm:max-w-sm">
-          <Search className="text-subtle pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 size-[17px] -translate-y-1/2" />
           <Input
             placeholder="Search company, role or location…"
+            aria-label="Search applications"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="h-11 pl-9"
+            className="bg-card h-12 rounded-full pl-11"
           />
         </div>
         <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="h-11 w-44" aria-label="Filter by status">
+          <SelectTrigger
+            className="bg-card ml-auto h-12 w-44 rounded-full pl-5"
+            aria-label="Filter by status"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -255,20 +218,16 @@ export default function ApplicationsPage() {
       )}
 
       {isLoading ? (
-        <Card className="py-0">
-          <CardContent className="space-y-3 p-5">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-11 w-full" />
-            ))}
-          </CardContent>
-        </Card>
+        <div className="space-y-2" aria-busy>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-3xl" />
+          ))}
+        </div>
       ) : !rows.length ? (
         <Card className="py-0">
           <EmptyState
             icon={<Briefcase />}
-            title={
-              q || filter !== ALL ? "Nothing matches those filters" : "No applications yet"
-            }
+            title={q || filter !== ALL ? "Nothing matches those filters" : "No applications yet"}
             description={
               q || filter !== ALL
                 ? "Clear the search or pick a different status."
@@ -304,6 +263,7 @@ export default function ApplicationsPage() {
         <PipelineTable
           rows={rows}
           pending={pending}
+          activeId={open?.id}
           onOpen={setOpen}
           onStatus={(row, status) => setStatus.mutate({ id: row.id, status })}
           onStageStatus={(row, stage, status) =>

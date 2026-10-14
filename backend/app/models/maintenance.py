@@ -36,6 +36,10 @@ class MaintainedJob(PrimaryKey, Timestamps, Base):
         unique=True,
     )
 
+    # Which portal the job belongs to. Derived from the link when there is one;
+    # a job added by hand carries the portal it was added in.
+    category: Mapped[str] = mapped_column(Text, nullable=False, server_default="remote")
+
     employer_name: Mapped[str] = mapped_column(Text, nullable=False)
     role_title: Mapped[str] = mapped_column(Text, nullable=False)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)

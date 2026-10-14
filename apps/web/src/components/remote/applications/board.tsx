@@ -3,12 +3,11 @@
 import { CalendarClock, ExternalLink } from "lucide-react";
 
 import { StatusSelect } from "@/components/remote/applications/status-select";
-import { StatusBadge } from "@/components/status-badge";
-import { Card } from "@/components/ui/card";
+import { CompanyMark } from "@/components/remote/applications/step-mark";
 import { Progress } from "@/components/ui/progress";
 import { formatDateTime, IMMINENT_MINUTES } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { STATUS_LABEL, STATUS_TONE, STATUSES, type ApplicationRow } from "./shared";
+import { STATUS_LABEL, STATUSES, type ApplicationRow } from "./shared";
 
 function minutesUntil(iso: string): number {
   return (new Date(iso).getTime() - Date.now()) / 60_000;
@@ -34,19 +33,19 @@ export function ApplicationBoard({
 }) {
   return (
     <div className="-mx-4 overflow-x-auto px-4 pb-2 md:-mx-6 md:px-6">
-      <div className="flex min-w-max gap-4">
+      <div className="flex min-w-max items-start gap-4">
         {STATUSES.map((status) => {
           const items = rows.filter((r) => r.status === status);
           return (
-            <section key={status} className="w-72 shrink-0">
-              <header className="mb-3 flex items-center gap-2">
-                <h2 className="text-sm font-semibold">{STATUS_LABEL[status]}</h2>
-                <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium tabular-nums">
+            <section key={status} className="bg-soft w-72 shrink-0 rounded-[1.75rem] p-3">
+              <header className="mb-3 flex items-center gap-2.5 px-2 pt-1.5">
+                <h2 className="text-[1.0625rem] font-semibold">{STATUS_LABEL[status]}</h2>
+                <span className="text-muted-foreground border-foreground border-b-[1.5px] pb-px text-[0.8125rem] font-semibold tabular-nums">
                   {items.length}
                 </span>
               </header>
 
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {items.map((row) => (
                   <BoardCard
                     key={row.id}
@@ -57,7 +56,7 @@ export function ApplicationBoard({
                   />
                 ))}
                 {!items.length && (
-                  <p className="text-subtle rounded-xl border border-dashed px-3 py-6 text-center text-xs">
+                  <p className="text-subtle px-3 py-6 text-center text-xs font-medium">
                     Nothing here
                   </p>
                 )}
@@ -81,16 +80,20 @@ function BoardCard({
   onOpen: () => void;
   pending: boolean;
 }) {
-  const soon =
-    row.next_meeting && minutesUntil(row.next_meeting.starts_at) <= IMMINENT_MINUTES;
+  const soon = row.next_meeting && minutesUntil(row.next_meeting.starts_at) <= IMMINENT_MINUTES;
   const progress = row.stage_count ? (row.stages_passed / row.stage_count) * 100 : 0;
 
   return (
-    <Card className="gap-0 p-4 transition-shadow duration-200 hover:shadow-md">
-      <div className="flex items-start gap-2">
+    <article className="bg-card shadow-card rounded-3xl p-4 transition-shadow duration-200 hover:shadow-md">
+      <div className="flex items-start gap-3">
+        <CompanyMark name={row.company_name} className="size-9 rounded-xl text-sm" />
         <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
-          <p className="truncate text-sm font-semibold hover:underline">{row.company_name}</p>
-          <p className="text-muted-foreground truncate text-xs">{row.role_title}</p>
+          <p className="truncate text-[0.9375rem] leading-tight font-bold hover:underline">
+            {row.company_name}
+          </p>
+          <p className="text-muted-foreground mt-px truncate text-[0.78rem] font-medium">
+            {row.role_title}
+          </p>
         </button>
         {row.job_url && (
           <a
@@ -105,21 +108,21 @@ function BoardCard({
         )}
       </div>
 
-      <div className="mt-3 space-y-1.5">
-        <div className="text-subtle flex items-center justify-between text-xs">
+      <div className="mt-3.5 space-y-1.5">
+        <div className="text-muted-foreground flex items-center justify-between text-xs font-semibold">
           <span>{row.current_stage?.name ?? "No open step"}</span>
           <span className="tabular-nums">
             {row.stages_passed}/{row.stage_count}
           </span>
         </div>
-        <Progress value={progress} className="h-1" aria-label="Steps passed" />
+        <Progress value={progress} className="h-1.5" aria-label="Steps passed" />
       </div>
 
       {row.next_meeting && (
         <p
           className={cn(
-            "mt-3 flex items-center gap-1.5 text-xs",
-            soon ? "text-primary font-medium" : "text-muted-foreground",
+            "mt-3 flex items-center gap-1.5 text-xs font-semibold",
+            soon ? "text-foreground" : "text-muted-foreground",
           )}
         >
           <CalendarClock className="size-3.5 shrink-0" />
@@ -127,7 +130,7 @@ function BoardCard({
         </p>
       )}
 
-      <div className="mt-4 flex items-center gap-2">
+      <div className="mt-3.5 flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <StatusSelect
             value={row.status}
@@ -137,11 +140,11 @@ function BoardCard({
           />
         </div>
         {row.must_have_coverage_percent != null && (
-          <StatusBadge tone={STATUS_TONE[row.status] ?? "neutral"}>
+          <span className="text-[0.84rem] font-bold tabular-nums">
             {Math.round(row.must_have_coverage_percent)}%
-          </StatusBadge>
+          </span>
         )}
       </div>
-    </Card>
+    </article>
   );
 }

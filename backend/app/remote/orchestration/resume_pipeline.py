@@ -22,6 +22,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.core.timezone import app_today
+from app.llm.catalog import cost_micros
 from app.llm.prompts import (
     DRAFT_TURN,
     FLAGS_TURN,
@@ -622,6 +623,9 @@ class ResumePipeline:
             usage=usage,
             model=getattr(self.provider, "model", ""),
             latency_ms=int((time.perf_counter() - started) * 1000),
+            # The worker streams every turn, so without this every recorded
+            # call - and every generation's total - read $0.
+            cost_usd_micros=cost_micros(getattr(self.provider, "spec", None), usage.as_dict()),
         )
 
     def _totals(self) -> dict:

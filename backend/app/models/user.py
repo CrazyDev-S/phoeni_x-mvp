@@ -57,13 +57,13 @@ class UserSettings(Timestamps, Base):
         PROVIDER_ENUM, nullable=False, server_default=LLMProvider.ANTHROPIC.value
     )
     heavy_model: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default="claude-opus-5"
+        Text, nullable=False, server_default="claude-sonnet-5-5"
     )
     mid_model: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default="claude-sonnet-5"
+        Text, nullable=False, server_default="claude-sonnet-5-5"
     )
     fast_model: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default="claude-haiku-4-5"
+        Text, nullable=False, server_default="claude-sonnet-5-5"
     )
     # Generator-prompt behaviour. The prompt hardcodes China; this overrides it
     # through the CONSTRAINTS channel the prompt already supports.

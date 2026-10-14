@@ -27,6 +27,32 @@ The old root routes of the portal (`/resumes`, `/tailor`, `/applications`)
 redirect to `/remote/...` rather than 404, because the extension deep-links
 to the applications page.
 
+## Two portals, one app
+
+Freelancing and Remote are separate portals inside one Next.js app and one
+login, not two apps: they share auth, the API client and the component kit.
+`lib/portals.ts` is the registry, and `portalOf(pathname)` is the only way the
+rest of the code learns which portal it is in.
+
+- `AppShell` picks the chrome from the path: `PortalShell` (own sidebar and top
+  bar) under `/freelancing` and `/remote`, a plain `HubShell` on `/` (the portal
+  picker) and `/settings`, nothing on sign-in.
+- Each portal has its own accent. Remote is the bare `:root` palette;
+  Freelancing is `[data-portal="freelancing"]` in `globals.css`. A script in the
+  root layout sets the attribute before first paint, and `AppShell` keeps it in
+  step. It works on any element, which is how the picker shows each card in its
+  own colour. Pages must use theme tokens (`bg-primary`, `bg-accent`), not
+  hardcoded `orange-*` classes, or they will not follow the portal.
+- Calendar, Job Maintenance and Interview Assist are written once, under
+  `components/shared/`, and mounted at `/{portal}/calendar` etc. with a `portal`
+  prop. The old root URLs redirect to `/remote/...`.
+- The backend scopes them with a `category` query parameter
+  (`remote` | `freelancing`) on `GET /shared/meetings`, `/meetings/upcoming`,
+  `/meetings/next` and `GET /shared/maintained-jobs`. A meeting's portal follows
+  its owner (stage means Remote, track means Freelancing, maintained job means
+  that job's `category`). A maintained job's `category` comes from its link, or
+  from the portal it was added in when it has none.
+
 ## A meeting has exactly one of three owners
 
 A meeting used to belong to an interview stage or a maintained job, enforced

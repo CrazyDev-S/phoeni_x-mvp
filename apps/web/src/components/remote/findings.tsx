@@ -32,8 +32,8 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
       <div className="text-muted-foreground flex items-start gap-2.5 px-4 py-6 text-sm">
         <CheckCircle2 className="text-success mt-0.5 size-4 shrink-0" />
         <p>
-          All hard rules pass — no placeholders, exactly 4 skill categories, tenure
-          arithmetic agrees with the claimed years.
+          All hard rules pass — no placeholders, exactly 4 skill categories,
+          tenure arithmetic agrees with the claimed years.
         </p>
       </div>
     );
@@ -42,26 +42,35 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
   return (
     <ul className="divide-y">
       {findings.map((f, i) => (
-        <li key={`${f.rule_id}-${i}`} className="min-w-0 px-4 py-3">
-          <div className="flex items-start gap-2">
-            <StatusBadge tone={SEVERITY_TONE[f.severity]} className="mt-0.5 shrink-0">
-              {f.severity}
-            </StatusBadge>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm break-words">{f.message}</p>
-              {f.excerpt && (
-                <p className="text-muted-foreground mt-1 truncate font-mono text-xs">
-                  {f.excerpt}
-                </p>
-              )}
-              {f.suggested_fix && (
-                <p className="text-muted-foreground mt-1 text-xs">Fix: {f.suggested_fix}</p>
-              )}
-            </div>
-            <code className="text-muted-foreground shrink-0 font-mono text-[10px]">
-              {f.rule_id}
-            </code>
+        <li
+          key={`${f.rule_id}-${i}`}
+          className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 px-5 py-[1.125rem] sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:px-6"
+        >
+          <StatusBadge
+            tone={SEVERITY_TONE[f.severity]}
+            className="mt-0.5 self-start"
+          >
+            {f.severity}
+          </StatusBadge>
+          <div className="min-w-0">
+            <p className="text-sm leading-snug font-semibold break-words">
+              {f.message}
+            </p>
+            {f.excerpt && (
+              <p className="bg-soft text-foreground/70 mt-2 truncate rounded-[10px] px-2.5 py-1.5 font-mono text-xs">
+                {f.excerpt}
+              </p>
+            )}
+            {f.suggested_fix && (
+              <p className="text-muted-foreground mt-2 text-[0.8125rem] leading-snug">
+                <b className="text-foreground font-bold">Fix:</b>{" "}
+                {f.suggested_fix}
+              </p>
+            )}
           </div>
+          <code className="text-subtle col-span-2 pt-1 font-mono text-[10.5px] font-semibold sm:col-span-1">
+            {f.rule_id}
+          </code>
         </li>
       ))}
     </ul>

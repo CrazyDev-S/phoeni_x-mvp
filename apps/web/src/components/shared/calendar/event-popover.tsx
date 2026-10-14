@@ -14,7 +14,7 @@ import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { StatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -22,7 +22,7 @@ import {
   durationMinutes,
   eventColor,
   minutesInto,
-  minutesLabel,
+  spanLabel,
   zoneAbbreviation,
   type Meeting,
 } from "@/lib/calendar";
@@ -31,7 +31,15 @@ import { humanize, meetingStatus } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
 
 const MARGIN = 12;
-const WIDTH = 344;
+// A scheduled meeting reads blue here, as in every calendar; the brand pill is for actions.
+const STATUS_VARIANT = {
+  brand: "info",
+  ok: "success",
+  warn: "warning",
+  bad: "destructive",
+  neutral: "secondary",
+} as const;
+const WIDTH = 352;
 
 /**
  * The quick look, anchored to whichever block was clicked.
@@ -72,10 +80,10 @@ export function EventPopover({
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    // Beside the meeting when there is room, flipped to the other side when
+    // Left of the meeting when there is room, flipped to its right when
     // there is not, and never off the edge of the screen.
-    let left = anchor.right + MARGIN;
-    if (left + WIDTH > viewportWidth - MARGIN) left = anchor.left - WIDTH - MARGIN;
+    let left = anchor.left - WIDTH - MARGIN;
+    if (left < MARGIN) left = anchor.right + MARGIN;
     left = Math.min(
       Math.max(left, MARGIN),
       Math.max(viewportWidth - WIDTH - MARGIN, MARGIN),
@@ -109,7 +117,7 @@ export function EventPopover({
         role="dialog"
         aria-label={meeting.title}
         className={cn(
-          "bg-popover text-popover-foreground fixed z-50 max-h-[80vh] overflow-y-auto rounded-xl border shadow-lg",
+          "bg-popover text-popover-foreground fixed z-50 max-h-[85vh] overflow-y-auto rounded-[28px] p-5 shadow-[0_40px_80px_-24px_rgb(10_10_20/0.45),0_0_0_1px_rgb(0_0_0/0.05)]",
           !position && "invisible",
         )}
         style={{
@@ -119,23 +127,19 @@ export function EventPopover({
           left: position?.left ?? 0,
         }}
       >
-        <div className="flex items-start gap-2 px-4 pt-4">
+        <div className="flex items-start gap-3">
           <span
-            className="mt-1.5 size-3 shrink-0 rounded-sm"
+            className="mt-1.5 size-3.5 shrink-0 rounded-[5px]"
             style={{ backgroundColor: color.fill }}
           />
           <div className="min-w-0 flex-1">
             <p
               className={cn(
-                "text-base leading-snug font-medium break-words",
+                "text-xl leading-tight font-semibold tracking-tight break-words",
                 meeting.status === "cancelled" && "line-through",
               )}
             >
               {meeting.title}
-            </p>
-            <p className="text-muted-foreground mt-0.5 text-sm tabular-nums">
-              {dayLabel(day, "EEEE d MMMM")} · {minutesLabel(start)} –{" "}
-              {minutesLabel(start + duration)} {zoneAbbreviation(day)}
             </p>
           </div>
           <Button
@@ -143,7 +147,7 @@ export function EventPopover({
             size="icon-sm"
             aria-label="Edit"
             onClick={onEdit}
-            className="-mt-1 shrink-0 rounded-full"
+            className="bg-foreground/6 -mt-1 size-9 shrink-0 rounded-full"
           >
             <Pencil />
           </Button>
@@ -152,38 +156,43 @@ export function EventPopover({
             size="icon-sm"
             aria-label="Close"
             onClick={onClose}
-            className="-mt-1 -mr-1 shrink-0 rounded-full"
+            className="bg-foreground/6 -mt-1 -ml-1 size-9 shrink-0 rounded-full"
           >
             <X />
           </Button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 px-4 pt-2">
-          <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
-          <StatusBadge tone="neutral">
+        <p className="text-muted-foreground mt-1 ml-[26px] text-[0.84rem] font-medium tabular-nums">
+          {dayLabel(day, "EEEE d MMMM")} · {spanLabel(start, start + duration)}{" "}
+          {zoneAbbreviation(day)}
+        </p>
+
+        <div className="mt-3 mb-3.5 flex flex-wrap items-center gap-1.5">
+          <Badge variant={STATUS_VARIANT[status.tone]}>
+            {status.label}
+          </Badge>
+          <Badge variant="secondary">
             {meeting.stage_name ?? humanize(meeting.meeting_type)}
-          </StatusBadge>
+          </Badge>
           {meeting.series_id && (
-            <StatusBadge tone="neutral">
-              Recurring{meeting.is_exception ? ", edited" : ""}
-            </StatusBadge>
+            <Badge variant="secondary">Recurring{meeting.is_exception ? ", edited" : ""}</Badge>
           )}
           {pending && <Spinner className="text-muted-foreground" />}
         </div>
 
-        <div className="space-y-2 px-4 pt-3 text-sm">
+        <div className="space-y-2.5 text-sm">
           {meeting.company_name && (
-            <p className="flex items-start gap-2">
-              <Briefcase className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+            <p className="flex items-start gap-2.5">
+              <Briefcase className="text-muted-foreground mt-0.5 size-[17px] shrink-0" />
               <span className="min-w-0">
-                <span className="font-medium">{meeting.company_name}</span>
+                <span className="font-semibold">{meeting.company_name}</span>
                 {meeting.role_title && (
                   <span className="text-muted-foreground"> · {meeting.role_title}</span>
                 )}
                 {meeting.application_id && (
                   <Link
                     href={`/remote/applications/${meeting.application_id}`}
-                    className="text-primary block text-xs hover:underline"
+                    className="text-brand-ink mt-0.5 block text-[0.8rem] font-bold hover:underline"
                   >
                     Open application
                   </Link>
@@ -191,7 +200,7 @@ export function EventPopover({
                 {meeting.track_id && (
                   <Link
                     href={`/freelancing/tracking?open=${meeting.track_id}`}
-                    className="text-primary block text-xs hover:underline"
+                    className="text-brand-ink mt-0.5 block text-[0.8rem] font-bold hover:underline"
                   >
                     Open the bid
                   </Link>
@@ -200,15 +209,15 @@ export function EventPopover({
             </p>
           )}
           {meeting.location && (
-            <p className="text-muted-foreground flex items-start gap-2">
-              <MapPin className="mt-0.5 size-4 shrink-0" />
+            <p className="text-muted-foreground flex items-start gap-2.5">
+              <MapPin className="mt-0.5 size-[17px] shrink-0" />
               <span className="min-w-0 break-words">{meeting.location}</span>
             </p>
           )}
           {meeting.conferencing_url && meeting.status === "scheduled" && (
-            <Button asChild size="sm" className="w-full">
+            <Button asChild className="mt-0.5 h-11 w-full">
               <a href={meeting.conferencing_url} target="_blank" rel="noreferrer">
-                <Video />
+                <Video className="text-brand" />
                 Join call
               </a>
             </Button>
@@ -216,7 +225,7 @@ export function EventPopover({
         </div>
 
         {(meeting.agenda || meeting.preparation_notes || meeting.notes) && (
-          <div className="space-y-2 px-4 pt-3">
+          <div className="mt-3.5 space-y-2">
             {(
               [
                 ["Agenda", meeting.agenda],
@@ -226,11 +235,11 @@ export function EventPopover({
             ).map(
               ([label, text]) =>
                 text && (
-                  <div key={label} className="bg-muted/50 rounded-md px-3 py-2">
-                    <p className="text-muted-foreground mb-0.5 text-[11px] font-medium tracking-wide uppercase">
+                  <div key={label} className="bg-soft rounded-2xl px-3.5 py-2.5">
+                    <p className="text-muted-foreground mb-1 text-[10.5px] font-bold tracking-[0.08em] uppercase">
                       {label}
                     </p>
-                    <p className="line-clamp-5 text-xs leading-relaxed whitespace-pre-wrap">
+                    <p className="line-clamp-5 text-[0.8rem] leading-normal whitespace-pre-wrap">
                       {text}
                     </p>
                   </div>
@@ -239,11 +248,11 @@ export function EventPopover({
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-1.5 p-4">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           {meeting.status === "scheduled" ? (
             <>
               <Button
-                size="sm"
+                size="xs"
                 variant="outline"
                 disabled={pending}
                 onClick={() => onPatch({ status: "held" })}
@@ -252,8 +261,9 @@ export function EventPopover({
                 Mark held
               </Button>
               <Button
-                size="sm"
+                size="xs"
                 variant="ghost"
+                className="text-muted-foreground"
                 disabled={pending}
                 onClick={() => onPatch({ status: "cancelled" })}
               >
@@ -262,7 +272,7 @@ export function EventPopover({
             </>
           ) : (
             <Button
-              size="sm"
+              size="xs"
               variant="outline"
               disabled={pending}
               onClick={() => onPatch({ status: "scheduled" })}
@@ -273,7 +283,7 @@ export function EventPopover({
           )}
           {confirmDelete ? (
             <Button
-              size="sm"
+              size="xs"
               variant="destructive"
               className="ml-auto"
               disabled={pending}
@@ -286,7 +296,7 @@ export function EventPopover({
               size="icon-sm"
               variant="ghost"
               aria-label="Delete"
-              className="text-muted-foreground hover:text-destructive ml-auto"
+              className="bg-foreground/6 text-muted-foreground hover:text-destructive ml-auto size-9 rounded-full"
               onClick={() => setConfirmDelete(true)}
             >
               <Trash2 />

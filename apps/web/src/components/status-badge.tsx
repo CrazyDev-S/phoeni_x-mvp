@@ -1,44 +1,24 @@
 import type { ComponentProps } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 
 /**
- * Outcome tones.
- *
- * The neutral palette ships one semantic colour - destructive - but the app
- * also has to say "this passed" and "this needs a look". `success` and
- * `warning` are tokens defined next to `destructive` in globals.css, and are
- * tinted the same way the destructive badge variant is.
+ * Outcome tones: neutral, passed, needs a look, failed, and the brand accent.
+ * A thin map from the product's words to the badge variants.
  */
 export type Tone = "neutral" | "ok" | "warn" | "bad" | "brand";
 
-const TONE_CLASS: Record<Tone, string> = {
-  neutral: "",
-  ok: "bg-success/10 text-success dark:bg-success/20",
-  warn: "bg-warning/10 text-warning dark:bg-warning/20",
-  bad: "",
-  brand: "",
-};
-
 const TONE_VARIANT: Record<Tone, ComponentProps<typeof Badge>["variant"]> = {
   neutral: "secondary",
-  ok: "secondary",
-  warn: "secondary",
+  ok: "success",
+  warn: "warning",
   bad: "destructive",
-  brand: "default",
+  brand: "brand",
 };
 
 export function StatusBadge({
   tone = "neutral",
-  className,
   ...props
 }: Omit<ComponentProps<typeof Badge>, "variant"> & { tone?: Tone }) {
-  return (
-    <Badge
-      variant={TONE_VARIANT[tone]}
-      className={cn(TONE_CLASS[tone], className)}
-      {...props}
-    />
-  );
+  return <Badge variant={TONE_VARIANT[tone]} {...props} />;
 }

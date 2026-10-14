@@ -52,7 +52,7 @@ export function EditApplicationDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl">
         {open && (
           <EditForm
             detail={detail}

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime, time
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -13,6 +14,9 @@ from app.models.enums import (
     WorkMode,
 )
 from app.schemas.common import ORMModel
+
+# The two portals. Shared tools (calendar, maintenance) are scoped to one of them.
+Category = Literal["remote", "freelancing"]
 
 
 class MeetingOut(ORMModel):
@@ -246,6 +250,7 @@ class MaintainedJobOut(ORMModel):
     id: uuid.UUID
     job_application_id: uuid.UUID | None = None
     freelance_track_id: uuid.UUID | None = None
+    category: Category
     employer_name: str
     role_title: str
     start_date: date
@@ -267,6 +272,8 @@ class MaintainedJobCreate(BaseModel):
     job_application_id: uuid.UUID | None = None
     # A won Upwork bid. At most one of the two ids.
     freelance_track_id: uuid.UUID | None = None
+    # Only read when neither id is given; a link decides the portal itself.
+    category: Category | None = None
     onboarding_notes: str | None = None
 
 

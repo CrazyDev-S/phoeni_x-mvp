@@ -1,20 +1,13 @@
 "use client";
 
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Download,
-  ExternalLink,
-  FileDown,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, ExternalLink, FileDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { FindingsList } from "@/components/remote/findings";
 import { ScoreRing } from "@/components/remote/tailor/score-ring";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Card } from "@/components/ui/card";
+import { Tile } from "@/components/tile";
 import type { GenerationState } from "@/hooks/use-generation";
 import { downloadDocx } from "@/lib/api";
 
@@ -43,6 +36,9 @@ export function ResultPanel({ state }: { state: GenerationState }) {
       ? (gatePassed / gateTotal) * 100
       : null;
 
+  const mustCovered = report?.must_have_covered;
+  const mustTotal = report?.must_have_total;
+
   const missing = ((report?.keywords as Array<Record<string, unknown>>) ?? []).filter(
     (k) => !k.covered,
   );
@@ -50,115 +46,165 @@ export function ResultPanel({ state }: { state: GenerationState }) {
   const isTailored = state.resultKind === "tailored_resume";
 
   return (
-    <Card className="border-success/30 gap-0 overflow-hidden py-0">
-      <CardHeader className="bg-success/5 flex flex-row items-center gap-3 border-b py-4">
-        <span className="bg-success/10 text-success flex size-9 items-center justify-center rounded-lg">
-          <CheckCircle2 className="size-5" />
-        </span>
-        <div className="flex-1">
-          <CardTitle>Your resume is ready</CardTitle>
-          <p className="text-muted-foreground text-sm">
+    <Card className="gap-0 overflow-hidden rounded-[2.25rem] p-0">
+      <div className="bg-accent flex flex-wrap items-center gap-4 px-6 py-6 md:px-[30px]">
+        <Tile icon={CheckCircle2} tone="ink" size="lg" className="rounded-full" />
+        <div className="min-w-0 flex-1">
+          <h2 className="font-heading text-[1.4375rem] leading-tight font-medium">
+            Your resume is ready
+          </h2>
+          <p className="text-muted-foreground mt-0.5 text-sm font-medium">
             {state.needsReview
-              ? "Held for review — see the rule findings below before you send it."
+              ? "Held for review — see the rule findings before you send it."
               : "Every hard rule passed. Download it, or open it to edit first."}
           </p>
         </div>
-        {state.needsReview && <StatusBadge tone="warn">Needs review</StatusBadge>}
-      </CardHeader>
-
-      <CardContent className="space-y-6 py-6">
-        {(mustHave !== null || niceToHave !== null || gate !== null) && (
-          <>
-            <div className="flex flex-wrap items-start justify-center gap-8 sm:justify-start">
-              {mustHave !== null && (
-                <ScoreRing value={mustHave} label="MUST-HAVE coverage" />
-              )}
-              {niceToHave !== null && (
-                <ScoreRing value={niceToHave} label="Nice-to-have" tone="info" />
-              )}
-              {gate !== null && (
-                <ScoreRing value={gate} label="Scenario gate" tone="success" />
-              )}
-            </div>
-            <p className="text-subtle text-xs">
-              Counted from the parsed resume by the API, not written by the model — so it
-              cannot disagree with the document.
-            </p>
-            <Separator />
-          </>
+        {state.needsReview && (
+          <StatusBadge tone="warn" className="bg-card h-8 px-4 text-[0.8125rem]">
+            Needs review
+          </StatusBadge>
         )}
+      </div>
 
-        {missing.length > 0 && (
-          <div className="space-y-2">
-            <p className="flex items-center gap-2 text-sm font-medium">
-              <AlertTriangle className="text-warning size-4" />
-              Keywords still not covered
-            </p>
-            <ul className="flex flex-wrap gap-1.5">
-              {missing.slice(0, 18).map((k, i) => (
-                <li key={i}>
-                  <StatusBadge tone="warn">{String(k.keyword)}</StatusBadge>
+      <div className="grid gap-8 px-6 pt-7 pb-8 md:px-[30px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-10">
+        <div className="space-y-4">
+          {(mustHave !== null || niceToHave !== null || gate !== null) && (
+            <>
+              <div className="grid gap-3.5 sm:grid-cols-3">
+                {mustHave !== null && (
+                  <ScoreRing
+                    value={mustHave}
+                    label="Must-have coverage"
+                    detail={
+                      typeof mustCovered === "number" && typeof mustTotal === "number"
+                        ? `${mustCovered} of ${mustTotal} requirements`
+                        : undefined
+                    }
+                  />
+                )}
+                {niceToHave !== null && (
+                  <ScoreRing
+                    value={niceToHave}
+                    label="Nice-to-have"
+                    detail="Optional keywords"
+                    tone="info"
+                  />
+                )}
+                {gate !== null && (
+                  <ScoreRing
+                    value={gate}
+                    label="Scenario gate"
+                    detail={`${String(gatePassed)} of ${String(gateTotal)} passed`}
+                    tone="success"
+                  />
+                )}
+              </div>
+              <p className="text-muted-foreground text-[0.8125rem] font-medium">
+                Counted from the parsed resume by the API, not written by the model — so it cannot
+                disagree with the document.
+              </p>
+            </>
+          )}
+        </div>
+
+        <div className="space-y-[18px]">
+          {missing.length > 0 && (
+            <div className="space-y-2.5">
+              <p className="flex items-center gap-2 text-[0.9375rem] font-bold">
+                <AlertTriangle className="text-warning size-[18px]" />
+                Keywords still not covered
+              </p>
+              <ul className="flex flex-wrap gap-1.5">
+                {missing.slice(0, 18).map((k, i) => (
+                  <li key={i}>
+                    <StatusBadge tone="warn" className="h-[26px] px-3">
+                      {String(k.keyword)}
+                    </StatusBadge>
+                  </li>
+                ))}
+                {missing.length > 18 && (
+                  <li className="text-muted-foreground self-center text-xs">
+                    +{missing.length - 18} more
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+
+          {errors.length > 0 && (
+            <ul className="space-y-2.5">
+              {errors.map((f, i) => (
+                <li
+                  key={`${f.rule_id}-${i}`}
+                  className="bg-destructive/10 flex min-w-0 items-start gap-3.5 rounded-[20px] px-[18px] py-3.5"
+                >
+                  <StatusBadge tone="bad" className="bg-card mt-px shrink-0">
+                    {f.severity}
+                  </StatusBadge>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[0.9063rem] font-semibold break-words">{f.message}</p>
+                    {f.suggested_fix && (
+                      <p className="text-muted-foreground mt-[3px] text-[0.8125rem]">
+                        Fix: {f.suggested_fix}
+                      </p>
+                    )}
+                    <code className="text-muted-foreground mt-1.5 block font-mono text-[11px]">
+                      {f.rule_id}
+                    </code>
+                  </div>
                 </li>
               ))}
-              {missing.length > 18 && (
-                <li className="text-muted-foreground self-center text-xs">
-                  +{missing.length - 18} more
-                </li>
-              )}
             </ul>
-          </div>
-        )}
+          )}
 
-        {errors.length > 0 && (
-          <div className="overflow-hidden rounded-lg border">
-            <FindingsList findings={errors} />
+          <div className="flex flex-wrap gap-2 pt-0.5">
+            <Button
+              size="lg"
+              className="px-5"
+              onClick={() =>
+                downloadDocx({
+                  resume_id: state.resultId,
+                  kind: isTailored ? "tailored" : "base",
+                  profile: "designed",
+                })
+              }
+            >
+              <Download />
+              Download .docx
+            </Button>
+            <Button
+              size="lg"
+              className="px-5"
+              variant="outline"
+              onClick={() =>
+                downloadDocx({
+                  resume_id: state.resultId,
+                  kind: isTailored ? "tailored" : "base",
+                  profile: "ats_plain",
+                })
+              }
+            >
+              <FileDown />
+              ATS version
+            </Button>
+            <Button
+              size="lg"
+              className="px-5"
+              variant="brand"
+              onClick={() =>
+                router.push(
+                  isTailored
+                    ? `/remote/resumes/tailored/${state.resultId}`
+                    : `/remote/resumes/${state.resultId}`,
+                )
+              }
+            >
+              <ExternalLink />
+              {isTailored ? "Review and edit" : "Open and edit"}
+            </Button>
           </div>
-        )}
-
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="lg"
-            onClick={() =>
-              downloadDocx({
-                resume_id: state.resultId,
-                kind: isTailored ? "tailored" : "base",
-                profile: "designed",
-              })
-            }
-          >
-            <Download />
-            Download .docx
-          </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            onClick={() =>
-              downloadDocx({
-                resume_id: state.resultId,
-                kind: isTailored ? "tailored" : "base",
-                profile: "ats_plain",
-              })
-            }
-          >
-            <FileDown />
-            ATS version
-          </Button>
-          <Button
-            size="lg"
-            variant="ghost"
-            onClick={() =>
-              router.push(
-                isTailored
-                  ? `/remote/resumes/tailored/${state.resultId}`
-                  : `/remote/resumes/${state.resultId}`,
-              )
-            }
-          >
-            <ExternalLink />
-            {isTailored ? "Review and edit" : "Open and edit"}
-          </Button>
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 }

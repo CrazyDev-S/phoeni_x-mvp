@@ -80,7 +80,14 @@ async def update_settings(
     body: SettingsPatch, user: CurrentUser, session: Session
 ) -> SettingsOut:
     row = await _settings_row(session, user)
-    for field, value in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    provider = data.get("default_provider")
+    if provider is not None and provider != row.default_provider:
+        # Each provider has its own models: switching takes its defaults for
+        # every tier the same request does not set explicitly.
+        for tier, model in DEFAULT_TIERS[provider].items():
+            data.setdefault(f"{tier}_model", model)
+    for field, value in data.items():
         setattr(row, field, value)
     await session.flush()
     return await read_settings(user, session)

@@ -1,12 +1,11 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Cpu, LogOut, Palette, Plug, User } from "lucide-react";
+import { Cpu, LogOut, Palette, Plug, User } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,10 +25,7 @@ export function UserMenu() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 pl-1">
-        <Skeleton className="size-8 rounded-full" />
-        <Skeleton className="hidden h-4 w-20 sm:block" />
-      </div>
+      <Skeleton className="bg-panel-raised size-12 rounded-full" />
     );
   }
 
@@ -42,15 +38,16 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-9 gap-2 pr-2 pl-1">
-          <Avatar className="size-7">
-            <AvatarFallback className="bg-accent text-accent-foreground text-xs font-semibold">
+        <button
+          aria-label={`${nameOf(me)}, account menu`}
+          className="focus-visible:ring-brand/60 shrink-0 rounded-full outline-none focus-visible:ring-3"
+        >
+          <Avatar className="size-12">
+            <AvatarFallback className="bg-brand text-brand-foreground text-sm font-bold">
               {initialsOf(me)}
             </AvatarFallback>
           </Avatar>
-          <span className="hidden text-sm font-medium sm:inline">{nameOf(me)}</span>
-          <ChevronDown className="text-muted-foreground size-3.5" />
-        </Button>
+        </button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-60">

@@ -10,7 +10,11 @@ Two ways to find work, one place to run it all.
 - **Remote** — remote roles: resumes generated and tailored against a
   posting, applications filled from the browser, and an interview pipeline.
 - **Shared tools** — the calendar, job maintenance, and Interview Assist
-  (planned), which serve both categories.
+  (planned). They exist inside each portal, scoped to it.
+
+Freelancing and Remote are two **portals** in one web app: each has its own
+sidebar, home and accent colour (Remote the phoenix orange, Freelancing blue),
+and `/` is a picker between them.
 
 Three surfaces over one backend: a **Next.js portal**, a **FastAPI +
 PostgreSQL** backend, and a **Chrome MV3 side-panel extension** that tailors a
@@ -245,12 +249,13 @@ backend/app/
     shared/       meetings, maintenance, interview
 backend/prompts/  resume_generator_v1.md (frozen), proposal_generator_v1.md (placeholder)
 apps/web/src/app/
-  page.tsx                       the workspace launcher
-  remote/                        overview, resumes, tailor, applications
-  freelancing/                   overview, jobs, jobs/[id], proposals, proposals/[id], tracking, profile
-  calendar/ maintenance/ interview/ settings/
+  page.tsx                       the portal picker
+  remote/                        overview, resumes, tailor, applications, + calendar, maintenance, interview
+  freelancing/                   overview, jobs, jobs/[id], proposals, proposals/[id], tracking, profile, + calendar, maintenance, interview
+  settings/                      account-level, outside both portals
 apps/web/src/components/
-  remote/ freelancing/ shared/   per category; the primitives stay at the root
+  remote/ freelancing/ shared/   per category; shared/ holds the calendar, maintenance and interview pages that both portals mount
+  portal/                        the portal shells, sidebar and switcher
 apps/extension/   WXT + React MV3 side panel (a Remote surface, plus the shared calendar)
 packages/api-types/  generated OpenAPI types, shared by both clients
 docs/             architecture.md, freelancing.md, resume-markdown.md

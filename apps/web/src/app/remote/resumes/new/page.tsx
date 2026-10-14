@@ -3,9 +3,10 @@
 import {
   Briefcase,
   ClipboardPaste,
-  FilePlus2,
+  FileText,
   Lightbulb,
   ListChecks,
+  Save,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -16,10 +17,11 @@ import { ErrorAlert } from "@/components/error-alert";
 import { FormField } from "@/components/form-field";
 import { GenerationProgress } from "@/components/remote/generation-progress";
 import { PageHero } from "@/components/page-hero";
-import { CheckList, PointList, SidePanel, type PointItem } from "@/components/side-panel";
-import { StepsBand } from "@/components/steps-band";
+import { CheckList, SidePanel } from "@/components/side-panel";
+import { Tile } from "@/components/tile";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -35,7 +37,7 @@ const NEW_RESUME_TIPS = [
   "Generated resumes still need a read before you send them.",
 ];
 
-const ON_SAVE: PointItem[] = [
+const ON_SAVE = [
   {
     Icon: ShieldCheck,
     title: "It is parsed, not just stored",
@@ -47,6 +49,27 @@ const ON_SAVE: PointItem[] = [
     title: "Hard rules are re-checked",
     detail:
       "No placeholders, exactly four skill categories, and tenure arithmetic that agrees with the claimed years.",
+  },
+];
+
+const MODES = [
+  {
+    value: "upload",
+    Icon: ClipboardPaste,
+    title: "Paste existing",
+    detail: "You already have a resume in Canonical Resume Markdown.",
+  },
+  {
+    value: "story",
+    Icon: Sparkles,
+    title: "From a story",
+    detail: "Describe the career you want represented and let it build one.",
+  },
+  {
+    value: "job",
+    Icon: Briefcase,
+    title: "From a job",
+    detail: "Start from a posting and work backwards to a base resume.",
   },
 ];
 
@@ -62,69 +85,76 @@ location: City, Country
 
 export default function NewResumePage() {
   return (
-    <div className="space-y-8">
-      <PageHero
-        eyebrow="Step one"
-        eyebrowIcon={FilePlus2}
-        title="Add a resume"
-        description="Start from something you already have, or let the generator build one from a story or a posting."
-      />
+    <div className="space-y-7">
+      <PageHero title="Add a resume" back="/remote/resumes" />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-        <div className="min-w-0 space-y-6">
-          <Tabs defaultValue="upload" className="gap-4">
-            <TabsList className="h-11 w-full">
-              <TabsTrigger value="upload" className="gap-1.5">
-                <ClipboardPaste className="hidden size-4 sm:block" />
-                Paste existing
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22.5rem] lg:items-start">
+        <Tabs defaultValue="upload" className="min-w-0 gap-5">
+          <TabsList className="grid h-auto w-full items-stretch group-data-horizontal/tabs:h-auto grid-cols-1 gap-4 rounded-none bg-transparent p-0 shadow-none sm:grid-cols-3">
+            {MODES.map(({ value, Icon, title, detail }) => (
+              <TabsTrigger
+                key={value}
+                value={value}
+                className="group/mode bg-card shadow-card data-[state=active]:bg-panel data-[state=active]:text-panel-foreground h-auto flex-none items-center justify-start gap-4 rounded-[28px] px-[1.125rem] py-[1.125rem] text-left whitespace-normal data-[state=active]:shadow-none"
+              >
+                <Tile
+                  icon={Icon}
+                  size="lg"
+                  className="size-12 group-data-[state=active]/mode:bg-brand group-data-[state=active]/mode:text-brand-foreground"
+                />
+                <span className="min-w-0">
+                  <span className="block text-[1.0625rem] font-bold tracking-tight">
+                    {title}
+                  </span>
+                  <span className="text-muted-foreground group-data-[state=active]/mode:text-panel-muted mt-0.5 block text-[0.8125rem] leading-snug font-medium">
+                    {detail}
+                  </span>
+                </span>
               </TabsTrigger>
-              <TabsTrigger value="story" className="gap-1.5">
-                <Sparkles className="hidden size-4 sm:block" />
-                From a story
-              </TabsTrigger>
-              <TabsTrigger value="job" className="gap-1.5">
-                <Briefcase className="hidden size-4 sm:block" />
-                From a job
-              </TabsTrigger>
-            </TabsList>
+            ))}
+          </TabsList>
 
-            <TabsContent value="upload">
-              <UploadForm />
-            </TabsContent>
-            <TabsContent value="story">
-              <GenerateForm kind="story" />
-            </TabsContent>
-            <TabsContent value="job">
-              <GenerateForm kind="job" />
-            </TabsContent>
-          </Tabs>
+          <TabsContent value="upload">
+            <UploadForm />
+          </TabsContent>
+          <TabsContent value="story">
+            <GenerateForm kind="story" />
+          </TabsContent>
+          <TabsContent value="job">
+            <GenerateForm kind="job" />
+          </TabsContent>
+        </Tabs>
 
-          <StepsBand
-            title="Which option?"
-            description="Three ways in, one library out."
-            steps={[
-              {
-                title: "Paste existing",
-                detail: "You already have a resume in Canonical Resume Markdown.",
-              },
-              {
-                title: "From a story",
-                detail: "Describe the career you want represented and let it build one.",
-              },
-              {
-                title: "From a job",
-                detail: "Start from a posting and work backwards to a base resume.",
-              },
-            ]}
-          />
-        </div>
-
-        <aside className="space-y-6 lg:sticky lg:top-24">
+        <aside className="space-y-5 lg:sticky lg:top-24">
           <SidePanel icon={Lightbulb} title="Tips for better results">
             <CheckList items={NEW_RESUME_TIPS} />
           </SidePanel>
-          <SidePanel icon={ShieldCheck} title="What happens on save">
-            <PointList items={ON_SAVE} />
+          <SidePanel
+            icon={ShieldCheck}
+            title="What happens on save"
+            tone="dark"
+          >
+            <ul className="divide-panel-raised divide-y">
+              {ON_SAVE.map(({ Icon, title, detail }) => (
+                <li
+                  key={title}
+                  className="flex gap-3.5 py-5 first:pt-1 last:pb-0"
+                >
+                  <Tile
+                    icon={Icon}
+                    tone="ink"
+                    size="sm"
+                    className="bg-panel-raised"
+                  />
+                  <div>
+                    <p className="font-semibold">{title}</p>
+                    <p className="text-panel-muted mt-1 text-sm leading-relaxed">
+                      {detail}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </SidePanel>
         </aside>
       </div>
@@ -174,10 +204,10 @@ function UploadForm() {
   }
 
   return (
-    <Card className="py-0">
-      <CardContent className="p-5 md:p-6">
-        <form onSubmit={submit}>
-          <FieldGroup className="gap-5">
+    <Card className="gap-0 p-5 md:px-8 md:py-8">
+      <form onSubmit={submit}>
+        <FieldGroup className="gap-6">
+          <div className="grid gap-5 md:grid-cols-2 md:gap-5">
             <FormField
               label="Name"
               hint="Include the stack, e.g. “Senior AI Fullstack — Python/FastAPI”."
@@ -192,7 +222,10 @@ function UploadForm() {
               )}
             </FormField>
 
-            <FormField label="Target title">
+            <FormField
+              label="Target title"
+              hint="Keep it close to the roles you will apply for."
+            >
               {(control) => (
                 <Input
                   {...control}
@@ -202,40 +235,58 @@ function UploadForm() {
                 />
               )}
             </FormField>
+          </div>
 
-            <FormField
-              label="Resume (Canonical Resume Markdown)"
-              hint="Parsed on save — a document that cannot be read back cannot be exported, so it is checked here rather than at download time."
-            >
-              {(control) => (
+          <FormField label="Resume (Canonical Resume Markdown)">
+            {(control) => (
+              <div className="bg-panel text-panel-foreground overflow-hidden rounded-[26px]">
+                <div className="border-panel-raised flex items-center gap-2.5 border-b py-3.5 pr-4 pl-5">
+                  <FileText className="text-brand size-4" />
+                  <span className="text-panel-muted text-[0.8125rem] font-semibold">
+                    resume.md
+                  </span>
+                  <Badge className="bg-panel-raised text-panel-muted ml-auto">
+                    <ShieldCheck />
+                    Parsed on save
+                  </Badge>
+                </div>
                 <Textarea
                   {...control}
                   required
                   rows={18}
-                  className="field-sizing-fixed min-h-80 font-mono text-xs"
+                  spellCheck={false}
+                  className="field-sizing-fixed placeholder:text-panel-muted caret-brand min-h-96 rounded-none border-0 bg-transparent px-5 py-4 font-mono text-[13px] leading-6 font-normal focus-visible:bg-transparent"
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   placeholder={CRM_PLACEHOLDER}
                 />
-              )}
-            </FormField>
-
-            {error && (
-              <ErrorAlert>
-                {error}
-                {parseHint && (
-                  <span className="mt-1 block font-mono text-xs">{parseHint}</span>
-                )}
-              </ErrorAlert>
+              </div>
             )}
+          </FormField>
 
-            <Button type="submit" size="lg" className="h-12 w-full" disabled={busy}>
-              {busy && <Spinner />}
-              Save resume
-            </Button>
-          </FieldGroup>
-        </form>
-      </CardContent>
+          {error && (
+            <ErrorAlert>
+              {error}
+              {parseHint && (
+                <span className="mt-1 block font-mono text-xs">
+                  {parseHint}
+                </span>
+              )}
+            </ErrorAlert>
+          )}
+
+          <Button
+            type="submit"
+            variant="brand"
+            size="lg"
+            className="h-14 w-full text-base"
+            disabled={busy}
+          >
+            {busy ? <Spinner /> : <Save />}
+            Save resume
+          </Button>
+        </FieldGroup>
+      </form>
     </Card>
   );
 }
@@ -260,84 +311,83 @@ function GenerateForm({ kind }: { kind: "story" | "job" }) {
   }
 
   return (
-    <Card className="py-0">
-      <CardContent className="p-5 md:p-6">
-        <form onSubmit={submit}>
-          <FieldGroup className="gap-5">
-            <FormField label="Target title">
-              {(control) => (
-                <Input
-                  {...control}
-                  required
-                  placeholder="Senior Software Engineer – AI Fullstack"
-                  value={targetTitle}
-                  onChange={(e) => setTargetTitle(e.target.value)}
-                />
-              )}
-            </FormField>
+    <Card className="gap-0 p-5 md:px-8 md:py-8">
+      <form onSubmit={submit}>
+        <FieldGroup className="gap-6">
+          <FormField label="Target title">
+            {(control) => (
+              <Input
+                {...control}
+                required
+                placeholder="Senior Software Engineer – AI Fullstack"
+                value={targetTitle}
+                onChange={(e) => setTargetTitle(e.target.value)}
+              />
+            )}
+          </FormField>
 
-            {kind === "story" ? (
-              <>
-                <FormField
-                  label="How many technologies overall?"
-                  hint="Still spread across exactly four categories."
-                >
-                  {(control) => (
-                    <Input
-                      {...control}
-                      type="number"
-                      min={4}
-                      max={40}
-                      value={skillCount}
-                      onChange={(e) => setSkillCount(e.target.value)}
-                    />
-                  )}
-                </FormField>
-                <FormField label="Anything else that should shape it?">
-                  {(control) => (
-                    <Textarea
-                      {...control}
-                      rows={5}
-                      value={extra}
-                      onChange={(e) => setExtra(e.target.value)}
-                    />
-                  )}
-                </FormField>
-              </>
-            ) : (
-              <FormField label="Job description">
+          {kind === "story" ? (
+            <>
+              <FormField
+                label="How many technologies overall?"
+                hint="Still spread across exactly four categories."
+              >
                 {(control) => (
-                  <Textarea
+                  <Input
                     {...control}
-                    required
-                    rows={12}
-                    value={jobDescription}
-                    onChange={(e) => setJobDescription(e.target.value)}
-                    placeholder="Paste the full posting…"
+                    type="number"
+                    min={4}
+                    max={40}
+                    value={skillCount}
+                    onChange={(e) => setSkillCount(e.target.value)}
                   />
                 )}
               </FormField>
-            )}
+              <FormField label="Anything else that should shape it?">
+                {(control) => (
+                  <Textarea
+                    {...control}
+                    rows={5}
+                    value={extra}
+                    onChange={(e) => setExtra(e.target.value)}
+                  />
+                )}
+              </FormField>
+            </>
+          ) : (
+            <FormField label="Job description">
+              {(control) => (
+                <Textarea
+                  {...control}
+                  required
+                  rows={12}
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                  placeholder="Paste the full posting…"
+                />
+              )}
+            </FormField>
+          )}
 
-            <Button
-              type="submit"
-              size="lg"
-              className="h-12 w-full"
-              disabled={state.running}
-            >
-              {state.running ? <Spinner /> : <Sparkles />}
-              {state.running ? state.label || "Working…" : "Generate"}
-            </Button>
+          <Button
+            type="submit"
+            variant="brand"
+            size="lg"
+            className="h-14 w-full text-base"
+            disabled={state.running}
+          >
+            {state.running ? <Spinner /> : <Sparkles />}
+            {state.running ? state.label || "Working…" : "Generate"}
+          </Button>
 
-            {(state.running || state.error || state.resultId) && (
-              <GenerationProgress
-                state={state}
-                onOpen={(id) => router.push(`/remote/resumes/${id}`)}
-              />
-            )}
-          </FieldGroup>
-        </form>
-      </CardContent>
+          {(state.running || state.error || state.resultId) && (
+            <GenerationProgress
+              state={state}
+              onOpen={(id) => router.push(`/remote/resumes/${id}`)}
+            />
+          )}
+        </FieldGroup>
+      </form>
     </Card>
   );
 }

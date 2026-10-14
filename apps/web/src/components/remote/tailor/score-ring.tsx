@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
-const SIZE = 96;
-const STROKE = 8;
+const SIZE = 92;
+const STROKE = 9;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 /**
- * A percentage, drawn as a ring that fills from zero on mount.
+ * A percentage, drawn as a ring that fills from zero on mount, on a soft tile.
  *
  * The number is repeated as text in the middle, so the reading never depends
  * on judging an arc - or on seeing colour at all.
@@ -18,10 +18,12 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 export function ScoreRing({
   value,
   label,
+  detail,
   tone = "primary",
 }: {
   value: number | null;
   label: string;
+  detail?: string;
   tone?: "primary" | "success" | "info";
 }) {
   const [shown, setShown] = useState(0);
@@ -40,7 +42,7 @@ export function ScoreRing({
   }[tone];
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="bg-soft flex flex-col items-center gap-3 rounded-[26px] px-3 py-[22px] text-center">
       <div className="relative" style={{ width: SIZE, height: SIZE }}>
         <svg
           width={SIZE}
@@ -55,7 +57,7 @@ export function ScoreRing({
             r={RADIUS}
             fill="none"
             strokeWidth={STROKE}
-            className="stroke-muted"
+            className="stroke-foreground/10"
           />
           <circle
             cx={SIZE / 2}
@@ -69,11 +71,14 @@ export function ScoreRing({
             className={cn(stroke, "transition-[stroke-dashoffset] duration-700 ease-out")}
           />
         </svg>
-        <span className="absolute inset-0 flex items-center justify-center text-xl font-semibold tabular-nums">
+        <span className="absolute inset-0 flex items-center justify-center text-[1.3125rem] font-bold tabular-nums">
           {value === null ? "—" : `${Math.round(value)}%`}
         </span>
       </div>
-      <span className="text-muted-foreground text-center text-xs font-medium">{label}</span>
+      <div>
+        <p className="text-[0.9375rem] font-bold">{label}</p>
+        {detail && <p className="text-muted-foreground text-[0.8125rem] font-medium">{detail}</p>}
+      </div>
     </div>
   );
 }

@@ -11,42 +11,55 @@ import {
   LogOut,
   Monitor,
   Moon,
+  Package,
   Palette,
   Plug,
+  PlugZap,
   Plus,
   Puzzle,
+  Save,
   ShieldCheck,
-  SlidersHorizontal,
   Sparkles,
   Sun,
   Trash2,
-  User,
+  UserRound,
   Wand2,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useState,
+  type ComponentType,
+} from "react";
 
-import { ApifyConnectCard } from "@/components/freelancing/apify-connect-card";
+import { ApifyConnect } from "@/components/freelancing/apify-connect-card";
 import { useJobSource } from "@/components/freelancing/job-source";
-import { UpworkConnectCard } from "@/components/freelancing/upwork-connect-card";
-import { AutofillProfileCard } from "@/components/remote/autofill-profile-card";
+import { UpworkConnect } from "@/components/freelancing/upwork-connect-card";
+import { AutofillProfile } from "@/components/remote/autofill-profile-card";
 import { ErrorAlert } from "@/components/error-alert";
 import { FormField } from "@/components/form-field";
 import { PageHero } from "@/components/page-hero";
-import { CheckList, PointList, SidePanel, type PointItem } from "@/components/side-panel";
-import { StatusBadge, type Tone } from "@/components/status-badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Field, FieldDescription, FieldLabel, FieldTitle } from "@/components/ui/field";
+  DownloadExtension,
+  formatBytes,
+  useExtensionPackage,
+} from "@/components/portal/download-extension";
+import {
+  Hint,
+  Row,
+  Rule,
+  SettingsSection,
+  SubHead,
+} from "@/components/settings/section";
+import { CheckList, SidePanel } from "@/components/side-panel";
+import { StatusBadge, type Tone } from "@/components/status-badge";
+import { Tile } from "@/components/tile";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -55,15 +68,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { initialsOf, nameOf, useMe } from "@/hooks/use-me";
-import { usePalette } from "@/hooks/use-palette";
 import { request, tokens as authTokens } from "@/lib/api";
-import { PALETTES } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
 interface Credential {
@@ -96,6 +105,11 @@ interface ModelRow {
 
 const CREDENTIAL_TONE: Record<string, Tone> = { valid: "ok", invalid: "bad" };
 
+const PROVIDER_LABEL: Record<string, string> = {
+  anthropic: "Anthropic",
+  openai: "OpenAI",
+};
+
 const TIME_ZONES = [
   "America/New_York",
   "America/Chicago",
@@ -127,16 +141,24 @@ const GENERATION_TOGGLES = [
   ],
 ] as const;
 
-const STORAGE_NOTES: PointItem[] = [
+interface StorageNote {
+  Icon: ComponentType<{ className?: string }>;
+  title: string;
+  detail: string;
+}
+
+const STORAGE_NOTES: StorageNote[] = [
   {
     Icon: Lock,
     title: "API keys are encrypted at rest",
-    detail: "The API never returns one — only a mask and a status you can check.",
+    detail:
+      "The API never returns one — only a mask and a status you can check.",
   },
   {
     Icon: Plug,
     title: "Job-source tokens are encrypted too",
-    detail: "An Apify token or an Upwork key pair is sealed like an API key; only a mask is shown.",
+    detail:
+      "An Apify token or an Upwork key pair is sealed like an API key; only a mask is shown.",
   },
   {
     Icon: Puzzle,
@@ -158,15 +180,18 @@ const SETTINGS_TIPS = [
 ];
 
 const SECTIONS = [
-  "profile",
-  "models",
-  "integrations",
-  "generation",
-  "autofill",
-  "extension",
-  "appearance",
+  { id: "profile", label: "Profile", Icon: UserRound },
+  { id: "models", label: "Models", Icon: Cpu },
+  { id: "integrations", label: "Integrations", Icon: Plug },
+  { id: "generation", label: "Generation", Icon: Sparkles },
+  { id: "autofill", label: "Autofill", Icon: Wand2 },
+  { id: "extension", label: "Extension", Icon: Puzzle },
+  { id: "appearance", label: "Appearance", Icon: Palette },
 ] as const;
-type Section = (typeof SECTIONS)[number];
+type Section = (typeof SECTIONS)[number]["id"];
+
+const isSection = (value: string | null): value is Section =>
+  SECTIONS.some((s) => s.id === value);
 
 export default function SettingsPage() {
   return (
@@ -186,22 +211,79 @@ function SettingsSkeleton() {
   );
 }
 
+/**
+ * The sub-navigation. Every section is on the page at once; this scrolls to
+ * one, and lights up whichever is in view. It stays in view beside the
+ * sections on a wide screen and becomes a scrolling row of pills on a narrow one.
+ */
+function SubNav({
+  active,
+  onSelect,
+}: {
+  active: Section;
+  onSelect: (id: Section) => void;
+}) {
+  return (
+    <nav
+      aria-label="Settings sections"
+      className="bg-card shadow-card no-scrollbar flex gap-1 overflow-x-auto rounded-full p-2 lg:sticky lg:top-6 lg:flex-col lg:overflow-visible lg:rounded-[36px] lg:p-3"
+    >
+      {SECTIONS.map(({ id, label, Icon }) => {
+        const on = id === active;
+        return (
+          <button
+            key={id}
+            type="button"
+            aria-current={on ? "location" : undefined}
+            onClick={() => onSelect(id)}
+            className={cn(
+              "focus-visible:ring-ring/40 flex h-[54px] shrink-0 items-center gap-3.5 rounded-full pr-5 pl-3 text-[0.96rem] font-semibold transition-colors outline-none focus-visible:ring-3",
+              on
+                ? "bg-primary text-primary-foreground"
+                : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+            )}
+          >
+            <span
+              className={cn(
+                "grid size-[34px] place-items-center rounded-full [&_svg]:size-[17px]",
+                on
+                  ? "bg-brand text-brand-foreground"
+                  : "bg-soft text-muted-foreground",
+              )}
+            >
+              <Icon />
+            </span>
+            {label}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 function SettingsSections() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requested = searchParams.get("tab");
-  const section: Section = SECTIONS.includes(requested as Section)
-    ? (requested as Section)
-    : "profile";
   // The Upwork OAuth callback lands here with the outcome in the URL.
   const upworkOutcome = searchParams.get("upwork");
   const upworkNotice =
     upworkOutcome === "connected"
       ? { kind: "connected" as const }
       : upworkOutcome === "error"
-        ? { kind: "error" as const, reason: searchParams.get("reason") ?? undefined }
+        ? {
+            kind: "error" as const,
+            reason: searchParams.get("reason") ?? undefined,
+          }
         : null;
+  // A link that names a section opens there; so does the Upwork callback.
+  const target: Section | null = isSection(requested)
+    ? requested
+    : upworkOutcome
+      ? "integrations"
+      : null;
 
+  const [active, setActive] = useState<Section>(target ?? "profile");
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -222,6 +304,42 @@ function SettingsSections() {
     onSuccess: (s) => queryClient.setQueryData(["settings"], s),
   });
 
+  const ready = !!data;
+
+  const scrollTo = useCallback((id: Section, behavior: ScrollBehavior) => {
+    document.getElementById(id)?.scrollIntoView({ behavior, block: "start" });
+  }, []);
+
+  // Deep links: the header menu names a section, and so can a shared link.
+  // Sections only exist once the settings have loaded.
+  useEffect(() => {
+    if (!ready || !target) return;
+    setActive(target);
+    scrollTo(target, "auto");
+  }, [ready, target, scrollTo]);
+
+  // Light up the section being read.
+  useEffect(() => {
+    if (!ready) return;
+    const elements = SECTIONS.map(({ id }) =>
+      document.getElementById(id),
+    ).filter((el): el is HTMLElement => !!el);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting);
+        if (visible.length) {
+          const top = visible.sort(
+            (a, b) => a.boundingClientRect.top - b.boundingClientRect.top,
+          )[0];
+          setActive(top.target.id as Section);
+        }
+      },
+      { rootMargin: "-15% 0px -70% 0px" },
+    );
+    elements.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [ready]);
+
   if (isLoading || !data) {
     return (
       <div className="space-y-8" aria-busy>
@@ -235,167 +353,217 @@ function SettingsSections() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-7">
       <PageHero
-        eyebrow="Configuration"
-        eyebrowIcon={SlidersHorizontal}
         title="Settings"
         description="Your account, the models that do the work, the services PhoeniX connects to, and how the generator behaves."
       />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-        <div className="min-w-0">
-          <Tabs
-            value={section}
+      <div className="grid gap-6 lg:grid-cols-[296px_minmax(0,1fr)] lg:items-start">
+        <SubNav
+          active={active}
+          onSelect={(id) => {
+            setActive(id);
+            scrollTo(id, "smooth");
             // The section lives in the URL so the header menu can link straight to
             // one, and so a shared link opens where the sender was.
-            onValueChange={(next) =>
-              router.replace(`/settings?tab=${next}`, { scroll: false })
-            }
-            className="gap-6"
+            router.replace(`/settings?tab=${id}`, { scroll: false });
+          }}
+        />
+
+        <div className="min-w-0 space-y-6">
+          <SettingsSection
+            id="profile"
+            icon={UserRound}
+            title="Profile"
+            description="Who you are signed in as."
           >
-            <TabsList className="h-11 w-full max-w-2xl">
-              <TabsTrigger value="profile" className="gap-1.5" title="Profile">
-                <User className="size-4" />
-                <span className="sr-only sm:not-sr-only">Profile</span>
-              </TabsTrigger>
-              <TabsTrigger value="models" className="gap-1.5" title="Models">
-                <Cpu className="size-4" />
-                <span className="sr-only sm:not-sr-only">Models</span>
-              </TabsTrigger>
-              <TabsTrigger value="integrations" className="gap-1.5" title="Integrations">
-                <Plug className="size-4" />
-                <span className="sr-only sm:not-sr-only">Integrations</span>
-              </TabsTrigger>
-              <TabsTrigger value="generation" className="gap-1.5" title="Generation">
-                <Sparkles className="size-4" />
-                <span className="sr-only sm:not-sr-only">Generation</span>
-              </TabsTrigger>
-              <TabsTrigger value="autofill" className="gap-1.5" title="Autofill">
-                <Wand2 className="size-4" />
-                <span className="sr-only sm:not-sr-only">Autofill</span>
-              </TabsTrigger>
-              <TabsTrigger value="extension" className="gap-1.5" title="Extension">
-                <Puzzle className="size-4" />
-                <span className="sr-only sm:not-sr-only">Extension</span>
-              </TabsTrigger>
-              <TabsTrigger value="appearance" className="gap-1.5" title="Appearance">
-                <Palette className="size-4" />
-                <span className="sr-only sm:not-sr-only">Appearance</span>
-              </TabsTrigger>
-            </TabsList>
+            <ProfileBody
+              timezone={data.display_timezone}
+              onTimezone={(display_timezone) =>
+                patch.mutate({ display_timezone })
+              }
+            />
+          </SettingsSection>
 
-            <TabsContent value="profile" className="space-y-6">
-              <ProfileCard
-                timezone={data.display_timezone}
-                onTimezone={(display_timezone) => patch.mutate({ display_timezone })}
-              />
-            </TabsContent>
+          <SettingsSection
+            id="models"
+            icon={Cpu}
+            title="Models"
+            description="The keys the models run on, and which model runs each tier of work."
+          >
+            <ApiKeys credentials={data.credentials} />
+            <SubHead className="mt-9">Model tiers</SubHead>
+            <ModelTiers
+              data={data}
+              models={models ?? []}
+              onPatch={patch.mutate}
+            />
+          </SettingsSection>
 
-            <TabsContent value="models" className="space-y-6">
-              <ApiKeysCard credentials={data.credentials} />
-              <ModelsCard data={data} models={models ?? []} onPatch={patch.mutate} />
-            </TabsContent>
+          <IntegrationsSection upworkNotice={upworkNotice} />
 
-            <TabsContent value="integrations" className="space-y-6">
-              <JobSourceSettings upworkNotice={upworkNotice} />
-            </TabsContent>
+          <SettingsSection
+            id="generation"
+            icon={Sparkles}
+            title="Generation"
+            description="How the generator sources and names the companies it writes about."
+          >
+            <FormField
+              className="max-w-[420px]"
+              label="Base country"
+              hint="Overrides the generator prompt's default. Sets the universities, academic calendar and work-mode timeline used for constructed scenarios."
+            >
+              {(control) => (
+                <Input
+                  {...control}
+                  defaultValue={data.base_country}
+                  onBlur={(e) =>
+                    e.target.value !== data.base_country &&
+                    patch.mutate({ base_country: e.target.value })
+                  }
+                />
+              )}
+            </FormField>
 
-            <TabsContent value="generation">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Generation</CardTitle>
-                  <CardDescription>
-                    How the generator sources and names the companies it writes about.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <FormField
-                    label="Base country"
-                    hint="Overrides the generator prompt's default. Sets the universities, academic calendar and work-mode timeline used for constructed scenarios."
+            <Rule className="mt-7 mb-1.5" />
+
+            <div>
+              {GENERATION_TOGGLES.map(([key, label, hint]) => (
+                <div
+                  key={key}
+                  className="border-border flex items-start gap-5 py-[22px] not-first:border-t sm:gap-[22px]"
+                >
+                  <label
+                    htmlFor={key}
+                    className="min-w-0 flex-1 cursor-pointer"
                   >
-                    {(control) => (
-                      <Input
-                        {...control}
-                        defaultValue={data.base_country}
-                        onBlur={(e) =>
-                          e.target.value !== data.base_country &&
-                          patch.mutate({ base_country: e.target.value })
-                        }
-                      />
-                    )}
-                  </FormField>
+                    <span className="block text-[1.03rem] font-semibold">
+                      {label}
+                    </span>
+                    <span className="text-muted-foreground mt-1 block max-w-[640px] text-sm leading-normal font-medium">
+                      {hint}
+                    </span>
+                  </label>
+                  <Switch
+                    id={key}
+                    className="mt-0.5"
+                    checked={data[key]}
+                    onCheckedChange={(checked) =>
+                      patch.mutate({ [key]: checked })
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </SettingsSection>
 
-                  <Separator />
+          <SettingsSection
+            id="autofill"
+            icon={Wand2}
+            title="Autofill profile"
+            description="What the extension answers application forms with. The form filler is not allowed to invent a phone number or a notice period — if it is not here, it hands the field back to you."
+          >
+            <AutofillProfile />
+          </SettingsSection>
 
-                  {GENERATION_TOGGLES.map(([key, label, hint]) => (
-                    <Field key={key} orientation="horizontal">
-                      <FieldLabel htmlFor={key}>
-                        <div className="space-y-0.5">
-                          <FieldTitle>{label}</FieldTitle>
-                          <FieldDescription>{hint}</FieldDescription>
-                        </div>
-                      </FieldLabel>
-                      <Switch
-                        id={key}
-                        checked={data[key]}
-                        onCheckedChange={(checked) => patch.mutate({ [key]: checked })}
-                      />
-                    </Field>
-                  ))}
-                </CardContent>
-              </Card>
-            </TabsContent>
+          <SettingsSection
+            id="extension"
+            icon={Puzzle}
+            title="Extension tokens"
+            description="The browser extension authenticates with its own long-lived token. Only a hash is stored, so the value is shown exactly once."
+          >
+            <ExtensionTokens />
+          </SettingsSection>
 
-            <TabsContent value="autofill">
-              <AutofillProfileCard />
-            </TabsContent>
+          <SettingsSection
+            id="appearance"
+            icon={Palette}
+            title="Appearance"
+            description="Light or dark on this device. Each portal brings its own accent colour."
+          >
+            <AppearanceBody />
+            <Rule />
+            <AccountRow />
+          </SettingsSection>
 
-            <TabsContent value="extension">
-              <ExtensionTokens />
-            </TabsContent>
-
-            <TabsContent value="appearance" className="space-y-6">
-              <AppearanceCard />
-              <AccountCard />
-            </TabsContent>
-          </Tabs>
+          <div className="grid items-stretch gap-6 lg:grid-cols-2">
+            <SidePanel
+              tone="dark"
+              icon={ShieldCheck}
+              title="How this is stored"
+              className="rounded-[40px] [--card-spacing:--spacing(8)]"
+            >
+              <ul className="space-y-[18px]">
+                {STORAGE_NOTES.map(({ Icon, title, detail }) => (
+                  <li key={title} className="flex gap-3">
+                    <span className="bg-panel-raised text-brand grid size-[34px] shrink-0 place-items-center rounded-full [&_svg]:size-4">
+                      <Icon />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold">{title}</p>
+                      <p className="text-panel-muted mt-0.5 text-[0.78rem] leading-snug font-medium">
+                        {detail}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </SidePanel>
+            <SidePanel
+              tone="soft"
+              icon={Lightbulb}
+              title="Tips"
+              className="rounded-[40px] [--card-spacing:--spacing(8)]"
+            >
+              <CheckList items={SETTINGS_TIPS} />
+            </SidePanel>
+          </div>
         </div>
-
-        <aside className="space-y-6 lg:sticky lg:top-24">
-          <SidePanel icon={ShieldCheck} title="How this is stored">
-            <PointList items={STORAGE_NOTES} />
-          </SidePanel>
-          <SidePanel icon={Lightbulb} title="Tips">
-            <CheckList items={SETTINGS_TIPS} />
-          </SidePanel>
-        </aside>
       </div>
     </div>
   );
 }
 
 /**
- * The card for whichever job source the deployment uses.
+ * The section for whichever job source the deployment uses.
  *
  * The source is chosen on the backend (FREELANCING_JOB_SOURCE), so the other
  * one's settings would only be noise here.
  */
-function JobSourceSettings({
+function IntegrationsSection({
   upworkNotice,
 }: {
   upworkNotice: { kind: "connected" | "error"; reason?: string } | null;
 }) {
   const { data, isLoading } = useJobSource();
-  if (isLoading || !data) return <Skeleton className="h-64 w-full" />;
   return (
-    <>
-      <p className="text-muted-foreground text-sm">
-        Freelancing job search runs through <strong className="text-foreground">{data.label}</strong>.
-        The backend chooses it with <code className="font-mono text-xs">FREELANCING_JOB_SOURCE</code>.
-      </p>
-      {data.key === "upwork" ? <UpworkConnectCard notice={upworkNotice} /> : <ApifyConnectCard />}
-    </>
+    <SettingsSection
+      id="integrations"
+      icon={Plug}
+      title="Integrations"
+      description={
+        data ? (
+          <>
+            Freelancing job search runs through{" "}
+            <strong className="text-foreground">{data.label}</strong>. The
+            backend chooses it with{" "}
+            <code className="font-mono text-[0.8125rem]">
+              FREELANCING_JOB_SOURCE
+            </code>
+            .
+          </>
+        ) : undefined
+      }
+    >
+      {isLoading || !data ? (
+        <Skeleton className="h-64 w-full rounded-[30px]" />
+      ) : data.key === "upwork" ? (
+        <UpworkConnect notice={upworkNotice} />
+      ) : (
+        <ApifyConnect />
+      )}
+    </SettingsSection>
   );
 }
 
@@ -406,7 +574,7 @@ function JobSourceSettings({
  * to change a name or an email, and a form that silently discarded them would
  * be worse than not offering them.
  */
-function ProfileCard({
+function ProfileBody({
   timezone,
   onTimezone,
 }: {
@@ -414,62 +582,67 @@ function ProfileCard({
   onTimezone: (zone: string) => void;
 }) {
   const { data: me } = useMe();
-  const zones = TIME_ZONES.includes(timezone) ? TIME_ZONES : [timezone, ...TIME_ZONES];
+  const zones = TIME_ZONES.includes(timezone)
+    ? TIME_ZONES
+    : [timezone, ...TIME_ZONES];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Profile</CardTitle>
-        <CardDescription>Who you are signed in as.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Avatar className="size-14">
-            <AvatarFallback className="bg-accent text-accent-foreground text-lg font-semibold">
-              {initialsOf(me)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <p className="truncate font-medium">{nameOf(me)}</p>
-            <p className="text-muted-foreground truncate text-sm">{me?.email}</p>
-          </div>
+    <>
+      <div className="flex flex-wrap items-center gap-5">
+        <Avatar className="size-20">
+          <AvatarFallback className="bg-accent text-accent-foreground text-2xl font-semibold">
+            {initialsOf(me)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-2xl font-semibold tracking-tight">
+            {nameOf(me)}
+          </p>
+          <p className="text-muted-foreground mt-0.5 truncate text-[0.97rem] font-medium">
+            {me?.email}
+          </p>
         </div>
+        <Badge variant="outline">Read-only</Badge>
+      </div>
 
-        <Separator />
+      <Rule />
 
-        <FormField
-          label="Display timezone"
-          hint="Every time in the app is rendered in this zone, never the browser's."
-        >
-          {(control) => (
-            <Select value={timezone} onValueChange={onTimezone}>
-              <SelectTrigger {...control} className="w-full sm:w-72">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {zones.map((zone) => (
-                  <SelectItem key={zone} value={zone}>
-                    {zone.replace("_", " ")}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </FormField>
+      <FormField
+        className="max-w-[420px]"
+        label="Display timezone"
+        hint="Every time in the app is rendered in this zone, never the browser's."
+      >
+        {(control) => (
+          <Select value={timezone} onValueChange={onTimezone}>
+            <SelectTrigger {...control} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {zones.map((zone) => (
+                <SelectItem key={zone} value={zone}>
+                  {zone.replace("_", " ")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </FormField>
 
-        <p className="text-subtle text-xs">
-          Name and email are set at registration and cannot be changed here yet.
-        </p>
-      </CardContent>
-    </Card>
+      <Hint quiet className="mt-[22px]">
+        Name and email are set at registration and cannot be changed here yet.
+      </Hint>
+    </>
   );
 }
 
-function ApiKeysCard({ credentials }: { credentials: Credential[] }) {
+function ApiKeys({ credentials }: { credentials: Credential[] }) {
   const queryClient = useQueryClient();
   const [keyInput, setKeyInput] = useState("");
   const [keyProvider, setKeyProvider] = useState("anthropic");
-  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [testResult, setTestResult] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
 
   const saveKey = useMutation({
     mutationFn: () =>
@@ -490,122 +663,44 @@ function ApiKeysCard({ credentials }: { credentials: Credential[] }) {
         { method: "POST" },
       ),
     onSuccess: (r) => {
-      setTestResult({ ok: r.ok, text: r.ok ? `Connected to ${r.model}` : r.detail });
+      setTestResult({
+        ok: r.ok,
+        text: r.ok ? `Connected to ${r.model}` : r.detail,
+      });
       queryClient.invalidateQueries({ queryKey: ["settings"] });
     },
     onError: (e) => setTestResult({ ok: false, text: (e as Error).message }),
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>API keys</CardTitle>
-        <CardDescription>
-          Keys are encrypted at rest and are never returned by the API — only a mask and a
-          status.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <ul className="space-y-2">
-          {credentials.map((c) => (
-            <li
-              key={c.provider}
-              className="flex items-center gap-3 rounded-lg border px-3 py-2.5"
-            >
-              <KeyRound className="text-muted-foreground size-4 shrink-0" />
-              <span className="w-20 text-sm font-medium capitalize">{c.provider}</span>
-              <span className="text-muted-foreground min-w-0 flex-1 truncate font-mono text-xs">
+    <>
+      <SubHead>API keys</SubHead>
+      <Hint className="-mt-1 mb-4">
+        Keys are encrypted at rest and are never returned by the API — only a
+        mask and a status.
+      </Hint>
+      <ul className="space-y-2.5">
+        {credentials.map((c) => (
+          <li key={c.provider}>
+            <Row icon={KeyRound} className="sm:flex-nowrap">
+              <span className="w-24 shrink-0 text-[0.96rem] font-semibold">
+                {PROVIDER_LABEL[c.provider] ?? c.provider}
+              </span>
+              <span className="text-muted-foreground min-w-0 flex-1 truncate font-mono text-[13px]">
                 {c.masked_key}
               </span>
               <StatusBadge tone={CREDENTIAL_TONE[c.status] ?? "neutral"}>
                 {c.status}
               </StatusBadge>
-            </li>
-          ))}
-        </ul>
+            </Row>
+          </li>
+        ))}
+      </ul>
 
-        <div className="flex flex-wrap items-end gap-3">
-          <FormField label="Provider" className="w-40">
-            {(control) => (
-              <Select value={keyProvider} onValueChange={setKeyProvider}>
-                <SelectTrigger {...control} className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="anthropic">Anthropic</SelectItem>
-                  <SelectItem value="openai">OpenAI</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          </FormField>
-          <FormField label="API key" className="min-w-56 flex-1">
-            {(control) => (
-              <Input
-                {...control}
-                type="password"
-                placeholder="sk-ant-…"
-                value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value)}
-              />
-            )}
-          </FormField>
-          <Button
-            disabled={keyInput.length < 12 || saveKey.isPending}
-            onClick={() => saveKey.mutate()}
-          >
-            {saveKey.isPending && <Spinner />}
-            Save key
-          </Button>
-          <Button variant="outline" disabled={test.isPending} onClick={() => test.mutate()}>
-            {test.isPending && <Spinner />}
-            Test connection
-          </Button>
-        </div>
-
-        {testResult && (
-          <p
-            className={cn(
-              "flex items-center gap-1.5 text-sm",
-              testResult.ok ? "text-success" : "text-destructive",
-            )}
-          >
-            {testResult.ok && <Check className="size-4" />}
-            {testResult.text}
-          </p>
-        )}
-        {saveKey.isError && <ErrorAlert>{(saveKey.error as Error).message}</ErrorAlert>}
-      </CardContent>
-    </Card>
-  );
-}
-
-function ModelsCard({
-  data,
-  models,
-  onPatch,
-}: {
-  data: Settings;
-  models: ModelRow[];
-  onPatch: (body: Partial<Settings>) => void;
-}) {
-  const byTier = (tier: string) =>
-    models.filter((m) => m.provider === data.default_provider && m.tier === tier);
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Models</CardTitle>
-        <CardDescription>
-          Which model runs each tier of work, for the selected provider.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-5 sm:grid-cols-2">
-        <FormField label="Provider">
+      <div className="mt-[22px] flex flex-wrap items-end gap-3">
+        <FormField label="Provider" className="w-full sm:w-48 sm:flex-none">
           {(control) => (
-            <Select
-              value={data.default_provider}
-              onValueChange={(v) => onPatch({ default_provider: v })}
-            >
+            <Select value={keyProvider} onValueChange={setKeyProvider}>
               <SelectTrigger {...control} className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -616,36 +711,119 @@ function ModelsCard({
             </Select>
           )}
         </FormField>
+        <FormField label="API key" className="min-w-56 flex-1">
+          {(control) => (
+            <Input
+              {...control}
+              type="password"
+              placeholder="sk-ant-…"
+              value={keyInput}
+              onChange={(e) => setKeyInput(e.target.value)}
+            />
+          )}
+        </FormField>
+        <Button
+          size="lg"
+          disabled={keyInput.length < 12 || saveKey.isPending}
+          onClick={() => saveKey.mutate()}
+        >
+          {saveKey.isPending ? <Spinner /> : <Save />}
+          Save key
+        </Button>
+        <Button
+          size="lg"
+          variant="outline"
+          disabled={test.isPending}
+          onClick={() => test.mutate()}
+        >
+          {test.isPending ? <Spinner /> : <PlugZap />}
+          Test connection
+        </Button>
+      </div>
 
-        {(
-          [
-            ["heavy_model", "Heavy — scenario and drafting"],
-            ["mid_model", "Mid — short edits"],
-            ["fast_model", "Fast — form answers"],
-          ] as const
-        ).map(([key, label]) => (
-          <FormField key={key} label={label}>
-            {(control) => (
-              <Select value={data[key]} onValueChange={(v) => onPatch({ [key]: v })}>
-                <SelectTrigger {...control} className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
+      {testResult && (
+        <p
+          className={cn(
+            "mt-4 flex items-center gap-2 text-sm font-semibold",
+            testResult.ok ? "text-success" : "text-destructive",
+          )}
+        >
+          {testResult.ok && <Check className="size-[17px] stroke-[2.4]" />}
+          {testResult.text}
+        </p>
+      )}
+      {saveKey.isError && (
+        <div className="mt-4">
+          <ErrorAlert>{(saveKey.error as Error).message}</ErrorAlert>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ModelTiers({
+  data,
+  models,
+  onPatch,
+}: {
+  data: Settings;
+  models: ModelRow[];
+  onPatch: (body: Partial<Settings>) => void;
+}) {
+  // Any of the provider's models can run any tier; the tier on a model is only
+  // where it fits best.
+  const available = models.filter((m) => m.provider === data.default_provider);
+
+  return (
+    <div className="grid gap-5 sm:grid-cols-2">
+      <FormField label="Provider">
+        {(control) => (
+          <Select
+            value={data.default_provider}
+            onValueChange={(v) => onPatch({ default_provider: v })}
+          >
+            <SelectTrigger {...control} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="anthropic">Anthropic</SelectItem>
+              <SelectItem value="openai">OpenAI</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+      </FormField>
+
+      {(
+        [
+          ["heavy_model", "Heavy — scenario and drafting"],
+          ["mid_model", "Mid — short edits"],
+          ["fast_model", "Fast — form answers"],
+        ] as const
+      ).map(([key, label]) => (
+        <FormField key={key} label={label}>
+          {(control) => (
+            <Select
+              value={data[key]}
+              onValueChange={(v) => onPatch({ [key]: v })}
+            >
+              <SelectTrigger {...control} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {!available.some((m) => m.model_id === data[key]) && (
                   <SelectItem value={data[key]}>{data[key]}</SelectItem>
-                  {byTier(key.split("_")[0])
-                    .filter((m) => m.model_id !== data[key])
-                    .map((m) => (
-                      <SelectItem key={m.model_id} value={m.model_id}>
-                        {m.display_name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            )}
-          </FormField>
-        ))}
-      </CardContent>
-    </Card>
+                )}
+                {available.map((m) => (
+                  <SelectItem key={m.model_id} value={m.model_id}>
+                    {m.display_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FormField>
+      ))}
+    </div>
   );
 }
 
@@ -655,121 +833,73 @@ const THEMES = [
   { value: "system", label: "System", Icon: Monitor },
 ] as const;
 
-/** One tile in an Appearance radio group; mode and palette tiles look alike. */
-function choiceClass(active: boolean) {
-  return cn(
-    "focus-visible:ring-ring flex flex-col items-center gap-2 rounded-xl border p-4 transition-all duration-150 focus-visible:ring-3 focus-visible:outline-none",
-    active
-      ? "border-primary bg-accent text-accent-foreground"
-      : "hover:bg-muted text-muted-foreground",
-  );
-}
-
-function AppearanceCard() {
+function AppearanceBody() {
   const { theme, setTheme } = useTheme();
-  const { palette, setPalette } = usePalette();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Appearance</CardTitle>
-        <CardDescription>How the app looks on this device.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <p id="appearance-mode" className="text-sm font-medium">
-            Mode
-          </p>
-          <div
-            role="radiogroup"
-            aria-labelledby="appearance-mode"
-            className="grid max-w-md grid-cols-3 gap-3"
-          >
-            {THEMES.map(({ value, label, Icon }) => {
-              const active = mounted && theme === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  onClick={() => setTheme(value)}
-                  className={choiceClass(active)}
-                >
-                  <Icon className="size-5" />
-                  <span className="text-sm font-medium">{label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p id="appearance-palette" className="text-sm font-medium">
-            Palette
-          </p>
-          <div
-            role="radiogroup"
-            aria-labelledby="appearance-palette"
-            className="grid max-w-md grid-cols-2 gap-3"
-          >
-            {PALETTES.map(({ value, label, swatches }) => {
-              const active = mounted && palette === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  onClick={() => setPalette(value)}
-                  className={choiceClass(active)}
-                >
-                  <span className="flex -space-x-1.5" aria-hidden>
-                    {swatches.map((color) => (
-                      <span
-                        key={color}
-                        className="border-card size-5 rounded-full border-2"
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </span>
-                  <span className="text-sm font-medium">{label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="space-y-2.5">
+      <p id="appearance-mode" className="text-sm font-medium">
+        Mode
+      </p>
+      <div
+        role="radiogroup"
+        aria-labelledby="appearance-mode"
+        className="grid max-w-[510px] grid-cols-3 gap-3.5"
+      >
+        {THEMES.map(({ value, label, Icon }) => {
+          const active = mounted && theme === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => setTheme(value)}
+              className={cn(
+                "focus-visible:ring-ring/40 flex h-[104px] flex-col items-center justify-center gap-2.5 rounded-[26px] text-[0.94rem] font-semibold transition-colors outline-none focus-visible:ring-3",
+                active
+                  ? "bg-primary text-primary-foreground [&_svg]:text-brand"
+                  : "bg-soft text-foreground/70 hover:bg-soft-2",
+              )}
+            >
+              <Icon className="size-[22px]" />
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
-function AccountCard() {
+function AccountRow() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Account</CardTitle>
-        <CardDescription>Sessions on this device.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Button
-          variant="outline"
-          onClick={() => {
-            authTokens.clear();
-            queryClient.clear();
-            router.replace("/login");
-          }}
-        >
-          <LogOut />
-          Sign out
-        </Button>
-      </CardContent>
-    </Card>
+    <div className="flex flex-wrap items-center gap-4">
+      <Tile icon={LogOut} size="lg" tone="soft" />
+      <div className="min-w-0 flex-1">
+        <div className="text-[1.03rem] font-semibold">Account</div>
+        <div className="text-muted-foreground mt-0.5 text-[0.8125rem] font-medium">
+          Sessions on this device.
+        </div>
+      </div>
+      <Button
+        size="lg"
+        variant="outline"
+        onClick={() => {
+          authTokens.clear();
+          queryClient.clear();
+          router.replace("/login");
+        }}
+      >
+        <LogOut />
+        Sign out
+      </Button>
+    </div>
   );
 }
 
@@ -787,6 +917,7 @@ function ExtensionTokens() {
   const [name, setName] = useState("Chrome side panel");
   const [fresh, setFresh] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const pack = useExtensionPackage();
 
   const { data } = useQuery({
     queryKey: ["api-tokens"],
@@ -807,58 +938,54 @@ function ExtensionTokens() {
   });
 
   const revoke = useMutation({
-    mutationFn: (id: string) => request(`/api/v1/auth/tokens/${id}`, { method: "DELETE" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["api-tokens"] }),
+    mutationFn: (id: string) =>
+      request(`/api/v1/auth/tokens/${id}`, { method: "DELETE" }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["api-tokens"] }),
   });
 
   const active = data?.filter((t) => !t.revoked_at) ?? [];
+  const pkg = pack.data;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Extension tokens</CardTitle>
-        <CardDescription>
-          The browser extension authenticates with its own long-lived token. Only a hash is
-          stored, so the value is shown exactly once.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        {fresh && (
-          <Alert>
-            <KeyRound />
-            <AlertTitle>Copy this now — it will not be shown again.</AlertTitle>
-            <AlertDescription className="mt-2 flex w-full flex-wrap items-center gap-2">
-              <code className="bg-muted min-w-0 flex-1 truncate rounded px-2 py-1 font-mono text-xs">
-                {fresh}
-              </code>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  void navigator.clipboard.writeText(fresh);
-                  setCopied(true);
-                }}
-              >
-                {copied ? <Check /> : <Copy />}
-                {copied ? "Copied" : "Copy"}
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setFresh(null)}>
-                Done
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
+    <>
+      {fresh && (
+        <div role="alert" className="bg-accent mb-5 rounded-[26px] p-5">
+          <div className="text-accent-foreground flex items-center gap-2.5 text-[0.96rem] font-bold">
+            <KeyRound className="size-[18px]" />
+            Copy this now — it will not be shown again.
+          </div>
+          <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
+            <code className="bg-card flex min-h-[52px] min-w-0 flex-1 basis-56 items-center rounded-[18px] px-[18px] font-mono text-[13px]">
+              <span className="truncate">{fresh}</span>
+            </code>
+            <Button
+              variant="outline"
+              className="bg-card h-[52px]"
+              onClick={() => {
+                void navigator.clipboard.writeText(fresh);
+                setCopied(true);
+              }}
+            >
+              {copied ? <Check /> : <Copy />}
+              {copied ? "Copied" : "Copy"}
+            </Button>
+            <Button className="h-[52px]" onClick={() => setFresh(null)}>
+              Done
+            </Button>
+          </div>
+        </div>
+      )}
 
-        {active.length ? (
-          <ul className="space-y-2">
-            {active.map((t) => (
-              <li
-                key={t.id}
-                className="flex items-center gap-3 rounded-lg border px-3 py-2.5"
-              >
-                <Puzzle className="text-muted-foreground size-4 shrink-0" />
-                <span className="min-w-0 flex-1 truncate text-sm">{t.name}</span>
-                <span className="text-subtle text-xs">
+      {active.length ? (
+        <ul className="space-y-2.5">
+          {active.map((t) => (
+            <li key={t.id}>
+              <Row icon={Puzzle} className="sm:flex-nowrap">
+                <span className="min-w-0 flex-1 truncate text-[0.96rem] font-semibold">
+                  {t.name}
+                </span>
+                <span className="text-muted-foreground shrink-0 text-[0.8125rem] font-medium">
                   {t.last_used_at
                     ? `used ${new Date(t.last_used_at).toLocaleDateString()}`
                     : "never used"}
@@ -871,25 +998,55 @@ function ExtensionTokens() {
                 >
                   <Trash2 />
                 </Button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-muted-foreground text-sm">No active tokens.</p>
-        )}
+              </Row>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted-foreground text-sm">No active tokens.</p>
+      )}
 
-        <div className="flex flex-wrap items-end gap-3">
-          <FormField label="Token name" className="min-w-48 flex-1">
-            {(control) => (
-              <Input {...control} value={name} onChange={(e) => setName(e.target.value)} />
-            )}
-          </FormField>
-          <Button disabled={create.isPending} onClick={() => create.mutate()}>
-            {create.isPending ? <Spinner /> : <Plus />}
-            Create token
-          </Button>
+      <div className="mt-[22px] flex flex-wrap items-end gap-3">
+        <FormField label="Token name" className="min-w-48 flex-1">
+          {(control) => (
+            <Input
+              {...control}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          )}
+        </FormField>
+        <Button
+          size="lg"
+          disabled={create.isPending}
+          onClick={() => create.mutate()}
+        >
+          {create.isPending ? <Spinner /> : <Plus />}
+          Create token
+        </Button>
+      </div>
+
+      <Rule />
+
+      <div className="flex flex-wrap items-center gap-4">
+        <Tile icon={Package} size="lg" tone="soft" />
+        <div className="min-w-0 flex-1">
+          <div className="text-[1.03rem] font-semibold">
+            Browser extension package
+          </div>
+          <div className="text-muted-foreground mt-0.5 text-[0.8125rem] font-medium">
+            {pack.isLoading
+              ? "Checking…"
+              : pkg?.available
+                ? `Packaged ${new Date(pkg.builtAt!).toLocaleDateString()} · ${formatBytes(pkg.bytes!)}`
+                : "Not packaged yet"}
+          </div>
         </div>
-      </CardContent>
-    </Card>
+        <DownloadExtension
+          showSize={false}
+          className="border-foreground/20 h-12 border-[1.5px] shadow-none"
+        />
+      </div>
+    </>
   );
 }

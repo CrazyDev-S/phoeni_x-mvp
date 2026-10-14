@@ -31,6 +31,11 @@ const config: NextConfig = {
       { source: "/resumes", destination: "/remote/resumes", permanent: false },
       { source: "/resumes/:path*", destination: "/remote/resumes/:path*", permanent: false },
       { source: "/tailor", destination: "/remote/tailor", permanent: false },
+      // The shared tools now live inside each portal; the old URLs land in Remote,
+      // where they were first used.
+      { source: "/calendar", destination: "/remote/calendar", permanent: false },
+      { source: "/maintenance", destination: "/remote/maintenance", permanent: false },
+      { source: "/interview", destination: "/remote/interview", permanent: false },
       { source: "/applications", destination: "/remote/applications", permanent: false },
       {
         source: "/applications/:path*",

@@ -66,6 +66,10 @@ class AnthropicAdapter:
 
     def _thinking(self, req: LLMRequest) -> dict[str, Any] | None:
         if not req.thinking:
+            # Sonnet 5.5 thinks unless told otherwise, and 400s on "disabled";
+            # between_tools is its off switch, valid at effort high or below.
+            if self.caps.get("between_tools") and req.effort not in ("xhigh", "max"):
+                return {"type": "between_tools"}
             return None
         if self.caps.get("adaptive_thinking"):
             return {

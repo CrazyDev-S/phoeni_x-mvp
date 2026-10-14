@@ -109,6 +109,7 @@ async def promote_to_maintenance(
     maintained = MaintainedJob(
         user_id=user.id,
         freelance_track_id=row.id,
+        category="freelancing",
         employer_name=(job.client or {}).get("company_name") or "Upwork client",
         role_title=job.title,
         start_date=date.fromisoformat(utc_now().date().isoformat()),

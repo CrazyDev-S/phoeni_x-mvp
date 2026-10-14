@@ -3,7 +3,12 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
+  ArrowUpRight,
+  Briefcase,
+  Check,
   ClipboardPaste,
+  FilePenLine,
+  FilePlus2,
   FileText,
   Plus,
   RefreshCw,
@@ -14,17 +19,16 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { ErrorAlert } from "@/components/error-alert";
 import { FormField } from "@/components/form-field";
 import { GenerationProgress } from "@/components/remote/generation-progress";
 import { PageHero } from "@/components/page-hero";
-import { PhoenixHeroBanner } from "@/components/phoenix-hero-banner";
-import { HowItWorks, TipsPanel, WhyPanel } from "@/components/remote/tailor/side-panels";
+import { TipsPanel } from "@/components/remote/tailor/side-panels";
 import { ResultPanel } from "@/components/remote/tailor/result-panel";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -37,6 +41,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Tile } from "@/components/tile";
 import { useGeneration } from "@/hooks/use-generation";
 import { request } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -79,6 +84,11 @@ function TailorForm() {
   const { data: resumes, isLoading: resumesLoading } = useQuery({
     queryKey: ["resumes", ""],
     queryFn: () => request<{ items: ResumeOption[] }>("/api/v1/remote/resumes"),
+  });
+
+  const { data: tailored } = useQuery({
+    queryKey: ["tailored-resumes", "count"],
+    queryFn: () => request<{ total: number }>("/api/v1/remote/tailored-resumes?limit=1"),
   });
 
   const [baseId, setBaseId] = useState("");
@@ -145,302 +155,213 @@ function TailorForm() {
     }
   }
 
+  const stats =
+    resumes && tailored
+      ? [
+          { value: options.length, label: "Base resumes" },
+          { value: tailored.total, label: "Tailored" },
+        ]
+      : undefined;
+
   return (
-    <div className="space-y-6">
-      <PhoenixHeroBanner
-        eyebrow="AI-Powered Career Tools"
-        title="Tailor Resume for This Job"
-        description="Optimize your resume for the specific job posting. Our AI analyzes the job requirements and rewrites your resume with relevant keywords, skills, and achievements to increase your chances of getting an interview."
+    <div className="space-y-7">
+      <PageHero
+        title="Tailor"
+        stats={stats}
         actions={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-xl border-stone-200 dark:border-stone-800 text-xs font-semibold"
-            >
-              Save Draft
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-xl border-stone-200 dark:border-stone-800 text-xs font-semibold"
-            >
-              Compare Changes
-            </Button>
-          </div>
+          <Button asChild variant="secondary" size="lg">
+            <Link href="/remote/resumes/new">
+              <FilePlus2 />
+              New resume
+            </Link>
+          </Button>
         }
       />
 
-      {/* Top 3 Metric Summary Cards Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Job Posting Summary Card */}
-        <Card className="rounded-2xl border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 p-4 shadow-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-stone-800 dark:text-stone-200">
-              <span className="text-base">📋</span>
-              Job Posting
-            </div>
-            <span className="text-[11px] font-semibold text-orange-600 dark:text-orange-400 hover:underline cursor-pointer">
-              Change Job
-            </span>
-          </div>
-          <div>
-            <h4 className="font-bold text-sm text-stone-900 dark:text-stone-100 line-clamp-1">
-              {jobTitle || application?.role_title || "Full Stack Developer (Node + React)"}
-            </h4>
-            <div className="text-[11px] text-stone-500 mt-0.5">
-              {company || application?.company_name || "Upwork"} • Remote • Posted 1 day ago
-            </div>
-          </div>
-          <p className="text-xs text-stone-600 dark:text-stone-400 line-clamp-2">
-            {jobDescription ||
-              "We are looking for a Full Stack Developer with strong experience in React and Node.js to build and maintain scalable web applications..."}
-          </p>
-        </Card>
-
-        {/* Match Analysis Card */}
-        <Card className="rounded-2xl border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 p-4 shadow-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-stone-800 dark:text-stone-200">
-              <span className="text-base">🎯</span>
-              Match Analysis
-            </div>
-            <span className="text-[11px] text-stone-400">Last updated just now</span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex size-12 items-center justify-center rounded-full border-2 border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 font-black text-sm">
-              88%
-            </div>
-            <div>
-              <div className="text-xs font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1">
-                <span>+32%</span>
-                <span className="text-stone-400 font-normal">vs. original resume</span>
-              </div>
-              <div className="flex items-center gap-2 text-[11px] mt-0.5">
-                <span className="text-emerald-600 font-semibold">24 / 28 Matched</span>
-                <span>•</span>
-                <span className="text-amber-600 font-semibold">8 Missing</span>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Top Keywords Card */}
-        <Card className="rounded-2xl border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 p-4 shadow-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-stone-800 dark:text-stone-200">
-              <span className="text-base">🔑</span>
-              Top Keywords
-            </div>
-            <div className="flex items-center gap-2 text-[11px]">
-              <span className="text-emerald-600 font-bold">● Found (24)</span>
-              <span className="text-rose-500 font-bold">● Missing (8)</span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-1">
-            {["JavaScript", "React", "Node.js", "TypeScript", "REST APIs", "Next.js", "PostgreSQL"].map(
-              (kw) => (
-                <span
-                  key={kw}
-                  className="rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-[10px] font-medium border border-emerald-200 dark:border-emerald-800"
-                >
-                  {kw}
-                </span>
-              ),
-            )}
-            {["GraphQL", "System Design", "Microservices"].map((kw) => (
-              <span
-                key={kw}
-                className="rounded-md bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 px-2 py-0.5 text-[10px] font-medium border border-rose-200 dark:border-rose-800"
-              >
-                {kw}
-              </span>
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">
         <div className="min-w-0 space-y-6">
           {application && (
-            <div className="border-orange-200 bg-orange-50/50 dark:border-orange-950/50 dark:bg-orange-950/20 flex flex-wrap items-center gap-3 rounded-2xl border p-4 text-xs">
-              <p className="min-w-0 flex-1 text-stone-700 dark:text-stone-300">
-                Tailoring for{" "}
-                <span className="font-bold text-stone-900 dark:text-stone-100">
-                  {application.company_name} · {application.role_title}
-                </span>
-                . The result is linked to that application.
-              </p>
-              <Button asChild size="sm" variant="outline" className="rounded-xl text-xs">
-                <Link href={`/remote/applications/${application.id}`}>Back to the application</Link>
+            <Card
+              tone="accent"
+              className="flex-row flex-wrap items-center gap-4 rounded-[1.75rem] py-[18px] pr-5 pl-6"
+            >
+              <Tile icon={Briefcase} tone="ink" />
+              <div className="min-w-[14rem] flex-1">
+                <p className="text-base font-bold">
+                  Tailoring for {application.company_name} · {application.role_title}
+                </p>
+                <p className="text-brand-foreground/65 mt-0.5 text-[0.84rem] font-medium">
+                  The result is linked to that application.
+                  {!application.job_description_text?.trim() &&
+                    " No job description is saved with it — paste one below."}
+                </p>
+              </div>
+              <Button asChild variant="secondary" size="sm" className="shadow-none">
+                <Link href={`/remote/applications/${application.id}`}>
+                  Back to the application
+                  <ArrowUpRight />
+                </Link>
               </Button>
-            </div>
+            </Card>
           )}
 
-          <Card className="rounded-2xl border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-xs overflow-hidden">
-            <CardContent className="p-5 md:p-6">
-              <form onSubmit={submit}>
-                <FieldGroup className="gap-6">
-                  <BaseResumePicker
-                    value={baseId}
-                    onChange={setBaseId}
-                    options={options}
-                    loading={resumesLoading}
-                  />
+          <Card className="gap-0 rounded-[2.25rem] p-5 md:p-[30px]">
+            <form onSubmit={submit}>
+              <FieldGroup className="gap-6">
+                <BaseResumePicker
+                  value={baseId}
+                  onChange={setBaseId}
+                  options={options}
+                  loading={resumesLoading}
+                />
 
-                  <Tabs
-                    value={mode}
-                    onValueChange={(v) => setMode(v as Mode)}
-                    className="gap-5"
-                  >
-                    <TabsList className="h-11 w-full rounded-2xl bg-stone-100 dark:bg-stone-800 p-1">
-                      <TabsTrigger value="job" className="rounded-xl gap-2 font-semibold text-xs">
-                        <ClipboardPaste className="hidden size-4 sm:block" />
-                        <span className="sm:hidden">Job description</span>
-                        <span className="hidden sm:inline">Paste job description</span>
-                      </TabsTrigger>
-                      <TabsTrigger value="instruction" className="rounded-xl gap-2 font-semibold text-xs">
-                        <FileText className="hidden size-4 sm:block" />
-                        <span className="sm:hidden">Instruction</span>
-                        <span className="hidden sm:inline">Edit by instruction</span>
-                      </TabsTrigger>
-                    </TabsList>
+                <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="gap-6">
+                  <TabsList className="bg-soft h-[3.375rem] w-full p-[5px] shadow-none">
+                    <TabsTrigger
+                      value="job"
+                      className="gap-2.5 text-[0.9375rem] data-active:[&_svg]:text-brand"
+                    >
+                      <ClipboardPaste className="hidden size-[18px] sm:block" />
+                      <span className="sm:hidden">Job description</span>
+                      <span className="hidden sm:inline">Paste job description</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="instruction"
+                      className="gap-2.5 text-[0.9375rem] data-active:[&_svg]:text-brand"
+                    >
+                      <FilePenLine className="hidden size-[18px] sm:block" />
+                      <span className="sm:hidden">Instruction</span>
+                      <span className="hidden sm:inline">Edit by instruction</span>
+                    </TabsTrigger>
+                  </TabsList>
 
-                    <TabsContent value="job">
-                      <FieldGroup className="gap-5">
-                        <StrategyPicker value={strategy} onChange={setStrategy} />
+                  <TabsContent value="job">
+                    <FieldGroup className="gap-6">
+                      <StrategyPicker value={strategy} onChange={setStrategy} />
 
-                        <JobDescriptionInput
-                          value={jobDescription}
-                          onChange={setJobDescription}
-                        />
+                      <JobDescriptionInput value={jobDescription} onChange={setJobDescription} />
 
-                        <div className="grid gap-4 sm:grid-cols-3">
-                          <FormField label="Company">
-                            {(control) => (
-                              <Input
-                                {...control}
-                                value={company}
-                                onChange={(e) => setCompany(e.target.value)}
-                                placeholder="Optional"
-                                className="rounded-xl"
-                              />
-                            )}
-                          </FormField>
-                          <FormField label="Role title">
-                            {(control) => (
-                              <Input
-                                {...control}
-                                value={jobTitle}
-                                onChange={(e) => setJobTitle(e.target.value)}
-                                placeholder="Optional"
-                                className="rounded-xl"
-                              />
-                            )}
-                          </FormField>
-                          <FormField label="Job URL">
-                            {(control) => (
-                              <Input
-                                {...control}
-                                type="url"
-                                value={jobUrl}
-                                onChange={(e) => setJobUrl(e.target.value)}
-                                placeholder="https://…"
-                                className="rounded-xl"
-                              />
-                            )}
-                          </FormField>
-                        </div>
-                      </FieldGroup>
-                    </TabsContent>
-
-                    <TabsContent value="instruction">
-                      <FormField
-                        label="What should change?"
-                        hint="Only what you ask for changes; everything else stays identical. This saves back as a base resume."
-                      >
-                        {(control) => (
-                          <>
-                            <Textarea
+                      <div className="grid gap-3.5 sm:grid-cols-3">
+                        <FormField label={<FieldLabelText small>Company</FieldLabelText>}>
+                          {(control) => (
+                            <Input
                               {...control}
-                              rows={8}
-                              maxLength={INSTRUCTION_MAX}
-                              value={instructions}
-                              onChange={(e) => setInstructions(e.target.value)}
-                              className="field-sizing-fixed min-h-44 rounded-xl"
-                              placeholder="Lead with the RAG work. Cut the KBTG role to two bullets. Retitle for a platform role."
+                              value={company}
+                              onChange={(e) => setCompany(e.target.value)}
+                              placeholder="Optional"
                             />
-                            <Counter value={instructions.length} max={INSTRUCTION_MAX} />
-                          </>
-                        )}
-                      </FormField>
-                    </TabsContent>
-                  </Tabs>
+                          )}
+                        </FormField>
+                        <FormField label={<FieldLabelText small>Role title</FieldLabelText>}>
+                          {(control) => (
+                            <Input
+                              {...control}
+                              value={jobTitle}
+                              onChange={(e) => setJobTitle(e.target.value)}
+                              placeholder="Optional"
+                            />
+                          )}
+                        </FormField>
+                        <FormField label={<FieldLabelText small>Job URL</FieldLabelText>}>
+                          {(control) => (
+                            <Input
+                              {...control}
+                              type="url"
+                              value={jobUrl}
+                              onChange={(e) => setJobUrl(e.target.value)}
+                              placeholder="https://…"
+                            />
+                          )}
+                        </FormField>
+                      </div>
+                    </FieldGroup>
+                  </TabsContent>
 
-                  <Button
-                    type="submit"
-                    size="lg"
-                    className="h-12 w-full rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-bold text-sm shadow-md"
-                    disabled={!canSubmit}
-                  >
-                    {state.running ? (
-                      <>
-                        <Spinner />
-                        {state.label || "Working…"}
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="size-4 mr-1.5" />
-                        {mode === "instruction"
-                          ? "Apply edits"
-                          : strategy === "full"
-                            ? "Build a new resume for this job"
-                            : "Tailor with AI"}
-                        <ArrowRight data-icon="inline-end" className="size-4 ml-1.5" />
-                      </>
-                    )}
-                  </Button>
+                  <TabsContent value="instruction">
+                    <FormField
+                      label="What should change?"
+                      hint="Only what you ask for changes; everything else stays identical. This saves back as a base resume."
+                    >
+                      {(control) => (
+                        <>
+                          <Textarea
+                            {...control}
+                            rows={8}
+                            maxLength={INSTRUCTION_MAX}
+                            value={instructions}
+                            onChange={(e) => setInstructions(e.target.value)}
+                            className="field-sizing-fixed min-h-44 rounded-[22px] px-[22px] py-5"
+                            placeholder="Lead with the RAG work. Cut the KBTG role to two bullets. Retitle for a platform role."
+                          />
+                          <Counter value={instructions.length} max={INSTRUCTION_MAX} />
+                        </>
+                      )}
+                    </FormField>
+                  </TabsContent>
+                </Tabs>
 
-                  {!baseId && !resumesLoading && options.length > 0 && (
-                    <p className="text-stone-400 -mt-2 text-center text-xs">
-                      Choose a base resume to continue.
-                    </p>
+                <Button
+                  type="submit"
+                  variant="brand"
+                  size="lg"
+                  className="h-[3.75rem] w-full text-[1.0313rem]"
+                  disabled={!canSubmit}
+                >
+                  {state.running ? (
+                    <>
+                      <Spinner />
+                      {state.label || "Working…"}
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles />
+                      {mode === "instruction"
+                        ? "Apply edits"
+                        : strategy === "full"
+                          ? "Build a new resume for this job"
+                          : "Generate tailored resume"}
+                      <ArrowRight data-icon="inline-end" />
+                    </>
                   )}
-                </FieldGroup>
-              </form>
-            </CardContent>
+                </Button>
+
+                {!baseId && !resumesLoading && options.length > 0 && (
+                  <p className="text-subtle -mt-2 text-center text-xs">
+                    Choose a base resume to continue.
+                  </p>
+                )}
+              </FieldGroup>
+            </form>
           </Card>
 
           {state.error && (
             <ErrorAlert title="We couldn’t generate your tailored resume.">
               <span className="block">{state.error}</span>
-              <Button variant="outline" size="sm" className="mt-3 rounded-xl" onClick={reset}>
+              <Button variant="outline" size="sm" className="mt-3" onClick={reset}>
                 Try again
               </Button>
             </ErrorAlert>
           )}
 
           {state.running && <GenerationProgress state={state} />}
-
-          {!state.running && !state.error && state.resultId && (
-            <ResultPanel state={state} />
-          )}
-
-          <HowItWorks />
         </div>
 
-        <aside className="space-y-6 lg:sticky lg:top-24">
+        <aside className="lg:sticky lg:top-24">
           <TipsPanel />
-          <WhyPanel />
         </aside>
       </div>
+
+      {!state.running && !state.error && state.resultId && <ResultPanel state={state} />}
     </div>
   );
 }
 
-const STRATEGIES: { value: Strategy; title: string; body: string; icon: typeof Sparkles }[] = [
+const STRATEGIES: {
+  value: Strategy;
+  title: string;
+  body: string;
+  icon: typeof Sparkles;
+}[] = [
   {
     value: "existing",
     title: "Upgrade existing",
@@ -463,8 +384,8 @@ function StrategyPicker({
   onChange: (next: Strategy) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label="How to tailor" className="grid gap-3 sm:grid-cols-2">
-      {STRATEGIES.map(({ value: option, title, body, icon: Icon }) => {
+    <div role="radiogroup" aria-label="How to tailor" className="grid gap-3.5 sm:grid-cols-2">
+      {STRATEGIES.map(({ value: option, title, body, icon }) => {
         const selected = value === option;
         return (
           <button
@@ -474,16 +395,27 @@ function StrategyPicker({
             aria-checked={selected}
             onClick={() => onChange(option)}
             className={cn(
-              "rounded-xl border p-4 text-left transition-colors",
-              selected ? "border-primary bg-accent/60 ring-primary ring-1" : "hover:bg-muted/50",
+              "focus-visible:ring-ring/40 relative flex items-start gap-3.5 rounded-3xl px-5 py-[18px] text-left outline-none transition-colors focus-visible:ring-3",
+              selected ? "bg-accent ring-primary ring-2 ring-inset" : "bg-soft hover:bg-soft-2",
             )}
           >
-            <span className="flex items-center gap-2 text-sm font-medium">
-              <Icon className="text-primary size-4" />
-              {title}
+            <Tile icon={icon} tone={selected ? "brand" : "soft"} />
+            <span className="min-w-0">
+              <span className="block pr-8 text-base font-bold">{title}</span>
+              <span className="text-muted-foreground mt-[3px] block text-[0.8125rem] leading-normal font-medium">
+                {body}
+              </span>
             </span>
-            <span className="text-muted-foreground mt-1 block text-xs leading-relaxed">
-              {body}
+            <span
+              aria-hidden
+              className={cn(
+                "absolute top-[18px] right-[18px] grid size-[22px] place-items-center rounded-full",
+                selected
+                  ? "bg-primary text-brand"
+                  : "bg-card shadow-[inset_0_0_0_1.8px_color-mix(in_oklab,var(--foreground)_22%,transparent)]",
+              )}
+            >
+              {selected && <Check className="size-3 stroke-[3]" />}
             </span>
           </button>
         );
@@ -492,13 +424,29 @@ function StrategyPicker({
   );
 }
 
+function FieldLabelText({ small, children }: { small?: boolean; children: ReactNode }) {
+  return (
+    <span className={cn("font-bold", small ? "text-[0.8125rem]" : "text-[0.9375rem]")}>
+      {children}
+    </span>
+  );
+}
+
+function Hint({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <p id={id} className="text-muted-foreground -mt-1 text-[0.8125rem] leading-snug font-medium">
+      {children}
+    </p>
+  );
+}
+
 function Counter({ value, max }: { value: number; max: number }) {
   const near = value > max * 0.9;
   return (
     <p
       className={cn(
-        "text-right text-xs tabular-nums",
-        near ? "text-warning font-medium" : "text-subtle",
+        "text-right text-[0.8125rem] font-semibold tabular-nums",
+        near ? "text-warning" : "text-muted-foreground",
       )}
     >
       {value.toLocaleString()} / {max.toLocaleString()}
@@ -519,9 +467,9 @@ function BaseResumePicker({
 }) {
   if (!loading && !options.length) {
     return (
-      <div className="border-primary/25 bg-accent/50 flex flex-wrap items-center gap-3 rounded-xl border border-dashed p-4">
-        <FileText className="text-primary size-5 shrink-0" />
-        <p className="text-muted-foreground min-w-0 flex-1 text-sm">
+      <div className="bg-accent flex flex-wrap items-center gap-3 rounded-3xl p-4">
+        <Tile icon={FileText} tone="brand" size="sm" />
+        <p className="text-accent-foreground min-w-0 flex-1 text-sm font-medium">
           You need a base resume first — tailoring reframes one you already have.
         </p>
         <Button asChild size="sm">
@@ -535,31 +483,42 @@ function BaseResumePicker({
   }
 
   return (
-    <FormField
-      label="Base resume"
-      hint="Employers, titles and dates are carried across unchanged — this reframes, it does not invent."
-    >
+    <FormField label={<FieldLabelText>Base resume</FieldLabelText>}>
       {(control) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={value} onValueChange={onChange} disabled={loading}>
-            <SelectTrigger {...control} className="h-11 min-w-0 flex-1">
-              <SelectValue placeholder={loading ? "Loading…" : "Choose a resume…"} />
-            </SelectTrigger>
-            <SelectContent>
-              {options.map((r) => (
-                <SelectItem key={r.id} value={r.id}>
-                  {r.display_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button asChild variant="outline" size="lg" className="h-11">
-            <Link href="/remote/resumes/new">
-              <Plus />
-              New
-            </Link>
-          </Button>
-        </div>
+        <>
+          <Hint id={`${control.id}-hint`}>
+            Employers, titles and dates are carried across unchanged — this reframes, it does not
+            invent.
+          </Hint>
+          <div className="flex items-center gap-2.5">
+            <Select value={value} onValueChange={onChange} disabled={loading}>
+              <SelectTrigger
+                {...control}
+                aria-describedby={`${control.id}-hint`}
+                className="h-[3.25rem] min-w-0 flex-1 pl-4"
+              >
+                <FileText className="text-accent-foreground size-[18px]" />
+                <SelectValue
+                  className="flex-1 text-left"
+                  placeholder={loading ? "Loading…" : "Choose a resume…"}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {options.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.display_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button asChild variant="outline" size="lg" className="h-[3.25rem]">
+              <Link href="/remote/resumes/new">
+                <Plus />
+                New
+              </Link>
+            </Button>
+          </div>
+        </>
       )}
     </FormField>
   );
@@ -600,13 +559,13 @@ function JobDescriptionInput({
   }
 
   return (
-    <FormField label="Job description">
+    <FormField label={<FieldLabelText>Job description</FieldLabelText>}>
       {(control) => (
-        <div className="space-y-2">
-          <p className="text-muted-foreground -mt-0.5 text-sm">
-            Include the role, company, key responsibilities, required skills, and any other
-            relevant details.
-          </p>
+        <div className="space-y-3">
+          <Hint id={`${control.id}-hint`}>
+            Include the role, company, key responsibilities, required skills, and any other relevant
+            details.
+          </Hint>
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -619,18 +578,19 @@ function JobDescriptionInput({
               void accept(e.dataTransfer.files[0]);
             }}
             className={cn(
-              "relative rounded-xl transition-colors",
+              "relative rounded-[22px] transition-colors",
               dragging && "ring-primary bg-accent/60 ring-2",
             )}
           >
             <Textarea
               {...control}
+              aria-describedby={`${control.id}-hint`}
               required
               rows={12}
               maxLength={JD_MAX}
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              className="field-sizing-fixed min-h-64 resize-y"
+              className="field-sizing-fixed min-h-80 resize-y rounded-[22px] px-[22px] py-5 leading-relaxed lg:h-[25.5rem]"
               placeholder="Paste the job description here…"
             />
             {dragging && (
@@ -651,8 +611,8 @@ function JobDescriptionInput({
             />
             <Button
               type="button"
-              variant="ghost"
-              size="xs"
+              variant="outline"
+              size="sm"
               onClick={() => inputRef.current?.click()}
             >
               <Upload />

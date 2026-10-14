@@ -92,6 +92,20 @@ UPGRADES = (
     "CHECK (num_nonnulls(stage_id, maintained_job_id, freelance_track_id) = 1)",
     "ALTER TABLE maintained_jobs ADD COLUMN IF NOT EXISTS freelance_track_id uuid "
     "UNIQUE REFERENCES freelance_job_tracks(id) ON DELETE SET NULL",
+    # 2026-10: Freelancing and Remote are separate portals, so a maintained job
+    # says which one it belongs to. Jobs promoted from a track were Freelancing.
+    "ALTER TABLE maintained_jobs ADD COLUMN IF NOT EXISTS category text "
+    "NOT NULL DEFAULT 'remote'",
+    "UPDATE maintained_jobs SET category = 'freelancing' "
+    "WHERE freelance_track_id IS NOT NULL AND category <> 'freelancing'",
+    "ALTER TABLE maintained_jobs DROP CONSTRAINT IF EXISTS ck_maintained_jobs_category",
+    "ALTER TABLE maintained_jobs ADD CONSTRAINT ck_maintained_jobs_category "
+    "CHECK (category IN ('remote', 'freelancing'))",
+    # 2026-10: Claude work runs on Sonnet 5.5 at every tier. Only the default
+    # for new accounts; a saved choice is the user's and is left alone.
+    "ALTER TABLE user_settings ALTER COLUMN heavy_model SET DEFAULT 'claude-sonnet-5-5'",
+    "ALTER TABLE user_settings ALTER COLUMN mid_model SET DEFAULT 'claude-sonnet-5-5'",
+    "ALTER TABLE user_settings ALTER COLUMN fast_model SET DEFAULT 'claude-sonnet-5-5'",
 )
 
 

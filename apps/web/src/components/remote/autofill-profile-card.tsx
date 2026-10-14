@@ -6,21 +6,16 @@ import { useEffect, useState } from "react";
 
 import { ErrorAlert } from "@/components/error-alert";
 import { FormField } from "@/components/form-field";
+import { Hint } from "@/components/settings/section";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { request } from "@/lib/api";
 
-interface AutofillProfile {
+interface AutofillData {
   fields: Record<string, string>;
   extra_notes_markdown: string | null;
 }
@@ -54,10 +49,12 @@ const SUGGESTED = [
 
 function toRows(fields: Record<string, string>): Row[] {
   const rows = Object.entries(fields).map(([key, value]) => ({ key, value }));
-  return rows.length ? rows : SUGGESTED.slice(0, 6).map((key) => ({ key, value: "" }));
+  return rows.length
+    ? rows
+    : SUGGESTED.slice(0, 6).map((key) => ({ key, value: "" }));
 }
 
-export function AutofillProfileCard() {
+export function AutofillProfile() {
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [notes, setNotes] = useState("");
@@ -65,7 +62,7 @@ export function AutofillProfileCard() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["autofill-profile"],
-    queryFn: () => request<AutofillProfile>("/api/v1/settings/autofill-profile"),
+    queryFn: () => request<AutofillData>("/api/v1/settings/autofill-profile"),
   });
 
   useEffect(() => {
@@ -76,8 +73,8 @@ export function AutofillProfileCard() {
   }, [data, rows]);
 
   const save = useMutation({
-    mutationFn: (body: AutofillProfile) =>
-      request<AutofillProfile>("/api/v1/settings/autofill-profile", {
+    mutationFn: (body: AutofillData) =>
+      request<AutofillData>("/api/v1/settings/autofill-profile", {
         method: "PUT",
         body: JSON.stringify(body),
       }),
@@ -91,16 +88,11 @@ export function AutofillProfileCard() {
 
   if (isLoading || rows === null) {
     return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-5 w-40" />
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-10 w-full" />
-          ))}
-        </CardContent>
-      </Card>
+      <div className="space-y-3">
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-12 w-full" />
+        ))}
+      </div>
     );
   }
 
@@ -113,125 +105,116 @@ export function AutofillProfileCard() {
     setRows(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Autofill profile</CardTitle>
-        <CardDescription>
-          What the extension answers application forms with. The form filler is not allowed
-          to invent a phone number or a notice period — if it is not here, it hands the
-          field back to you.
-        </CardDescription>
-      </CardHeader>
+    <div className="space-y-6">
+      {filled === 0 && (
+        <div className="bg-warning/12 text-warning flex items-start gap-2.5 rounded-[22px] p-4 text-sm font-medium">
+          <Wand2 className="mt-0.5 size-4 shrink-0" />
+          <p className="leading-relaxed">
+            Nothing stored yet — that is why autofill reports “not present in
+            your profile”. Fill in at least your contact details.
+          </p>
+        </div>
+      )}
 
-      <CardContent className="space-y-5">
-        {filled === 0 && (
-          <div className="border-warning/40 bg-warning/10 text-warning flex items-start gap-2.5 rounded-lg border p-3 text-sm">
-            <Wand2 className="mt-0.5 size-4 shrink-0" />
-            <p className="leading-relaxed">
-              Nothing stored yet — that is why autofill reports “not present in your
-              profile”. Fill in at least your contact details.
-            </p>
-          </div>
-        )}
+      <ul className="space-y-2.5">
+        {rows.map((row, index) => (
+          <li
+            key={index}
+            className="grid grid-cols-[minmax(0,1fr)_44px] items-center gap-2.5 sm:grid-cols-[minmax(0,250px)_minmax(0,1fr)_44px]"
+          >
+            <Input
+              aria-label={`Question ${index + 1}`}
+              value={row.key}
+              placeholder="Question"
+              onChange={(e) => update(index, { key: e.target.value })}
+              className="bg-soft font-semibold"
+            />
+            <Input
+              aria-label={`Answer for ${row.key || `question ${index + 1}`}`}
+              value={row.value}
+              placeholder="Your answer"
+              onChange={(e) => update(index, { value: e.target.value })}
+              className="max-sm:col-start-1 max-sm:row-start-2"
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground size-11 max-sm:col-start-2 max-sm:row-span-2 max-sm:row-start-1"
+              aria-label={`Remove ${row.key || `question ${index + 1}`}`}
+              onClick={() => setRows(rows.filter((_, i) => i !== index))}
+            >
+              <Trash2 />
+            </Button>
+          </li>
+        ))}
+      </ul>
 
-        <ul className="space-y-2">
-          {rows.map((row, index) => (
-            <li key={index} className="flex items-center gap-2">
-              <Input
-                aria-label={`Question ${index + 1}`}
-                value={row.key}
-                placeholder="Question"
-                onChange={(e) => update(index, { key: e.target.value })}
-                className="w-1/3 min-w-32"
-              />
-              <Input
-                aria-label={`Answer for ${row.key || `question ${index + 1}`}`}
-                value={row.value}
-                placeholder="Your answer"
-                onChange={(e) => update(index, { value: e.target.value })}
-                className="flex-1"
-              />
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`Remove ${row.key || `question ${index + 1}`}`}
-                onClick={() => setRows(rows.filter((_, i) => i !== index))}
-              >
-                <Trash2 />
-              </Button>
-            </li>
-          ))}
-        </ul>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="outline"
+          onClick={() => setRows([...rows, { key: "", value: "" }])}
+        >
+          <Plus />
+          Add a row
+        </Button>
+        {unused.slice(0, 4).map((suggestion) => (
+          <Chip
+            key={suggestion}
             size="sm"
-            onClick={() => setRows([...rows, { key: "", value: "" }])}
+            onClick={() => setRows([...rows, { key: suggestion, value: "" }])}
           >
             <Plus />
-            Add a row
-          </Button>
-          {unused.slice(0, 4).map((suggestion) => (
-            <Button
-              key={suggestion}
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              onClick={() => setRows([...rows, { key: suggestion, value: "" }])}
-            >
-              <Plus />
-              {suggestion}
-            </Button>
-          ))}
-        </div>
+            {suggestion}
+          </Chip>
+        ))}
+      </div>
 
-        <FormField
-          label="Anything else the filler should know"
-          hint="Free text, used only as context — it is never pasted into a field verbatim."
+      <FormField
+        label="Anything else the filler should know"
+        hint="Free text, used only as context — it is never pasted into a field verbatim."
+      >
+        {(control) => (
+          <Textarea
+            {...control}
+            rows={3}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Open to remote US-hours roles. Happy to relocate for the right team."
+            className="field-sizing-fixed min-h-24 resize-none"
+          />
+        )}
+      </FormField>
+
+      <div className="flex flex-wrap items-center gap-4">
+        <Button
+          size="lg"
+          disabled={save.isPending}
+          onClick={() =>
+            save.mutate({
+              fields: Object.fromEntries(
+                rows
+                  .filter((r) => r.key.trim() && r.value.trim())
+                  .map((r) => [r.key.trim(), r.value.trim()]),
+              ),
+              extra_notes_markdown: notes.trim() || null,
+            })
+          }
         >
-          {(control) => (
-            <Textarea
-              {...control}
-              rows={3}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Open to remote US-hours roles. Happy to relocate for the right team."
-              className="field-sizing-fixed min-h-20"
-            />
-          )}
-        </FormField>
-
-        <div className="flex items-center gap-3">
-          <Button
-            disabled={save.isPending}
-            onClick={() =>
-              save.mutate({
-                fields: Object.fromEntries(
-                  rows
-                    .filter((r) => r.key.trim() && r.value.trim())
-                    .map((r) => [r.key.trim(), r.value.trim()]),
-                ),
-                extra_notes_markdown: notes.trim() || null,
-              })
-            }
-          >
-            {save.isPending ? <Spinner /> : <Save />}
-            Save profile
-          </Button>
-          {saved && (
-            <span className="text-success flex items-center gap-1.5 text-sm">
-              <Check className="size-4" />
-              Saved
-            </span>
-          )}
-          <span className="text-subtle ml-auto text-xs tabular-nums">
-            {filled} answer{filled === 1 ? "" : "s"} stored
+          {save.isPending ? <Spinner /> : <Save />}
+          Save profile
+        </Button>
+        {saved && (
+          <span className="text-success flex items-center gap-2 text-sm font-semibold">
+            <Check className="size-4 stroke-[2.4]" />
+            Saved
           </span>
-        </div>
+        )}
+        <Hint quiet className="ml-auto text-[0.8125rem] tabular-nums">
+          {filled} answer{filled === 1 ? "" : "s"} stored
+        </Hint>
+      </div>
 
-        {save.isError && <ErrorAlert>{(save.error as Error).message}</ErrorAlert>}
-      </CardContent>
-    </Card>
+      {save.isError && <ErrorAlert>{(save.error as Error).message}</ErrorAlert>}
+    </div>
   );
 }

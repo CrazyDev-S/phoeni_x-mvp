@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Plug } from "lucide-react";
 import Link from "next/link";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { request } from "@/lib/api";
 import type { JobSourceStatus } from "@/lib/freelancing";
@@ -31,15 +30,22 @@ export function JobSourceBanner() {
   if (!data || data.ready) return null;
 
   return (
-    <Alert>
-      <Plug />
-      <AlertTitle>{data.label} is not set up</AlertTitle>
-      <AlertDescription className="flex flex-wrap items-center gap-2">
-        <span>{data.setup_hint ?? "Finish setting up the job source to search."}</span>
-        <Button asChild size="sm" className="ml-auto">
-          <Link href="/settings?tab=integrations">Open integrations</Link>
-        </Button>
-      </AlertDescription>
-    </Alert>
+    <div
+      role="alert"
+      className="bg-card shadow-card flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[20px] px-4 py-2.5 text-sm"
+    >
+      <span className="bg-brand-soft text-brand-ink grid size-8 shrink-0 place-items-center rounded-full">
+        <Plug className="size-4" />
+      </span>
+      <p className="min-w-0 flex-1 basis-60">
+        <span className="font-semibold">{data.label} is not set up.</span>{" "}
+        <span className="text-muted-foreground font-medium">
+          {data.setup_hint ?? "Finish setting up the job source to search."}
+        </span>
+      </p>
+      <Button asChild size="sm" className="shrink-0">
+        <Link href="/settings?tab=integrations">Open integrations</Link>
+      </Button>
+    </div>
   );
 }

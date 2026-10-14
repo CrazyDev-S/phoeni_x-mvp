@@ -2,12 +2,15 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowLeft,
   ArrowUpRight,
+  Check,
   Download,
   FileDown,
   RefreshCw,
   Save,
   Sparkles,
+  Trash2,
   WandSparkles,
 } from "lucide-react";
 import Link from "next/link";
@@ -18,16 +21,16 @@ import { ConfirmDelete } from "@/components/confirm-delete";
 import { ErrorAlert } from "@/components/error-alert";
 import { FindingsList, type Finding } from "@/components/remote/findings";
 import { GenerationProgress } from "@/components/remote/generation-progress";
-import { PageHero } from "@/components/page-hero";
+import { AtsReport } from "@/components/remote/tailored/ats-report";
 import {
-  AtsPanel,
   DocumentPane,
   JsonPanel,
   PanelNote,
   PrepPanel,
   type Flags,
 } from "@/components/remote/resume-editor";
-import { StatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
+import { Tile } from "@/components/tile";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -130,12 +133,22 @@ export default function TailoredResumePage() {
 
   if (isLoading || !data || draft === null) {
     return (
-      <div className="space-y-4" aria-busy>
-        <Skeleton className="h-9 w-72" />
-        <Skeleton className="h-4 w-48" />
-        <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-          <Skeleton className="h-[32rem]" />
-          <Skeleton className="h-[32rem]" />
+      <div className="space-y-6" aria-busy>
+        <div className="flex items-center gap-5">
+          <Skeleton className="size-14 rounded-full" />
+          <div className="space-y-3">
+            <Skeleton className="h-5 w-48 rounded-full" />
+            <Skeleton className="h-9 w-80 max-w-full" />
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-34 rounded-[1.875rem]" />
+          ))}
+        </div>
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.38fr)_minmax(0,1fr)]">
+          <Skeleton className="h-[32rem] rounded-[2rem]" />
+          <Skeleton className="h-[32rem] rounded-[2rem]" />
         </div>
       </div>
     );
@@ -145,168 +158,225 @@ export default function TailoredResumePage() {
   const errorCount = findings.filter((f) => f.severity === "error").length;
   const dirty = draft !== data.content_markdown;
   const running = upgrade.state.running;
+  const scored = Boolean(data.must_have_total);
 
   function startUpgrade(next: Strategy) {
     setStrategy(next);
     void upgrade.start(`/api/v1/remote/tailored-resumes/${id}/upgrade`, { strategy: next });
   }
 
-  const stats: [string, string][] = [
-    [
-      "Must-have coverage",
-      data.must_have_total
-        ? `${data.must_have_covered}/${data.must_have_total} · ${Math.round(data.must_have_coverage_percent ?? 0)}%`
-        : "Not scored",
-    ],
-    [
-      "Nice-to-have",
-      data.nice_to_have_coverage_percent != null
-        ? `${Math.round(data.nice_to_have_coverage_percent)}%`
-        : "—",
-    ],
-    ["Years asked / shown", `${data.years_required ?? "—"} / ${data.years_shown ?? "—"}`],
-    ["Rule errors", String(errorCount)],
-  ];
+  const subtitle = [data.job_title, data.company_name].filter(Boolean).join(" · ");
 
   return (
-    <div className="space-y-6">
-      <PageHero
-        size="page"
-        eyebrow="Tailored resume"
-        eyebrowIcon={Sparkles}
-        title={
-          <>
+    <div className="space-y-5">
+      <header className="flex flex-wrap items-center gap-x-5 gap-y-4">
+        <Link
+          href="/remote/resumes"
+          aria-label="Back"
+          className="bg-card shadow-card focus-visible:ring-ring/40 grid size-14 shrink-0 place-items-center rounded-full outline-none focus-visible:ring-3"
+        >
+          <ArrowLeft className="size-5" />
+        </Link>
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-muted-foreground text-xs font-bold tracking-[0.07em] uppercase">
+              Tailored resume
+            </span>
+            {data.status === "needs_review" && <Badge variant="warning">Needs review</Badge>}
+          </div>
+          <h1 className="page-title page-title-sm !whitespace-normal !normal-case text-balance [overflow-wrap:anywhere] max-md:!text-[1.625rem]">
             {data.display_name}
-            {data.status === "needs_review" && (
-              <StatusBadge tone="warn">Needs review</StatusBadge>
+          </h1>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-semibold">
+            <span className="text-muted-foreground">{subtitle || "Tailored version"}</span>
+            {data.job_url && (
+              <a
+                href={data.job_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 hover:underline"
+              >
+                <ArrowUpRight className="size-[15px]" />
+                Job posting
+              </a>
             )}
-          </>
-        }
-        description={
-          [data.job_title, data.company_name].filter(Boolean).join(" · ") || "Tailored version"
-        }
-        actions={
-          <>
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-11"
-              onClick={() =>
-                downloadDocx(
-                  { resume_id: id, kind: "tailored", profile: "designed" },
-                  `${data.display_name}.docx`,
-                )
-              }
+            <Link
+              href={`/remote/resumes/${data.base_resume_id}`}
+              className="inline-flex items-center gap-1 hover:underline"
             >
-              <Download />
-              Download .docx
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-11"
-              onClick={() =>
-                downloadDocx(
-                  { resume_id: id, kind: "tailored", profile: "ats_plain" },
-                  `${data.display_name}_ATS.docx`,
-                )
-              }
-            >
-              <FileDown />
-              ATS version
-            </Button>
-            {/* Outline once saved: a faded primary reads as broken, not done. */}
-            <Button
-              variant={dirty ? "default" : "outline"}
-              size="lg"
-              className="h-11"
-              disabled={!dirty || save.isPending}
-              onClick={() => save.mutate(draft)}
-            >
-              <Save />
-              {dirty ? "Save changes" : "Saved"}
-            </Button>
-            <ConfirmDelete
-              label={data.display_name}
-              onDelete={() =>
-                request(`/api/v1/remote/tailored-resumes/${id}`, { method: "DELETE" }).then(
-                  () => undefined,
-                )
-              }
-              onDeleted={() => {
-                queryClient.invalidateQueries({ queryKey: ["tailored-resumes"] });
-                queryClient.invalidateQueries({ queryKey: ["application"] });
-                router.replace("/remote/resumes");
-              }}
-            />
-          </>
-        }
-      />
-
-      <div className="space-y-2">
-        <dl className="bg-border grid grid-cols-2 gap-px overflow-hidden rounded-xl border text-sm sm:grid-cols-4">
-          {stats.map(([label, value]) => (
-            <div key={label} className="bg-card px-4 py-3">
-              <dt className="text-muted-foreground text-xs">{label}</dt>
-              <dd className="mt-0.5 font-medium tabular-nums">{value}</dd>
-            </div>
-          ))}
-        </dl>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          {data.job_url && (
-            <a
-              href={data.job_url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary inline-flex items-center gap-1 hover:underline"
-            >
-              Job posting
-              <ArrowUpRight className="size-3.5" />
-            </a>
-          )}
-          <Link
-            href={`/remote/resumes/${data.base_resume_id}`}
-            className="text-primary inline-flex items-center gap-1 hover:underline"
-          >
-            Base resume
-            <ArrowUpRight className="size-3.5" />
-          </Link>
+              <ArrowUpRight className="size-[15px]" />
+              Base resume
+            </Link>
+          </div>
         </div>
-      </div>
+        <div className="ml-auto flex flex-wrap items-center gap-3">
+          <Button
+            variant="secondary"
+            size="lg"
+            onClick={() =>
+              downloadDocx(
+                { resume_id: id, kind: "tailored", profile: "designed" },
+                `${data.display_name}.docx`,
+              )
+            }
+          >
+            <Download />
+            Download .docx
+          </Button>
+          <Button
+            variant="secondary"
+            size="lg"
+            onClick={() =>
+              downloadDocx(
+                { resume_id: id, kind: "tailored", profile: "ats_plain" },
+                `${data.display_name}_ATS.docx`,
+              )
+            }
+          >
+            <FileDown />
+            ATS version
+          </Button>
+          <Button
+            size="lg"
+            className="disabled:opacity-100"
+            disabled={!dirty || save.isPending}
+            onClick={() => save.mutate(draft)}
+          >
+            {save.isPending ? (
+              <Spinner />
+            ) : dirty ? (
+              <Save />
+            ) : (
+              <span className="bg-panel-raised text-brand -ml-3 grid size-8 place-items-center rounded-full">
+                <Check className="size-4" />
+              </span>
+            )}
+            {save.isPending ? "Saving…" : dirty ? "Save changes" : "Saved"}
+          </Button>
+          <ConfirmDelete
+            label={data.display_name}
+            trigger={
+              <Button variant="destructive" size="icon-lg" aria-label="Delete resume">
+                <Trash2 />
+              </Button>
+            }
+            onDelete={() =>
+              request(`/api/v1/remote/tailored-resumes/${id}`, { method: "DELETE" }).then(
+                () => undefined,
+              )
+            }
+            onDeleted={() => {
+              queryClient.invalidateQueries({ queryKey: ["tailored-resumes"] });
+              queryClient.invalidateQueries({ queryKey: ["application"] });
+              router.replace("/remote/resumes");
+            }}
+          />
+        </div>
+      </header>
 
-      <Card className="gap-3 px-5 py-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="font-medium">Improve the match</p>
-            <p className="text-muted-foreground text-sm">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card tone="dark" className="min-h-34 gap-2.5 rounded-[1.875rem] px-6 py-[22px]">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-panel-muted text-sm font-semibold">Must-have coverage</span>
+            {scored && (
+              <span className="bg-panel-raised text-panel-foreground rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums">
+                {data.must_have_covered} / {data.must_have_total}
+              </span>
+            )}
+          </div>
+          {scored ? (
+            <div className="flex items-center gap-4">
+              <span className="text-[2.75rem] leading-none font-medium tracking-tight tabular-nums">
+                {Math.round(data.must_have_coverage_percent ?? 0)}%
+              </span>
+              <CoverageBar value={data.must_have_coverage_percent ?? 0} tone="brand" />
+            </div>
+          ) : (
+            <span className="text-panel-muted text-lg font-medium">Not scored</span>
+          )}
+        </Card>
+
+        <Card className="min-h-34 gap-2.5 rounded-[1.875rem] px-6 py-[22px]">
+          <span className="text-muted-foreground text-sm font-semibold">Nice-to-have coverage</span>
+          {data.nice_to_have_coverage_percent != null ? (
+            <div className="flex items-center gap-4">
+              <span className="text-[2.75rem] leading-none font-medium tracking-tight tabular-nums">
+                {Math.round(data.nice_to_have_coverage_percent)}%
+              </span>
+              <CoverageBar value={data.nice_to_have_coverage_percent} tone="info" />
+            </div>
+          ) : (
+            <span className="text-subtle text-[2.75rem] leading-none font-medium">—</span>
+          )}
+        </Card>
+
+        <Card className="min-h-34 gap-2.5 rounded-[1.875rem] px-6 py-[22px]">
+          <span className="text-muted-foreground text-sm font-semibold">Years asked / shown</span>
+          <span className="text-[2.75rem] leading-none font-medium tracking-tight tabular-nums">
+            {data.years_required ?? "—"} / {data.years_shown ?? "—"}
+            <small className="text-muted-foreground ml-1.5 text-lg font-medium tracking-normal">
+              years
+            </small>
+          </span>
+        </Card>
+
+        <Card className="min-h-34 gap-2.5 rounded-[1.875rem] px-6 py-[22px]">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-muted-foreground text-sm font-semibold">Rule errors</span>
+            {errorCount > 0 && <Badge variant="destructive">Review</Badge>}
+          </div>
+          <span className="text-[2.75rem] leading-none font-medium tracking-tight tabular-nums">
+            {errorCount}
+          </span>
+        </Card>
+      </section>
+
+      <Card tone="soft" className="gap-0 rounded-[1.875rem] px-6 py-5">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-4">
+          <Tile icon={Sparkles} tone="brand" size="lg" />
+          <div className="min-w-[16rem] flex-1">
+            <p className="text-lg font-bold">Improve the match</p>
+            <p className="text-muted-foreground mt-[3px] max-w-3xl text-[0.8438rem] leading-normal font-medium">
               Upgrade existing keeps employers, titles and dates and rewrites for this
-              posting&apos;s keywords. Full upgrade builds a new resume from the job
-              description. Both replace this version.
+              posting&apos;s keywords. Full upgrade builds a new resume from the job description.
+              Both replace this version.
             </p>
           </div>
-          <Button
-            variant="outline"
-            disabled={dirty || running}
-            title={dirty ? SAVE_FIRST : undefined}
-            onClick={() => startUpgrade("existing")}
-          >
-            {running && strategy === "existing" ? <Spinner /> : <RefreshCw />}
-            Upgrade existing
-          </Button>
-          <Button
-            disabled={dirty || running}
-            title={dirty ? SAVE_FIRST : undefined}
-            onClick={() => startUpgrade("full")}
-          >
-            {running && strategy === "full" ? <Spinner /> : <WandSparkles />}
-            Full upgrade
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="outline"
+              size="lg"
+              disabled={dirty || running}
+              title={dirty ? SAVE_FIRST : undefined}
+              onClick={() => startUpgrade("existing")}
+            >
+              {running && strategy === "existing" ? <Spinner /> : <RefreshCw />}
+              Upgrade existing
+            </Button>
+            <Button
+              size="lg"
+              disabled={dirty || running}
+              title={dirty ? SAVE_FIRST : undefined}
+              onClick={() => startUpgrade("full")}
+            >
+              {running && strategy === "full" ? (
+                <Spinner />
+              ) : (
+                <WandSparkles className="text-brand" />
+              )}
+              Full upgrade
+            </Button>
+          </div>
         </div>
-        {(running || upgrade.state.error) && <GenerationProgress state={upgrade.state} />}
+        {(running || upgrade.state.error) && (
+          <div className="mt-4">
+            <GenerationProgress state={upgrade.state} />
+          </div>
+        )}
         {!running && upgrade.state.resultId && (
           <p
             className={cn(
-              "text-sm",
+              "mt-4 text-sm font-medium",
               upgrade.state.needsReview ? "text-warning" : "text-muted-foreground",
             )}
           >
@@ -319,39 +389,46 @@ export default function TailoredResumePage() {
 
       {saveError && <ErrorAlert>{saveError}</ErrorAlert>}
 
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.38fr)_minmax(0,1fr)] lg:items-start">
         <DocumentPane draft={draft} onChange={setDraft} dirty={dirty} />
 
-        <Card className="min-w-0 gap-0 self-start overflow-hidden py-0">
+        <Card className="min-w-0 gap-0 self-start overflow-hidden rounded-[2.125rem] py-0">
           <Tabs defaultValue="validation" className="gap-0">
-            <TabsList className="w-full rounded-none border-b p-1">
-              <TabsTrigger value="validation" className="text-xs">
-                Rules{findings.length ? ` (${findings.length})` : ""}
-              </TabsTrigger>
-              <TabsTrigger value="ats" className="text-xs">
-                ATS report
-              </TabsTrigger>
-              <TabsTrigger value="job" className="text-xs">
-                Job
-              </TabsTrigger>
-              <TabsTrigger value="flags" className="text-xs">
-                Prep
-              </TabsTrigger>
-              <TabsTrigger value="ledger" className="text-xs">
-                Ledger
-              </TabsTrigger>
-            </TabsList>
+            <div className="p-[22px] pb-4">
+              <TabsList className="bg-soft h-auto w-full gap-0.5 p-1 shadow-none group-data-horizontal/tabs:h-auto">
+                {[
+                  ["validation", "Rules", findings.length],
+                  ["ats", "ATS report", 0],
+                  ["job", "Job", 0],
+                  ["flags", "Prep", 0],
+                  ["ledger", "Ledger", 0],
+                ].map(([value, label, count]) => (
+                  <TabsTrigger
+                    key={value}
+                    value={String(value)}
+                    className="group/tab data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-[38px] px-1.5 text-[0.8125rem] sm:text-sm"
+                  >
+                    {label}
+                    {Number(count) > 0 && (
+                      <span className="bg-destructive rounded-full px-1.5 text-[0.6875rem] leading-[17px] font-bold text-white">
+                        {count}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
 
             <TabsContent value="validation">
               <FindingsList findings={findings} />
             </TabsContent>
             <TabsContent value="ats">
-              <AtsPanel report={data.ats_report} />
+              <AtsReport report={data.ats_report} />
             </TabsContent>
             <TabsContent value="job">
               {data.job_description_text.trim() ? (
                 <ScrollArea className="h-96">
-                  <p className="min-w-0 px-4 py-3 text-sm leading-relaxed break-words whitespace-pre-wrap">
+                  <p className="min-w-0 px-5 py-3 text-sm leading-relaxed font-medium break-words whitespace-pre-wrap">
                     {data.job_description_text}
                   </p>
                 </ScrollArea>
@@ -371,6 +448,26 @@ export default function TailoredResumePage() {
           </Tabs>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function CoverageBar({ value, tone }: { value: number; tone: "brand" | "info" }) {
+  return (
+    <div
+      role="progressbar"
+      aria-valuenow={Math.round(value)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      className={cn(
+        "h-2.5 min-w-0 flex-1 overflow-hidden rounded-full",
+        tone === "brand" ? "bg-panel-raised" : "bg-foreground/10",
+      )}
+    >
+      <div
+        className={cn("h-full rounded-full", tone === "brand" ? "bg-brand" : "bg-info")}
+        style={{ width: `${Math.min(Math.max(value, 0), 100)}%` }}
+      />
     </div>
   );
 }

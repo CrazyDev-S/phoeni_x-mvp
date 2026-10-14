@@ -7,7 +7,7 @@ import path from "node:path";
  * The portal serves the packaged extension rather than committing a binary to
  * the repo, so the download is always whatever `npm run zip:ext` last built.
  */
-const OUTPUT_DIR = path.resolve(process.cwd(), "..", "extension", ".output");
+export const OUTPUT_DIR = path.resolve(process.cwd(), "..", "extension", ".output");
 
 export interface ExtensionPackage {
   filePath: string;

@@ -49,8 +49,22 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+  /* The portal's vivid accent (ember on Remote, teal on Freelancing) and the
+     softer fills that sit with it. Text on --brand is always --brand-foreground. */
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-soft: var(--soft);
+  --color-soft-2: var(--soft-2);
+  --color-panel: var(--panel);
+  --color-panel-foreground: var(--panel-foreground);
+  --color-panel-raised: var(--panel-raised);
+  --color-panel-muted: var(--panel-muted);
 
-  /* 6 / 8 / 12 / 16px, with --radius as the "large" step. */
+  --shadow-card: var(--shadow-card);
+
+  /* 18px as "large": 9 / 12 / 18 / 24 / 30 / 36 / 42px up the scale. */
   --radius-sm: calc(var(--radius) * 0.5);
   --radius-md: calc(var(--radius) * 0.667);
   --radius-lg: var(--radius);
@@ -61,275 +75,258 @@
 }
 
 /*
- * Two palettes, picked in Settings -> Appearance and stored per device.
- *
- * Phoenix is the default and lives on bare :root and .dark. Blue layers on top
- * through data-palette="blue" on <html>, which a script in the root layout
- * sets before first paint. Blue's dark block names both .dark and the
- * attribute, so it outranks Blue's light block and Phoenix's dark one - which
- * is also why each Blue block must set every token its twin sets.
+ * One palette, two accents. Warm stone canvas, white cards, a soft charcoal
+ * "ink" for pills and focus panels, and one vivid accent per portal: Remote is
+ * ember orange (the logo's colour), Freelancing is teal, its complement.
+ * Remote lives on bare :root and .dark; Freelancing layers on through
+ * data-portal="freelancing" on <html>, which a script in the root layout sets
+ * before first paint and AppShell keeps in step. The attribute works on any
+ * element. Freelancing's dark block names both .dark and the attribute, so it
+ * outranks its light block and the default dark one - which is also why each
+ * block must set every token its twin sets.
  */
 
 :root {
-  --radius: 0.75rem;
+  --radius: 1.125rem;
 
-  /* Semantic hues: shared by both palettes. */
-  --destructive: #ef4444;
-  --success: #10b981;
-  --warning: #f59e0b;
+  /* Semantic hues: shared by both portals. */
+  --destructive: #e5484d;
+  --success: #17a05e;
+  --warning: #e8a21a;
   --info: #3b82f6;
 
-  /* Phoenix: warm stone neutrals under the logo's orange. */
-  --background: #fafaf9;
-  --foreground: #1c1917;
+  --background: #edeae5;
+  --foreground: #1f1d1b;
   --card: #ffffff;
-  --card-foreground: #1c1917;
+  --card-foreground: #1f1d1b;
   --popover: #ffffff;
-  --popover-foreground: #1c1917;
+  --popover-foreground: #1f1d1b;
 
-  /* The logo's orange, deepened until white text on it clears 4.5:1. */
-  --primary: #cf430c;
+  /* The soft charcoal: default buttons, active chips and tabs, the top bar. */
+  --primary: #2b2825;
   --primary-foreground: #ffffff;
-  --secondary: #f5f5f4;
-  --secondary-foreground: #1c1917;
-  --muted: #f5f5f4;
-  --muted-foreground: #57534e;
+  --secondary: #ffffff;
+  --secondary-foreground: #1f1d1b;
+  --muted: #f3f1ed;
+  --muted-foreground: #6f6a63;
   /* Third text rank, below muted: timestamps, counters, units. */
-  --subtle: #a8a29e;
-  --accent: #fff7ed;
-  --accent-foreground: #c2410c;
+  --subtle: #aaa49b;
+  /* The accent's pale wash: icon tiles, hover and selected rows. */
+  --accent: #ffe8de;
+  --accent-foreground: #9a3510;
 
-  --border: #e7e5e4;
-  --input: #e7e5e4;
-  --ring: #cf430c;
+  --border: #e8e4dd;
+  --input: #f1eeea;
+  --ring: #ff6f3c;
 
-  --chart-1: #ea580c;
-  --chart-2: #dc2626;
-  --chart-3: #f59e0b;
-  --chart-4: #10b981;
+  /* Ember: vivid fills that carry dark text. */
+  --brand: #ff6f3c;
+  --brand-foreground: #2b2825;
+  --brand-soft: #ffe8de;
+  --brand-ink: #9a3510;
+
+  --soft: #f6f4f0;
+  --soft-2: #ebe7e1;
+
+  /* Focus panels: charcoal with raised steps inside. */
+  --panel: #2b2825;
+  --panel-foreground: #ffffff;
+  --panel-raised: #3a3632;
+  --panel-muted: #9d978f;
+
+  --chart-1: #ff6f3c;
+  --chart-2: #e5484d;
+  --chart-3: #e8a21a;
+  --chart-4: #17a05e;
   --chart-5: #3b82f6;
 
   --sidebar: #ffffff;
-  --sidebar-foreground: #1c1917;
-  --sidebar-primary: #cf430c;
+  --sidebar-foreground: #1f1d1b;
+  --sidebar-primary: #2b2825;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #fff7ed;
-  --sidebar-accent-foreground: #c2410c;
-  --sidebar-border: #e7e5e4;
-  --sidebar-ring: #cf430c;
+  --sidebar-accent: #ffe8de;
+  --sidebar-accent-foreground: #9a3510;
+  --sidebar-border: #e8e4dd;
+  --sidebar-ring: #ff6f3c;
 
-  /* Brand gradient stops, used through the gradient utilities below.
-     brand: decorative only - bars, rules, glows; nothing reads on it.
-     strong: carries --primary-foreground at 4.5:1 or better at every stop.
-     text: display type on --background, 3:1 or better at every stop. */
-  --gradient-brand: #f6a228, #f4562c, #d32127;
-  --gradient-brand-strong: #cf430c, #c52a1a, #b91c1c;
-  --gradient-brand-text: #ea580c, #dc2626, #b91c1c;
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.8) inset, 0 14px 40px -18px rgb(40 25 10 / 0.16);
+
+  /* Brand gradient stops, kept for the few places that still draw one. */
+  --gradient-brand: #ffa27d, #ff6f3c, #e8452b;
+  --gradient-brand-strong: #ff8a5c, #ff6f3c, #f0562b;
+  --gradient-brand-text: #ff8a5c, #ff6f3c, #e8452b;
 }
 
 .dark {
-  --destructive: #f87171;
-  --success: #34d399;
-  --warning: #fbbf24;
+  --destructive: #f2777b;
+  --success: #3ac787;
+  --warning: #f2b94b;
   --info: #60a5fa;
 
-  --background: #0c0a09;
-  --foreground: #e7e5e4;
-  --card: #1c1917;
-  --card-foreground: #e7e5e4;
-  --popover: #1c1917;
-  --popover-foreground: #e7e5e4;
+  --background: #1a1816;
+  --foreground: #ece8e2;
+  --card: #26231f;
+  --card-foreground: #ece8e2;
+  --popover: #26231f;
+  --popover-foreground: #ece8e2;
 
-  /* Bright enough to glow on near-black - too bright for white text, so the
-     text on it goes dark instead. */
-  --primary: #f97316;
-  --primary-foreground: #0c0a09;
-  --secondary: #292524;
-  --secondary-foreground: #e7e5e4;
-  --muted: #292524;
-  --muted-foreground: #a8a29e;
-  --subtle: #78716c;
-  --accent: #431407;
-  --accent-foreground: #fdba74;
+  --primary: #f1ece4;
+  --primary-foreground: #2b2825;
+  --secondary: #302c28;
+  --secondary-foreground: #ece8e2;
+  --muted: #302c28;
+  --muted-foreground: #a8a198;
+  --subtle: #7d776e;
+  --accent: #3d2218;
+  --accent-foreground: #ffb08f;
 
-  --border: #292524;
-  --input: #292524;
-  --ring: #f97316;
+  --border: #35302b;
+  --input: #302c28;
+  --ring: #ff7f50;
 
-  --chart-1: #fb923c;
-  --chart-2: #f87171;
-  --chart-3: #fbbf24;
-  --chart-4: #34d399;
+  --brand: #ff7f50;
+  --brand-foreground: #1a1816;
+  --brand-soft: #3d2218;
+  --brand-ink: #ffb08f;
+
+  --soft: #2b2723;
+  --soft-2: #38332e;
+
+  --panel: #302c28;
+  --panel-foreground: #f4efe8;
+  --panel-raised: #3d3833;
+  --panel-muted: #a8a198;
+
+  --chart-1: #ff8a5c;
+  --chart-2: #f2777b;
+  --chart-3: #f2b94b;
+  --chart-4: #3ac787;
   --chart-5: #60a5fa;
 
-  --sidebar: #1c1917;
-  --sidebar-foreground: #e7e5e4;
-  --sidebar-primary: #f97316;
-  --sidebar-primary-foreground: #0c0a09;
-  --sidebar-accent: #431407;
-  --sidebar-accent-foreground: #fdba74;
-  --sidebar-border: #292524;
-  --sidebar-ring: #f97316;
+  --sidebar: #26231f;
+  --sidebar-foreground: #ece8e2;
+  --sidebar-primary: #f1ece4;
+  --sidebar-primary-foreground: #2b2825;
+  --sidebar-accent: #3d2218;
+  --sidebar-accent-foreground: #ffb08f;
+  --sidebar-border: #35302b;
+  --sidebar-ring: #ff7f50;
 
-  /* Dark text rides on these, so they can run through the logo's gold. */
-  --gradient-brand-strong: #fbbf24, #f97316, #ef4444;
-  --gradient-brand-text: #fbbf24, #fb923c, #f87171;
+  --shadow-card: 0 14px 40px -18px rgb(0 0 0 / 0.5);
+
+  --gradient-brand-strong: #ff9a72, #ff7f50, #f2603b;
+  --gradient-brand-text: #ffa27d, #ff7f50, #f2777b;
 }
 
-/* Blue: cool slate neutrals under a blue primary. */
-:root[data-palette="blue"] {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
+/* Freelancing: the same warm neutrals under a teal accent. */
+[data-portal="freelancing"] {
+  --ring: #34d1b1;
+  --accent: #dcf6ef;
+  --accent-foreground: #0b5c4b;
 
-  --primary: #2563eb;
-  --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #475569;
-  --subtle: #94a3b8;
-  --accent: #eff6ff;
-  --accent-foreground: #1d4ed8;
+  --brand: #34d1b1;
+  --brand-foreground: #2b2825;
+  --brand-soft: #dcf6ef;
+  --brand-ink: #0b5c4b;
 
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #2563eb;
+  --chart-1: #34d1b1;
+  --chart-2: #3b82f6;
+  --chart-3: #8b6cf6;
+  --chart-4: #17a05e;
+  --chart-5: #e8a21a;
 
-  --chart-1: #2563eb;
-  --chart-2: #4f46e5;
-  --chart-3: #3b82f6;
-  --chart-4: #10b981;
-  --chart-5: #f59e0b;
+  --sidebar-accent: #dcf6ef;
+  --sidebar-accent-foreground: #0b5c4b;
+  --sidebar-ring: #34d1b1;
 
-  --sidebar: #ffffff;
-  --sidebar-foreground: #0f172a;
-  --sidebar-primary: #2563eb;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eff6ff;
-  --sidebar-accent-foreground: #1d4ed8;
-  --sidebar-border: #e2e8f0;
-  --sidebar-ring: #2563eb;
-
-  --gradient-brand: #38bdf8, #3b82f6, #6366f1;
-  --gradient-brand-strong: #0369a1, #2563eb, #4f46e5;
-  --gradient-brand-text: #0284c7, #2563eb, #4f46e5;
+  --gradient-brand: #8fe7d3, #34d1b1, #1fae93;
+  --gradient-brand-strong: #5bdcc2, #34d1b1, #1fae93;
+  --gradient-brand-text: #34d1b1, #1fae93, #0f8a74;
 }
 
-:root.dark[data-palette="blue"] {
-  --background: #0b1120;
-  --foreground: #e2e8f0;
-  --card: #0f172a;
-  --card-foreground: #e2e8f0;
-  --popover: #0f172a;
-  --popover-foreground: #e2e8f0;
+.dark[data-portal="freelancing"],
+.dark [data-portal="freelancing"] {
+  --ring: #43dcbc;
+  --accent: #123a31;
+  --accent-foreground: #8fe7d3;
 
-  /* Lifted one step: #2563EB on a near-black ground reads muddy. */
-  --primary: #3b82f6;
-  --primary-foreground: #ffffff;
-  --secondary: #1e293b;
-  --secondary-foreground: #e2e8f0;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --subtle: #64748b;
-  --accent: #172554;
-  --accent-foreground: #93c5fd;
+  --brand: #43dcbc;
+  --brand-foreground: #12201c;
+  --brand-soft: #123a31;
+  --brand-ink: #8fe7d3;
 
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #3b82f6;
+  --chart-1: #43dcbc;
+  --chart-2: #60a5fa;
+  --chart-3: #a78bfa;
+  --chart-4: #3ac787;
+  --chart-5: #f2b94b;
 
-  --chart-1: #60a5fa;
-  --chart-2: #818cf8;
-  --chart-3: #38bdf8;
-  --chart-4: #34d399;
-  --chart-5: #fbbf24;
+  --sidebar-accent: #123a31;
+  --sidebar-accent-foreground: #8fe7d3;
+  --sidebar-ring: #43dcbc;
 
-  --sidebar: #0f172a;
-  --sidebar-foreground: #e2e8f0;
-  --sidebar-primary: #3b82f6;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #172554;
-  --sidebar-accent-foreground: #93c5fd;
-  --sidebar-border: #1e293b;
-  --sidebar-ring: #3b82f6;
-
-  /* White text stays on Blue's buttons, so its strong stops stay deep. */
-  --gradient-brand-strong: #2563eb, #4f46e5, #7c3aed;
-  --gradient-brand-text: #38bdf8, #60a5fa, #818cf8;
+  --gradient-brand-strong: #6de6cc, #43dcbc, #25b89b;
+  --gradient-brand-text: #8fe7d3, #43dcbc, #25b89b;
 }
 
-/* Calendar event hues. Each palette leads with its own primary family, then
-   spreads over well-separated cool hues, so a full week still reads as one
-   palette without two meeting types sharing a colour. The cyan, green and
-   violet slots are common to both; Blue overrides the other three. */
+/* Calendar event hues. Slot 1 is the portal's own accent (interviews, client
+   interviews: whatever is in play), slot 2 lavender (recruiter and client calls),
+   slot 3 green (one to ones), slot 4 flat grey (team meetings), 5 blue, 6 amber.
+   Soft fills that carry dark text; cancelled blocks are drawn as dashed grey
+   outlines by the grid, not from these. */
 :root {
-  --event-1: #ea580c;
-  --event-1-foreground: #ffffff;
-  --event-1-ink: #c2410c;
-  --event-2: #e11d48;
-  --event-2-foreground: #ffffff;
-  --event-2-ink: #be123c;
-  --event-3: #0891b2;
-  --event-3-foreground: #ffffff;
-  --event-3-ink: #0e7490;
-  --event-4: #059669;
-  --event-4-foreground: #ffffff;
-  --event-4-ink: #047857;
-  --event-5: #2563eb;
-  --event-5-foreground: #ffffff;
-  --event-5-ink: #1d4ed8;
-  --event-6: #7c3aed;
-  --event-6-foreground: #ffffff;
-  --event-6-ink: #6d28d9;
+  --event-1: #ffa27d;
+  --event-1-foreground: #3a1604;
+  --event-1-ink: #9a3510;
+  --event-2: #e7e0ff;
+  --event-2-foreground: #3b2790;
+  --event-2-ink: #5a3fc4;
+  --event-3: #d4f2e3;
+  --event-3-foreground: #0b5f37;
+  --event-3-ink: #0c7a43;
+  --event-4: #ebebed;
+  --event-4-foreground: #383b41;
+  --event-4-ink: #55595f;
+  --event-5: #dfeaff;
+  --event-5-foreground: #1d4fb3;
+  --event-5-ink: #1d4fb3;
+  --event-6: #fbefcf;
+  --event-6-foreground: #6f4700;
+  --event-6-ink: #8a5a00;
 }
 
 .dark {
-  --event-1: #fb923c;
-  --event-1-foreground: #0c0a09;
-  --event-1-ink: #fdba74;
-  --event-2: #fb7185;
-  --event-2-foreground: #0c0a09;
-  --event-2-ink: #fda4af;
-  --event-3: #22d3ee;
-  --event-3-foreground: #0c0a09;
-  --event-3-ink: #67e8f9;
-  --event-4: #34d399;
-  --event-4-foreground: #0c0a09;
-  --event-4-ink: #6ee7b7;
-  --event-5: #60a5fa;
-  --event-5-foreground: #0c0a09;
+  --event-1: #b5593a;
+  --event-1-foreground: #fff1ea;
+  --event-1-ink: #ffb08f;
+  --event-2: #443a73;
+  --event-2-foreground: #e4dcff;
+  --event-2-ink: #c4b5fd;
+  --event-3: #1f4a38;
+  --event-3-foreground: #c9f1dc;
+  --event-3-ink: #6ee7b7;
+  --event-4: #3a3632;
+  --event-4-foreground: #e3dfd8;
+  --event-4-ink: #a8a198;
+  --event-5: #22407a;
+  --event-5-foreground: #d3e2ff;
   --event-5-ink: #93c5fd;
-  --event-6: #a78bfa;
-  --event-6-foreground: #0c0a09;
-  --event-6-ink: #c4b5fd;
+  --event-6: #5a4515;
+  --event-6-foreground: #fbe8b4;
+  --event-6-ink: #fcd34d;
 }
 
-:root[data-palette="blue"] {
-  --event-1: #2563eb;
-  --event-1-foreground: #ffffff;
-  --event-1-ink: #1d4ed8;
-  --event-2: #4f46e5;
-  --event-2-foreground: #ffffff;
-  --event-2-ink: #4338ca;
-  --event-5: #d97706;
-  --event-5-foreground: #ffffff;
-  --event-5-ink: #b45309;
+[data-portal="freelancing"] {
+  --event-1: #8fe7d3;
+  --event-1-foreground: #04261f;
+  --event-1-ink: #0b5c4b;
 }
 
-:root.dark[data-palette="blue"] {
-  --event-1: #60a5fa;
-  --event-1-foreground: #0b1120;
-  --event-1-ink: #93c5fd;
-  --event-2: #818cf8;
-  --event-2-foreground: #0b1120;
-  --event-2-ink: #a5b4fc;
-  --event-5: #fbbf24;
-  --event-5-foreground: #0b1120;
-  --event-5-ink: #fcd34d;
+.dark[data-portal="freelancing"],
+.dark [data-portal="freelancing"] {
+  --event-1: #1f7a69;
+  --event-1-foreground: #e2fbf5;
+  --event-1-ink: #8fe7d3;
 }
 
 @layer base {
@@ -388,4 +385,164 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ───────── PhoeniX surface language ───────── */
+
+@layer components {
+/* Page titles: uppercase, light, with an accent disc behind the first letter. */
+.page-title {
+  font-size: 2.875rem;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.page-title-sm {
+  font-size: 2.125rem;
+}
+}
+
+.title-o {
+  position: relative;
+  display: inline-block;
+}
+.title-o::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.42em;
+  height: 0.42em;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--brand);
+  z-index: -1;
+}
+
+/*
+ * The corner notch: a cut-out in a card's top-right that holds its arrow
+ * button. --notch is the colour of whatever the card sits on, so the cut reads
+ * as empty space; set it on the card (style={{ "--notch": ... }}) when the card
+ * is not directly on the page canvas.
+ */
+.notch {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  display: grid;
+  width: 70px;
+  height: 70px;
+  place-items: center;
+  padding: 0 0 6px 6px;
+  background: var(--notch, var(--background));
+  border-bottom-left-radius: 30px;
+}
+.notch::before,
+.notch::after {
+  content: "";
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  background: radial-gradient(circle at 0 100%, transparent 29.5px, var(--notch, var(--background)) 30px);
+  pointer-events: none;
+}
+.notch::before {
+  top: 0;
+  left: -30px;
+}
+.notch::after {
+  top: 100%;
+  right: 0;
+}
+
+/* Hide scrollbars on the rail and chip rows without disabling scroll. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* A thin scrollbar that keeps clear of rounded corners: used by the dialog's
+   scroll region. Firefox gets the standard properties, Chromium the pseudo-elements. */
+.scroll-soft {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--foreground) 22%, transparent) transparent;
+  overscroll-behavior: contain;
+}
+.scroll-soft::-webkit-scrollbar {
+  width: 10px;
+}
+.scroll-soft::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 22px 0;
+}
+.scroll-soft::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--foreground) 22%, transparent);
+  background-clip: content-box;
+}
+.scroll-soft::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--foreground) 38%, transparent);
+  background-clip: content-box;
+}
+
+/*
+ * The fan flip: a cell folds open from its left edge, like a blade of a folding
+ * fan being turned. --fan-i is the cell's column and --fan-r its row, so a row
+ * opens left to right and the rows follow one another.
+ */
+@keyframes fan-flip {
+  from {
+    opacity: 0;
+    transform: perspective(560px) rotateY(-82deg);
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: perspective(560px) rotateY(0deg);
+  }
+}
+.fan-flip {
+  transform-origin: left center;
+  animation: fan-flip 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--fan-i, 0) * 65ms + var(--fan-r, 0) * 40ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .fan-flip {
+    animation: none;
+  }
+}
+
+/*
+ * Pleated folds, for the fan of interview steps. Alternating shading and a
+ * hairline crease on each side read as the folds of a paper fan; the colour
+ * under it says what state the step is in.
+ */
+.pleat {
+  background-image: linear-gradient(
+    90deg,
+    rgb(0 0 0 / 0.045) 0%,
+    rgb(255 255 255 / 0.2) 36%,
+    rgb(0 0 0 / 0.012) 66%,
+    rgb(0 0 0 / 0.05) 100%
+  );
+  box-shadow:
+    inset 1px 0 0 rgb(255 255 255 / 0.5),
+    inset -1px 0 0 rgb(0 0 0 / 0.035);
+}
+.pleat-alt {
+  background-image: linear-gradient(
+    270deg,
+    rgb(0 0 0 / 0.045) 0%,
+    rgb(255 255 255 / 0.2) 36%,
+    rgb(0 0 0 / 0.012) 66%,
+    rgb(0 0 0 / 0.05) 100%
+  );
 }

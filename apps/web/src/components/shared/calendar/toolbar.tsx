@@ -1,8 +1,9 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -37,7 +38,6 @@ export function Toolbar({
   onView,
   onToday,
   onStep,
-  onCreate,
 }: {
   view: CalendarView;
   title: string;
@@ -45,37 +45,26 @@ export function Toolbar({
   onView: (view: CalendarView) => void;
   onToday: () => void;
   onStep: (direction: -1 | 1) => void;
-  onCreate: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button onClick={onCreate}>
-            <Plus />
-            New meeting
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>New meeting (N)</TooltipContent>
-      </Tooltip>
-
-      <Button variant="outline" onClick={onToday}>
-        Today
-      </Button>
-
-      <div className="flex items-center gap-0.5">
-        <IconButton label="Previous" onClick={() => onStep(-1)}>
+    <div className="flex flex-wrap items-center gap-x-3.5 gap-y-3">
+      <div className="flex items-center gap-1.5">
+        <StepButton label="Previous" onClick={() => onStep(-1)}>
           <ChevronLeft />
-        </IconButton>
-        <IconButton label="Next" onClick={() => onStep(1)}>
+        </StepButton>
+        <StepButton label="Next" onClick={() => onStep(1)}>
           <ChevronRight />
-        </IconButton>
+        </StepButton>
       </div>
 
-      <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+      <h2 className="mx-1.5 flex items-center gap-2 text-2xl font-medium tracking-tight sm:text-[1.625rem]">
         {title}
         {busy && <Spinner className="text-muted-foreground" />}
-      </h1>
+      </h2>
+
+      <Chip onClick={onToday} className="bg-card h-10">
+        Today
+      </Chip>
 
       <Tabs
         value={view}
@@ -94,6 +83,35 @@ export function Toolbar({
   );
 }
 
+/** The round white paging button beside the range title. */
+function StepButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="secondary"
+          size="icon"
+          aria-label={label}
+          onClick={onClick}
+          className="size-11"
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** A small ghost round button, for the mini calendar and popover. */
 export function IconButton({
   label,
   onClick,
@@ -111,7 +129,7 @@ export function IconButton({
           size="icon-sm"
           aria-label={label}
           onClick={onClick}
-          className="rounded-full"
+          className="bg-foreground/6 hover:bg-foreground/10 size-9 rounded-full"
         >
           {children}
         </Button>

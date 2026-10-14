@@ -2,7 +2,7 @@
 // in branding/. The outputs are committed, so this only needs running after a
 // source image changes.
 //
-//   branding/avatar.(png|jpg|webp)  -> the mark beside the wordmark
+//   branding/avatar.(png|jpg|webp)  -> the PhoeniX wordmark (kept at its own aspect ratio)
 //   branding/icon.(png|jpg|webp)    -> favicon, Apple touch icon, extension icons
 import { access, mkdir } from "node:fs/promises";
 import path from "node:path";
@@ -16,6 +16,8 @@ const at = (...parts) => path.join(ROOT, ...parts);
 const LIGHT = 230;
 /** Transparent breathing room around the artwork, as a share of its longer side. */
 const MARGIN = 0.06;
+/** Width of the in-app wordmark. Twice its widest slot (320px), for dense screens. */
+const AVATAR_WIDTH = 640;
 
 async function source(name) {
   for (const ext of [".png", ".jpg", ".jpeg", ".webp"]) {
@@ -29,14 +31,15 @@ async function source(name) {
 }
 
 /**
- * The artwork with its background made transparent, cropped to a padded square.
+ * The artwork with its background made transparent, cropped and padded either
+ * to a square (`square`, for icons) or to its own aspect ratio (a wide wordmark).
  *
  * Only background reachable from the border is removed - a flood fill rather
  * than a colour key - so pale highlights inside the artwork stay opaque. The
  * two-pixel fringe next to it is un-blended from white, so the anti-aliased
  * edge does not leave a white halo on a dark theme.
  */
-async function artwork(file) {
+async function artwork(file, { square = true } = {}) {
   const { data, info } = await sharp(file)
     .ensureAlpha()
     .raw()
@@ -116,9 +119,10 @@ async function artwork(file) {
 
   const cropW = right - left + 1;
   const cropH = bottom - top + 1;
+  const margin = Math.round(Math.max(cropW, cropH) * MARGIN);
   const side = Math.round(Math.max(cropW, cropH) * (1 + 2 * MARGIN));
-  const padX = side - cropW;
-  const padY = side - cropH;
+  const padX = square ? side - cropW : 2 * margin;
+  const padY = square ? side - cropH : 2 * margin;
   return sharp(data, { raw: { width: w, height: h, channels: 4 } })
     .extract({ left, top, width: cropW, height: cropH })
     .extend({
@@ -132,18 +136,23 @@ async function artwork(file) {
     .toBuffer();
 }
 
-async function write(image, size, out, { opaque = false } = {}) {
+async function write(image, size, out, { opaque = false, wide = false } = {}) {
   const file = at(out);
   await mkdir(path.dirname(file), { recursive: true });
-  let pipeline = sharp(image).resize(size, size);
+  // `size` is the edge of a square, or the width of a wide image.
+  let pipeline = sharp(image).resize(wide ? { width: size } : { width: size, height: size });
   if (opaque) pipeline = pipeline.flatten({ background: "#ffffff" });
   await pipeline.png().toFile(file);
-  console.log(`  ${out}  ${size}px`);
+  const { width, height } = await sharp(file).metadata();
+  console.log(`  ${out}  ${width}x${height}px`);
 }
 
-const avatar = await artwork(await source("avatar"));
-await write(avatar, 256, "apps/web/public/phoenix-avatar.png");
-await write(avatar, 256, "apps/extension/public/phoenix-avatar.png");
+// The wordmark is wide: squaring it would leave it a thin strip in a tall box.
+// Keep its aspect ratio, and size it by width in the app. Brand (web) and
+// PanelHeader (extension) carry its dimensions, so update both if it changes.
+const avatar = await artwork(await source("avatar"), { square: false });
+await write(avatar, AVATAR_WIDTH, "apps/web/public/phoenix-avatar.png", { wide: true });
+await write(avatar, AVATAR_WIDTH, "apps/extension/public/phoenix-avatar.png", { wide: true });
 
 const icon = await artwork(await source("icon"));
 // Next.js serves app/icon.png as the favicon and app/apple-icon.png as the
