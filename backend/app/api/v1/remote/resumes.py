@@ -4,23 +4,34 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select
 
 from app.core.deps import CurrentUser, Session
 from app.models.application import JobApplication
-from app.models.enums import ResumeSource
+from app.models.enums import GenerationKind, GenerationStatus, ResumeSource
 from app.models.resume import BaseResume, TailoredResume
+from app.remote.resume.parser import ResumeMarkdownError, parse
 from app.remote.resume.renderer import render_plain_text
-from app.remote.services.resumes import create_base_resume, parse_or_422, run_validation
+from app.remote.services import documents
+from app.remote.services.links import linked_jobs
+from app.remote.services.resumes import (
+    create_base_resume,
+    free_display_name,
+    parse_or_422,
+    run_validation,
+)
 from app.schemas.common import Page
+from app.schemas.generation import ImportAccepted
 from app.schemas.resume import (
     ResumeCreated,
     ResumeOut,
     ResumePatch,
+    ResumeRow,
     ResumeSummaryOut,
     ResumeUpload,
 )
+from app.services.generation import enqueue
 
 router = APIRouter(prefix="/resumes", tags=["resumes"])
 
@@ -61,7 +72,106 @@ async def upload_resume(
     )
 
 
-@router.get("", response_model=Page[ResumeSummaryOut])
+@router.post(
+    "/import",
+    response_model=ImportAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def import_resume(
+    user: CurrentUser,
+    session: Session,
+    file: UploadFile | None = File(default=None),
+    text: str | None = Form(default=None, max_length=documents.MAX_CHARS),
+    display_name: str | None = Form(default=None, max_length=160),
+    target_title: str | None = Form(default=None, max_length=160),
+) -> ImportAccepted:
+    """Take in a resume from any document, and restyle it into the house format.
+
+    A PDF, Word, OpenDocument, RTF, HTML, Markdown or plain-text file - or
+    pasted text - is read, then restructured and checked by a background job
+    that streams its progress like any other generation. A file that already is
+    Resume Markdown skips the model and is saved straight away.
+    """
+    if file is None and not (text and text.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "NOTHING_TO_IMPORT", "message": "Attach a file or paste your resume."},
+        )
+    filename = (file.filename if file and file.filename else "pasted-resume.txt")[:200]
+    data = (
+        await file.read(documents.MAX_BYTES + 1) if file is not None else (text or "").encode()
+    )
+    try:
+        doc = documents.extract(filename, data)
+    except documents.DocumentError as exc:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_413_CONTENT_TOO_LARGE
+                if exc.code == "FILE_TOO_LARGE"
+                else status.HTTP_422_UNPROCESSABLE_ENTITY
+            ),
+            detail={"code": exc.code, "message": exc.message},
+        ) from exc
+
+    stem = filename.rsplit(".", 1)[0].replace("_", " ").replace("-", " ").strip()
+    label = (display_name or "").strip() or None
+    accepted = {
+        "source_kind": doc.kind,
+        "characters": len(doc.text),
+        "warnings": doc.warnings,
+    }
+
+    ready = _already_resume_markdown(doc.text)
+    if ready is not None:
+        row, _ = await create_base_resume(
+            session,
+            user.id,
+            display_name=await free_display_name(
+                session, user.id, label or ready.header.name or stem or "Imported resume"
+            ),
+            target_title=(target_title or "").strip() or ready.header.title,
+            content_markdown=doc.text,
+            source=ResumeSource.UPLOAD,
+            imported=True,
+        )
+        return ImportAccepted(
+            id=row.id,
+            status=GenerationStatus.SUCCEEDED,
+            kind=GenerationKind.RESUME_IMPORT,
+            reused=True,
+            direct=True,
+            result_kind="base_resume",
+            result_id=row.id,
+            **accepted,
+        )
+
+    gen = await enqueue(
+        session,
+        user_id=user.id,
+        kind=GenerationKind.RESUME_IMPORT,
+        payload={
+            "source_text": doc.for_model(),
+            "filename": filename,
+            "source_kind": doc.kind,
+            "target_title": (target_title or "").strip(),
+            "display_name": label,
+            "mode": "grounded",
+        },
+    )
+    return ImportAccepted(id=gen.id, status=gen.status, kind=gen.kind, **accepted)
+
+
+def _already_resume_markdown(text: str):
+    """The parsed resume when the text is already in the house format."""
+    if not text.lstrip().startswith("---"):
+        return None
+    try:
+        return parse(text)
+    except ResumeMarkdownError:
+        return None
+
+
+@router.get("", response_model=Page[ResumeRow])
 async def list_resumes(
     user: CurrentUser,
     session: Session,
@@ -69,7 +179,7 @@ async def list_resumes(
     include_archived: bool = False,
     limit: int = Query(default=50, le=200),
     offset: int = 0,
-) -> Page[ResumeSummaryOut]:
+) -> Page[ResumeRow]:
     stmt = select(BaseResume).where(BaseResume.user_id == user.id)
     if not include_archived:
         stmt = stmt.where(BaseResume.is_archived.is_(False))
@@ -79,11 +189,20 @@ async def list_resumes(
     total = await session.scalar(
         select(func.count()).select_from(stmt.subquery())
     )
-    rows = await session.scalars(
-        stmt.order_by(BaseResume.created_at.desc()).limit(limit).offset(offset)
+    rows = list(
+        await session.scalars(
+            stmt.order_by(BaseResume.created_at.desc()).limit(limit).offset(offset)
+        )
     )
+    linked = await linked_jobs(session, user.id, "base", [r.id for r in rows])
     return Page(
-        items=[ResumeSummaryOut.model_validate(r) for r in rows],
+        items=[
+            ResumeRow(
+                **ResumeSummaryOut.model_validate(r).model_dump(),
+                linked_jobs=linked.get(r.id, []),  # type: ignore[arg-type]
+            )
+            for r in rows
+        ],
         total=total or 0,
         limit=limit,
         offset=offset,

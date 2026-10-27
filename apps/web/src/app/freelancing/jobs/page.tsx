@@ -1,39 +1,32 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Bookmark,
-  BookmarkPlus,
-  ChevronDown,
-  Info,
-  Search,
-  SlidersHorizontal,
-  Square,
-  Star,
-  X,
-} from "lucide-react";
+import { Bookmark, BookmarkPlus, ChevronDown, Info, RotateCcw, Search, Square, Star, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
-import { JobCard } from "@/components/freelancing/job-card";
+import { ActiveFilters } from "@/components/freelancing/active-filters";
 import { JobFilters } from "@/components/freelancing/job-filters";
+import { JobList } from "@/components/freelancing/job-list";
 import { JobSourceBanner } from "@/components/freelancing/job-source";
+import { JobToolbar } from "@/components/freelancing/job-toolbar";
 import { FormField } from "@/components/form-field";
 import { PageHero } from "@/components/page-hero";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Panel } from "@/components/panel";
+import { ChipCount } from "@/components/ui/chip";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,7 +45,6 @@ import {
   type JobSearchParams,
   type SavedSearch,
 } from "@/lib/freelancing";
-import { cn } from "@/lib/utils";
 
 type Tab = "results" | "focused";
 
@@ -255,7 +247,7 @@ function JobsSearch() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["freelancing", "jobs", "saved-searches"] }),
   });
 
-  const filterCount = activeFilterCount(params);
+  const hasSearch = Boolean(params.query) || activeFilterCount(params) > 0;
   const focusedRows = focused.data?.items ?? [];
   const focusedCount = focusedRows.length;
   const searchError = search.error as { message?: string; code?: string } | null;
@@ -263,22 +255,18 @@ function JobsSearch() {
     if (!meta) return null;
     const shown = results.length;
     const total = meta.total ?? shown;
-    return `${shown.toLocaleString()} of ${total.toLocaleString()} postings${meta.hidden_count ? ` · ${meta.hidden_count} hidden` : ""}`;
+    return `${shown.toLocaleString()} of ${total.toLocaleString()}${meta.hidden_count ? ` · ${meta.hidden_count} hidden` : ""}`;
   }, [meta, results.length]);
+  const reset = () => {
+    setParams(EMPTY_SEARCH);
+    setResults([]);
+    setMeta(null);
+  };
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-3">
       <PageHero
         title="Jobs"
-        stats={
-          meta
-            ? [
-                { value: results.length.toLocaleString(), label: "Showing" },
-                { value: (meta.total ?? results.length).toLocaleString(), label: "Postings" },
-                ...(meta.hidden_count ? [{ value: meta.hidden_count.toLocaleString(), label: "Hidden" }] : []),
-              ]
-            : undefined
-        }
         actions={
           <Tabs
             value={tab}
@@ -286,19 +274,12 @@ function JobsSearch() {
               router.replace(value === "focused" ? "/freelancing/jobs?tab=focused" : "/freelancing/jobs", { scroll: false })
             }
           >
-            <TabsList className="bg-card shadow-card">
-              <TabsTrigger value="results" className="gap-2">
-                <Search className="size-4" />
-                Results
-              </TabsTrigger>
-              <TabsTrigger value="focused" className="gap-2">
-                <Star className="size-4" />
+            <TabsList>
+              <TabsTrigger value="results">Results</TabsTrigger>
+              <TabsTrigger value="focused" className="gap-1.5">
+                <Star className="size-3.5" />
                 Focused
-                {focusedCount > 0 && (
-                  <span className="bg-foreground/10 rounded-full px-2 text-[11.5px] font-bold tabular-nums group-data-[variant=default]/tabs-list:in-data-active:bg-white/20">
-                    {focusedCount}
-                  </span>
-                )}
+                {focusedCount > 0 && <ChipCount className="bg-foreground/10">{focusedCount}</ChipCount>}
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -310,134 +291,117 @@ function JobsSearch() {
       {tab === "focused" ? (
         <FocusedList rows={focusedRows} loading={focused.isLoading} onChange={() => invalidateFreelancing(queryClient)} />
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[350px_minmax(0,1fr)] lg:items-start">
-          <aside className="space-y-3 lg:sticky lg:top-24">
-            <Button
-              variant="secondary"
-              className="h-12 w-full justify-between lg:hidden"
-              onClick={() => setFiltersOpen((o) => !o)}
-              aria-expanded={filtersOpen}
-            >
-              <span className="inline-flex items-center gap-2">
-                <SlidersHorizontal className="size-4" />
-                Filters
-                {filterCount > 0 && (
-                  <span className="bg-accent text-accent-foreground rounded-full px-2 text-xs font-bold tabular-nums">{filterCount}</span>
-                )}
+        <>
+          <JobToolbar
+            value={params}
+            catalogue={catalogue.data}
+            searching={search.isPending}
+            onChange={setParams}
+            onSearch={() => runSearch()}
+            onReset={reset}
+            onOpenFilters={() => setFiltersOpen(true)}
+          />
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(saved.data ?? []).map((s) => (
+              <span key={s.id} className="bg-card inline-flex h-6 max-w-xs items-center rounded-md border pl-2 text-xs font-medium">
+                <button type="button" className="inline-flex min-w-0 items-center gap-1 hover:underline" title={s.name} onClick={() => runSearch(fromSavedParams(s.params))}>
+                  <Bookmark className="text-brand-ink size-3 shrink-0" />
+                  <span className="truncate">{s.name}</span>
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Delete saved search ${s.name}`}
+                  className="text-muted-foreground hover:text-foreground grid size-6 shrink-0 place-items-center"
+                  onClick={() => deleteSaved.mutate(s.id)}
+                >
+                  <X className="size-3" />
+                </button>
               </span>
-              <ChevronDown className={cn("size-4 transition-transform", filtersOpen && "rotate-180")} />
+            ))}
+            <Button size="xs" variant="outline" onClick={() => setSaving(true)} disabled={!hasSearch}>
+              <BookmarkPlus />
+              Save search
             </Button>
-            <Card className={cn("gap-0 rounded-[32px] py-0", !filtersOpen && "hidden lg:block")}>
-              <CardContent className="max-h-[calc(100vh-8rem)] overflow-y-auto p-5">
-                <JobFilters
-                  value={params}
-                  catalogue={catalogue.data}
-                  searching={search.isPending}
-                  onChange={setParams}
-                  onSearch={() => runSearch()}
-                  onReset={() => {
-                    setParams(EMPTY_SEARCH);
-                    setResults([]);
-                    setMeta(null);
-                  }}
-                />
-              </CardContent>
-            </Card>
-          </aside>
-
-          <div className="min-w-0 space-y-[18px]">
-            <div className="flex flex-wrap items-center gap-2.5">
-              {(saved.data ?? []).map((s) => (
-                <span key={s.id} className="bg-card shadow-card inline-flex h-10 items-center gap-2 rounded-full pr-1.5 pl-3.5 text-[13.5px] font-semibold">
-                  <button type="button" className="inline-flex items-center gap-2 hover:underline" onClick={() => runSearch(fromSavedParams(s.params))}>
-                    <Bookmark className="text-brand-ink size-[15px]" />
-                    {s.name}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Delete saved search ${s.name}`}
-                    className="bg-soft text-muted-foreground hover:bg-soft-2 grid size-7 place-items-center rounded-full"
-                    onClick={() => deleteSaved.mutate(s.id)}
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                </span>
-              ))}
-              <Button size="sm" variant="outline" className="h-10" onClick={() => setSaving(true)} disabled={!params.query && filterCount === 0}>
-                <BookmarkPlus />
-                Save this search
-              </Button>
-              {resultsTitle && <span className="text-muted-foreground ml-auto text-[13px] font-semibold tabular-nums">{resultsTitle}</span>}
-            </div>
-
-            {pending && <PendingRun note={pending.note} since={pending.since} onStop={stopWaiting} />}
-
-            {notice && !pending && (
-              <Alert>
-                <Info />
-                <AlertDescription>{notice}</AlertDescription>
-              </Alert>
-            )}
-
-            {searchError && (
-              <ErrorAlert title={searchError.code === "UPWORK_NOT_CONFIGURED" || searchError.code === "UPWORK_NOT_CONNECTED" ? "Upwork is not connected" : "Search failed"}>
-                {searchError.message}
-              </ErrorAlert>
-            )}
-
-            {(search.isPending || pending) && !results.length ? (
-              <div className="space-y-3">
-                {[0, 1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-52 w-full rounded-[30px]" />
-                ))}
-              </div>
-            ) : !results.length ? (
-              <Card className="rounded-[30px] py-0">
-                <EmptyState
-                  icon={<Search />}
-                  title={meta ? "Nothing matched" : `Search ${catalogue.data?.source.label ?? "jobs"}`}
-                  description={
-                    meta
-                      ? "Loosen a filter or two. Hidden and applied postings can be shown again from the last group."
-                      : "Type what you are looking for, set any filters, and press Search. Results are kept for the session."
-                  }
-                  action={
-                    <Button variant="brand" onClick={() => runSearch()} disabled={search.isPending}>
-                      <Search />
-                      Search {catalogue.data?.source.label ?? "jobs"}
-                    </Button>
-                  }
-                />
-              </Card>
-            ) : (
-              <>
-                <ul className="space-y-[18px]">
-                  {results.map((job) => (
-                    <li key={job.id}>
-                      <JobCard job={job} onChange={replaceCard} onHidden={dropCard} />
-                    </li>
-                  ))}
-                </ul>
-                {meta?.has_next_page && !pending && (
-                  <div className="flex justify-center pt-2">
-                    <Button variant="secondary" size="lg" onClick={loadMore} disabled={search.isPending}>
-                      {search.isPending && <Spinner />}
-                      Load more
-                      {!search.isPending && <ChevronDown />}
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
+            <ActiveFilters value={params} catalogue={catalogue.data} onChange={setParams} />
+            {resultsTitle && <span className="text-muted-foreground ml-auto text-xs tabular-nums">{resultsTitle}</span>}
           </div>
-        </div>
+
+          {pending && <PendingRun note={pending.note} since={pending.since} onStop={stopWaiting} />}
+
+          {notice && !pending && (
+            <Alert>
+              <Info />
+              <AlertDescription>{notice}</AlertDescription>
+            </Alert>
+          )}
+
+          {searchError && (
+            <ErrorAlert title={searchError.code === "UPWORK_NOT_CONFIGURED" || searchError.code === "UPWORK_NOT_CONNECTED" ? "Upwork is not connected" : "Search failed"}>
+              {searchError.message}
+            </ErrorAlert>
+          )}
+
+          {(search.isPending || pending) && !results.length ? (
+            <ListSkeleton />
+          ) : !results.length ? (
+            <Panel>
+              <EmptyState
+                icon={<Search />}
+                title={meta ? "Nothing matched. Loosen a filter." : `Search ${catalogue.data?.source.label ?? "jobs"}`}
+                action={
+                  <Button variant="brand" onClick={() => runSearch()} disabled={search.isPending}>
+                    <Search />
+                    Search
+                  </Button>
+                }
+              />
+            </Panel>
+          ) : (
+            <>
+              <JobList jobs={results} onChange={replaceCard} onHidden={dropCard} />
+              {meta?.has_next_page && !pending && (
+                <div className="flex justify-center">
+                  <Button variant="outline" onClick={loadMore} disabled={search.isPending}>
+                    {search.isPending && <Spinner />}
+                    Load more
+                    {!search.isPending && <ChevronDown />}
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </>
       )}
 
+      <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <SheetContent
+          className="data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:rounded-none data-[side=right]:sm:max-w-md"
+          aria-describedby={undefined}
+        >
+          <SheetHeader className="border-b py-3">
+            <SheetTitle>Filters</SheetTitle>
+          </SheetHeader>
+          <div className="scroll-soft min-h-0 flex-1 overflow-y-auto px-4">
+            <JobFilters value={params} catalogue={catalogue.data} onChange={setParams} onSearch={() => runSearch()} />
+          </div>
+          <SheetFooter className="mt-0 flex-row justify-between border-t py-3">
+            <Button variant="ghost" onClick={reset}>
+              <RotateCcw />
+              Reset all
+            </Button>
+            <Button variant="brand" onClick={() => runSearch()} disabled={search.isPending}>
+              {search.isPending ? <Spinner /> : <Search />}
+              Search {catalogue.data?.source.label ?? "jobs"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
       <Dialog open={saving} onOpenChange={(open) => !open && setSaving(false)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Save this search</DialogTitle>
-            <DialogDescription>The filters, without the page position. Saving the same name replaces it.</DialogDescription>
           </DialogHeader>
           <FormField label="Name">
             {(control) => (
@@ -460,6 +424,18 @@ function JobsSearch() {
   );
 }
 
+function ListSkeleton() {
+  return (
+    <Panel className="divide-y">
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+        <div key={i} className="flex h-11 items-center px-3">
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+      ))}
+    </Panel>
+  );
+}
+
 /**
  * A scrape in progress. A run takes tens of seconds, so the time and the
  * source's own words are shown - a bare spinner for that long reads as a hang.
@@ -474,57 +450,31 @@ function PendingRun({ note, since, onStop }: { note: string | null; since: numbe
   // An indeterminate bar would say nothing; this fills over a typical run.
   const percent = Math.min(95, Math.round((seconds / 90) * 100));
   return (
-    <Card className="gap-0 rounded-[30px] py-0">
-      <CardContent className="space-y-3.5 p-5 sm:px-[26px]">
-        <div className="flex items-center gap-2.5">
-          <Spinner className="text-brand-ink" />
-          <span className="min-w-0 flex-1 truncate text-sm font-medium">{note ?? "Waiting for the job source…"}</span>
-          <span className="text-muted-foreground text-sm font-semibold tabular-nums">
-            {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}
-          </span>
-          <Button size="sm" variant="ghost" onClick={onStop}>
-            <Square />
-            Stop waiting
-          </Button>
-        </div>
-        <Progress value={percent} aria-label="Search progress" className="**:data-[slot=progress-indicator]:bg-brand h-2" />
-        <p className="text-muted-foreground text-xs font-medium">
-          A scrape usually takes under a minute. If you stop waiting, the run still finishes, and
-          searching again with the same filters picks it up without paying twice.
-        </p>
-      </CardContent>
-    </Card>
+    <Panel className="space-y-2 p-3">
+      <div className="flex items-center gap-2">
+        <Spinner className="text-brand-ink" />
+        <span className="min-w-0 flex-1 truncate text-[13px]">{note ?? "Waiting for the job source…"}</span>
+        <span className="text-muted-foreground text-xs tabular-nums">
+          {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}
+        </span>
+        <Button size="xs" variant="ghost" onClick={onStop} title="The run still finishes; searching again with the same filters picks it up">
+          <Square />
+          Stop waiting
+        </Button>
+      </div>
+      <Progress value={percent} aria-label="Search progress" className="**:data-[slot=progress-indicator]:bg-brand" />
+    </Panel>
   );
 }
 
 function FocusedList({ rows, loading, onChange }: { rows: JobCardData[]; loading: boolean; onChange: () => void }) {
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-52 w-full rounded-[30px]" />
-        ))}
-      </div>
-    );
-  }
+  if (loading) return <ListSkeleton />;
   if (!rows.length) {
     return (
-      <Card className="rounded-[30px] py-0">
-        <EmptyState
-          icon={<Star />}
-          title="Nothing focused yet"
-          description="Star a posting in the results and it lands here - and in the tracker, at its first stage."
-        />
-      </Card>
+      <Panel>
+        <EmptyState icon={<Star />} title="Nothing focused yet. Star a posting to track it." />
+      </Panel>
     );
   }
-  return (
-    <ul className="space-y-[18px]">
-      {rows.map((job) => (
-        <li key={job.id}>
-          <JobCard job={job} onChange={onChange} onHidden={onChange} />
-        </li>
-      ))}
-    </ul>
-  );
+  return <JobList jobs={rows} onChange={onChange} onHidden={onChange} />;
 }

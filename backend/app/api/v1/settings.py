@@ -15,8 +15,14 @@ from app.core.timezone import utc_now
 from app.llm.catalog import ALL_MODELS, DEFAULT_TIERS
 from app.llm.factory import get_provider
 from app.models.enums import CredentialStatus, LLMProvider
-from app.models.profile import AutofillProfile
+from app.models.profile import AutofillProfile, CandidateProfile
 from app.models.user import LLMCredential, UserSettings
+from app.remote.services.candidate_profile import (
+    DEFAULT_NAME,
+    default_profile,
+    generation_mode,
+    profile_markdown,
+)
 from app.schemas.settings import (
     ApiKeyIn,
     AutofillProfileIn,
@@ -24,6 +30,8 @@ from app.schemas.settings import (
     ConnectionTest,
     CredentialOut,
     ModelOut,
+    ResumeProfileIn,
+    ResumeProfileOut,
     SettingsOut,
     SettingsPatch,
 )
@@ -224,3 +232,49 @@ async def put_autofill_profile(
     row.extra_notes_markdown = body.extra_notes_markdown or None
 
     return AutofillProfileOut(fields=cleaned, extra_notes_markdown=row.extra_notes_markdown)
+
+
+@router.get("/resume-profile", response_model=ResumeProfileOut)
+async def get_resume_profile(user: CurrentUser, session: Session) -> ResumeProfileOut:
+    return _resume_profile_out(await default_profile(session, user.id))
+
+
+@router.put("/resume-profile", response_model=ResumeProfileOut)
+async def put_resume_profile(
+    body: ResumeProfileIn, user: CurrentUser, session: Session
+) -> ResumeProfileOut:
+    """Replace the profile generating a resume reads as CANDIDATE_PROFILE.
+
+    The text the generator reads is written here, from the fields, so every
+    generation path picks it up without knowing the fields exist.
+    """
+    row = await default_profile(session, user.id)
+    if row is None:
+        row = CandidateProfile(user_id=user.id, name=DEFAULT_NAME, is_default=True)
+        session.add(row)
+
+    for field in ("full_name", "headline", "email", "phone", "location", "summary"):
+        value = getattr(body, field)
+        setattr(row, field, value.strip() if value and value.strip() else None)
+    row.links = [link.strip() for link in body.links if link.strip()]
+    row.education = [entry.strip() for entry in body.education if entry.strip()]
+    row.raw_profile_markdown = profile_markdown(row)
+    await session.flush()
+    return _resume_profile_out(row)
+
+
+def _resume_profile_out(row: CandidateProfile | None) -> ResumeProfileOut:
+    if row is None:
+        return ResumeProfileOut()
+    return ResumeProfileOut(
+        full_name=row.full_name,
+        headline=row.headline,
+        email=row.email,
+        phone=row.phone,
+        location=row.location,
+        links=row.links or [],
+        education=row.education or [],
+        summary=row.summary,
+        mode=generation_mode(row),
+        configured=bool(row.raw_profile_markdown),
+    )

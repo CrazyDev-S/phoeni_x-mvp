@@ -84,7 +84,8 @@ export async function request<T = unknown>(
   retry = true,
 ): Promise<T> {
   const headers = new Headers(init.headers);
-  if (!headers.has("Content-Type") && init.body) {
+  // A FormData body sets its own multipart boundary; forcing JSON would break it.
+  if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
   const access = tokens.access();
@@ -116,15 +117,34 @@ export async function request<T = unknown>(
 }
 
 /** Download a generated document without ever persisting it server-side. */
-export async function downloadDocx(
+export function downloadDocx(
   body: Record<string, unknown>,
   fallbackName = "Resume.docx",
+): Promise<void> {
+  return downloadExport("docx", body, fallbackName);
+}
+
+/**
+ * The same document as `downloadDocx`, as a PDF. The server converts the
+ * .docx itself, so the two never differ - it takes a few seconds longer.
+ */
+export function downloadPdf(
+  body: Record<string, unknown>,
+  fallbackName = "Resume.pdf",
+): Promise<void> {
+  return downloadExport("pdf", body, fallbackName.replace(/\.docx$/i, ".pdf"));
+}
+
+async function downloadExport(
+  format: "docx" | "pdf",
+  body: Record<string, unknown>,
+  fallbackName: string,
 ): Promise<void> {
   const headers = new Headers({ "Content-Type": "application/json" });
   const access = tokens.access();
   if (access) headers.set("Authorization", `Bearer ${access}`);
 
-  const res = await fetch(`${API_URL}/api/v1/remote/export/docx`, {
+  const res = await fetch(`${API_URL}/api/v1/remote/export/${format}`, {
     method: "POST",
     headers,
     body: JSON.stringify(body),

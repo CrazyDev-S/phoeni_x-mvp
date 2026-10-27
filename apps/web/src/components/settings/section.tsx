@@ -1,71 +1,50 @@
-import type { ComponentType, ReactNode } from "react";
+import { useId, type ComponentType, type ReactNode } from "react";
 
-import { Tile } from "@/components/tile";
+import { Panel, PanelHead } from "@/components/panel";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
+import type { ControlProps } from "@/components/form-field";
+
 /**
- * One block of the Settings page: a white card led by an accent tile, a title
- * and a line of what it is for. `id` is the anchor the sub-navigation and the
- * `?tab=` deep links scroll to.
+ * One block of the Settings page: a titled panel. `id` is the anchor the
+ * sub-navigation and the `?tab=` deep links scroll to.
  */
 export function SettingsSection({
   id,
-  icon,
   title,
-  description,
   children,
   className,
 }: {
   id?: string;
-  icon: ComponentType<{ className?: string }>;
   title: string;
-  description?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** Accepted for older call sites. */
+  icon?: ComponentType<{ className?: string }>;
+  description?: ReactNode;
 }) {
   return (
     <section
       id={id}
       data-settings-section={id}
       aria-labelledby={id ? `${id}-title` : undefined}
-      className={cn(
-        "bg-card shadow-card scroll-mt-6 rounded-[40px] px-6 py-8 sm:px-9 sm:py-[34px]",
-        className,
-      )}
+      className="scroll-mt-14"
     >
-      <header className="mb-[26px] flex items-start gap-4">
-        <Tile icon={icon} className="size-[52px] rounded-[18px]" />
-        <div className="min-w-0">
-          <h2
-            id={id ? `${id}-title` : undefined}
-            className="text-[1.75rem] leading-[1.1] font-medium tracking-[-0.015em]"
-          >
-            {title}
-          </h2>
-          {description && (
-            <p className="text-muted-foreground mt-1.5 max-w-[660px] text-[0.90625rem] leading-snug font-medium text-pretty">
-              {description}
-            </p>
-          )}
-        </div>
-      </header>
-      {children}
+      <Panel className={className}>
+        <PanelHead title={<span id={id ? `${id}-title` : undefined}>{title}</span>} />
+        <div className="p-3">{children}</div>
+      </Panel>
     </section>
   );
 }
 
 /** A small caps heading with a rule running out of it, to split a section in two. */
-export function SubHead({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+export function SubHead({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <h3
       className={cn(
-        "text-subtle mb-3.5 flex items-center gap-3.5 text-[13px] font-bold tracking-[0.07em] uppercase",
+        "text-subtle mb-2 flex items-center gap-2 text-[11px] font-semibold tracking-wide uppercase",
         "after:bg-border after:h-px after:flex-1 after:content-['']",
         className,
       )}
@@ -87,13 +66,7 @@ export function Hint({
   className?: string;
 }) {
   return (
-    <p
-      className={cn(
-        "text-[0.78rem] leading-snug font-medium",
-        quiet ? "text-subtle" : "text-muted-foreground",
-        className,
-      )}
-    >
+    <p className={cn("text-xs leading-snug", quiet ? "text-subtle" : "text-muted-foreground", className)}>
       {children}
     </p>
   );
@@ -101,45 +74,64 @@ export function Hint({
 
 /** A rule between two parts of a section. */
 export function Rule({ className }: { className?: string }) {
+  return <div role="separator" className={cn("bg-border my-3 h-px", className)} />;
+}
+
+/**
+ * A label on the left and its control on the right, one line of a form. The
+ * control is a function so the label can be tied to whatever it renders.
+ */
+export function SettingRow({
+  label,
+  hint,
+  children,
+  className,
+}: {
+  label: ReactNode;
+  hint?: ReactNode;
+  children: (control: ControlProps) => ReactNode;
+  className?: string;
+}) {
+  const id = useId();
   return (
-    <div role="separator" className={cn("bg-border my-7 h-px", className)} />
+    <div
+      className={cn(
+        "grid gap-1 py-2 not-first:border-t sm:grid-cols-[13rem_minmax(0,1fr)] sm:items-start sm:gap-4",
+        className,
+      )}
+    >
+      <div className="sm:pt-1.5">
+        <Label htmlFor={id} className="text-[13px] font-medium">
+          {label}
+        </Label>
+        {hint && <p className="text-muted-foreground mt-0.5 text-xs leading-snug">{hint}</p>}
+      </div>
+      <div className="min-w-0 sm:max-w-md">{children({ id })}</div>
+    </div>
   );
 }
 
-/** A soft rounded row: the leading icon, a name, and what belongs at its far end. */
+/** A ruled row: the leading icon, a name, and what belongs at its far end. Rows in a list sit in `li`s and are separated by a rule. */
 export function Row({
   icon: Icon,
   children,
-  tone = "soft",
-  iconTone = "default",
   className,
 }: {
   icon: ComponentType<{ className?: string }>;
   children: ReactNode;
+  className?: string;
+  /** Accepted for older call sites. */
   tone?: "soft" | "white";
   iconTone?: "default" | "success";
-  className?: string;
 }) {
   return (
     <div
       className={cn(
-        "flex min-h-16 flex-wrap items-center gap-x-3.5 gap-y-2 rounded-[22px] p-3",
-        tone === "soft" ? "bg-soft" : "bg-card",
+        "flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1 py-1.5 [li:not(:first-child)>&]:border-t",
         className,
       )}
     >
-      <span
-        className={cn(
-          "grid size-[38px] shrink-0 place-items-center rounded-full",
-          iconTone === "success"
-            ? "bg-success/15 text-success"
-            : tone === "soft"
-              ? "bg-card text-muted-foreground"
-              : "bg-soft text-muted-foreground",
-        )}
-      >
-        <Icon className="size-[17px]" />
-      </span>
+      <Icon className="text-muted-foreground size-3.5 shrink-0" />
       {children}
     </div>
   );

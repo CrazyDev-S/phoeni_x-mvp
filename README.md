@@ -53,12 +53,15 @@ All three surfaces build and run.
 | LLM layer: Anthropic + OpenAI adapters, model catalog, prompt caching | Done |
 | Job queue (Postgres `SKIP LOCKED`) + SSE and polling event streams | Done |
 | Next.js portal (21 routes) | Done |
-| PDF export, tightening ladder | Not started |
+| PDF export (the .docx, converted by LibreOffice) | Done |
+| Tightening ladder | Not started |
 | ATS adapter registry / Workday multi-step | Not started |
 
 ## Setup
 
-Requires PostgreSQL 16+, Python 3.12+, Node 22+.
+Requires PostgreSQL 16+, Python 3.12+, Node 22+. PDF export also needs
+LibreOffice (`soffice` on `PATH`, or `SOFFICE_PATH`); without it the PDF
+buttons answer with a clear error and the .docx downloads still work.
 
 ```bash
 # 1. Database

@@ -25,7 +25,7 @@ export function UserMenu() {
 
   if (isLoading) {
     return (
-      <Skeleton className="bg-panel-raised size-12 rounded-full" />
+      <Skeleton className="size-7 rounded-full" />
     );
   }
 
@@ -40,10 +40,10 @@ export function UserMenu() {
       <DropdownMenuTrigger asChild>
         <button
           aria-label={`${nameOf(me)}, account menu`}
-          className="focus-visible:ring-brand/60 shrink-0 rounded-full outline-none focus-visible:ring-3"
+          className="focus-visible:ring-ring/40 shrink-0 rounded-full outline-none focus-visible:ring-2"
         >
-          <Avatar className="size-12">
-            <AvatarFallback className="bg-brand text-brand-foreground text-sm font-bold">
+          <Avatar className="size-7">
+            <AvatarFallback className="bg-brand text-brand-foreground text-[11px] font-semibold">
               {initialsOf(me)}
             </AvatarFallback>
           </Avatar>

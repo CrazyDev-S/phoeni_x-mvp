@@ -73,7 +73,7 @@ export function streamGeneration(
             if (!event) continue;
             lastId = event.id;
             handlers.onEvent(event);
-            if (event.type === "complete" || event.type === "error") {
+            if (["complete", "error", "cancelled"].includes(event.type)) {
               stopped = true;
               handlers.onClose?.();
               return;
@@ -139,7 +139,12 @@ async function settleFromApi(
     if (finished) {
       handlers.onEvent({
         id: -1,
-        type: generation.status === "failed" ? "error" : "complete",
+        type:
+          generation.status === "failed"
+            ? "error"
+            : generation.status === "cancelled"
+              ? "cancelled"
+              : "complete",
         data: {
           replayed: true,
           status: generation.status,

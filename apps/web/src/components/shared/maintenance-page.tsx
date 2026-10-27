@@ -1,22 +1,15 @@
 "use client";
 
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, Lightbulb, Pause, Play, Plus, Repeat, Wrench, X } from "lucide-react";
-import { useState } from "react";
+import { ChevronRight, Pause, Play, Plus, Search, Wrench, X } from "lucide-react";
+import { Fragment, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/empty-state";
 import { FormField } from "@/components/form-field";
-import { NextCallBanner } from "@/components/shared/next-call";
 import { PageHero } from "@/components/page-hero";
-import { Tile } from "@/components/tile";
+import { Panel, Toolbar } from "@/components/panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { request } from "@/lib/api";
 import { dayLabel } from "@/lib/calendar";
@@ -57,25 +51,6 @@ interface Series {
   preparation_template: string | null;
 }
 
-const MAINTENANCE_STEPS = (addStep: string) => [
-  { title: "Add the job", detail: addStep },
-  {
-    title: "Add its recurring meetings",
-    detail: "Standups and 1:1s, with a standing preparation note.",
-  },
-  {
-    title: "Prep each occurrence",
-    detail: "Every materialised meeting carries its own notes on the calendar.",
-  },
-];
-
-const MAINTENANCE_TIPS = [
-  "Pause a series instead of deleting it — the history stays.",
-  "A standing preparation note is copied onto every new occurrence.",
-  "Meetings materialise 90 days ahead, so the calendar stays honest.",
-  "Per-occurrence notes live on the meeting, not the series.",
-];
-
 const RECURRENCE_OPTIONS: [string, string][] = [
   ["FREQ=WEEKLY;BYDAY=MO", "Weekly on Monday"],
   ["FREQ=WEEKLY;BYDAY=TU", "Weekly on Tuesday"],
@@ -95,31 +70,21 @@ function shortDate(value: string): string {
 /** What the same page says in each portal: a remote job, or a won freelancing contract. */
 const COPY = {
   remote: {
-    eyebrow: "After the offer",
-    description:
-      "Roles you have started. Recurring team meetings materialise 90 days ahead so each occurrence can carry its own prep notes.",
     add: "Add a job",
     employer: "Employer",
     role: "Role",
     save: "Save job",
     emptyTitle: "No maintained jobs yet",
-    emptyDescription:
-      "When an application reaches contract signed, promote it here to keep its recurring meetings and notes.",
-    addStep: "Employer, role and start date, plus who you report to.",
+    emptyDescription: "Promote an application that reached contract signed.",
     count: (n: number) => (n === 1 ? "Job" : "Jobs"),
   },
   freelancing: {
-    eyebrow: "After the win",
-    description:
-      "Contracts you have won. Recurring client meetings materialise 90 days ahead so each occurrence can carry its own prep notes.",
     add: "Add a contract",
     employer: "Client",
     role: "Contract",
     save: "Save contract",
     emptyTitle: "No contracts yet",
-    emptyDescription:
-      "When a bid is won, promote it from the pipeline to keep its recurring meetings and notes.",
-    addStep: "Client, contract title and start date, plus who you work with.",
+    emptyDescription: "Promote a won bid from the pipeline.",
     count: (n: number) => (n === 1 ? "Contract" : "Contracts"),
   },
 } as const;
@@ -129,6 +94,9 @@ export function MaintenancePage({ portal }: { portal: PortalId }) {
   const copy = COPY[portal];
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("all");
+  const [open, setOpen] = useState<string | null>(null);
 
   const { data: jobs, isLoading } = useQuery({
     queryKey: ["maintained-jobs", portal],
@@ -144,6 +112,20 @@ export function MaintenancePage({ portal }: { portal: PortalId }) {
   });
   const seriesLoaded = seriesQueries.every((query) => query.data);
   const allSeries = seriesQueries.flatMap((query) => query.data ?? []);
+  const seriesOf = new Map((jobs ?? []).map((job, i) => [job.id, seriesQueries[i]?.data]));
+
+  const statuses = useMemo(() => [...new Set((jobs ?? []).map((j) => j.status))], [jobs]);
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return (jobs ?? []).filter(
+      (j) =>
+        (status === "all" || j.status === status) &&
+        (!needle ||
+          `${j.employer_name} ${j.role_title} ${j.manager_name ?? ""} ${j.team ?? ""}`
+            .toLowerCase()
+            .includes(needle)),
+    );
+  }, [jobs, q, status]);
 
   const createJob = useMutation({
     mutationFn: (body: Record<string, unknown>) =>
@@ -158,7 +140,7 @@ export function MaintenancePage({ portal }: { portal: PortalId }) {
   });
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-3">
       <PageHero
         title="Job maintenance"
         stats={
@@ -171,212 +153,141 @@ export function MaintenancePage({ portal }: { portal: PortalId }) {
             : undefined
         }
         actions={
-          <Button variant="secondary" size="lg" onClick={() => setCreating((v) => !v)}>
+          <Button variant="secondary" onClick={() => setCreating((v) => !v)}>
             {creating ? <X /> : <Plus />}
             {creating ? "Cancel" : copy.add}
           </Button>
         }
       />
 
-      <div className="-mt-3 flex flex-wrap items-center gap-x-3.5 gap-y-2">
-        <Badge variant="outline" className="h-[30px] gap-1.5 px-3 text-[0.8125rem]">
-          <Wrench />
-          {copy.eyebrow}
-        </Badge>
-        <p className="text-muted-foreground max-w-3xl text-[0.9375rem] leading-snug font-medium">
-          {copy.description}
-        </p>
-      </div>
-
-      <NextCallBanner />
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_21.25rem] lg:items-start">
-        <div className="min-w-0 space-y-5">
-          {creating && (
-            <Card className="gap-0 p-7">
-              <div className="mb-[22px] flex items-center gap-3.5">
-                <Tile icon={Plus} />
-                <h2 className="text-[1.375rem] font-medium tracking-tight">{copy.add}</h2>
-              </div>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const f = new FormData(e.currentTarget);
-                  createJob.mutate(Object.fromEntries(f.entries()));
-                }}
-              >
-                <FieldGroup>
-                  <div className="grid gap-x-5 gap-y-[18px] sm:grid-cols-2">
-                    <FormField label={copy.employer}>
-                      {(control) => <Input {...control} name="employer_name" required />}
-                    </FormField>
-                    <FormField label={copy.role}>
-                      {(control) => <Input {...control} name="role_title" required />}
-                    </FormField>
-                    <FormField label="Start date">
-                      {(control) => <Input {...control} name="start_date" type="date" required />}
-                    </FormField>
-                    <FormField label="Manager">
-                      {(control) => <Input {...control} name="manager_name" />}
-                    </FormField>
-                  </div>
-                  <Button
-                    type="submit"
-                    variant="brand"
-                    size="lg"
-                    className="mt-1 self-start"
-                    disabled={createJob.isPending}
-                  >
-                    {createJob.isPending && <Spinner />}
-                    {copy.save}
-                  </Button>
-                </FieldGroup>
-              </form>
-            </Card>
-          )}
-
-          {isLoading ? (
-            <div className="space-y-4">
-              {[0, 1].map((i) => (
-                <Skeleton key={i} className="h-28 w-full rounded-[2rem]" />
-              ))}
-            </div>
-          ) : !jobs?.length ? (
-            <Card className="py-0">
-              <EmptyState
-                icon={<Wrench />}
-                title={copy.emptyTitle}
-                description={copy.emptyDescription}
-              />
-            </Card>
-          ) : (
-            <div className="space-y-5">
-              {jobs.map((job, index) => (
-                <JobCard key={job.id} job={job} index={index} defaultOpen={index === 0} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        <aside className="space-y-5 lg:sticky lg:top-24">
-          <Card tone="dark" className="gap-0 rounded-[2.25rem] px-[22px] pt-[26px] pb-[22px]">
-            <h2 className="px-1 text-[1.4375rem] font-medium tracking-tight">
-              How maintenance works
-            </h2>
-            <p className="text-panel-muted px-1 pt-1 pb-5 text-sm leading-snug">
-              What happens once a role becomes a job rather than an application.
-            </p>
-            <ol className="relative flex flex-col gap-3.5 pl-[38px]">
-              <span
-                aria-hidden
-                className="bg-panel-muted/40 absolute top-1.5 bottom-1.5 left-[11px] w-[1.5px]"
-              />
-              {MAINTENANCE_STEPS(copy.addStep).map((step, index) => (
-                <li key={step.title} className="bg-panel-raised relative rounded-3xl p-[18px]">
-                  <span className="bg-brand text-brand-foreground absolute top-[18px] -left-[38px] grid size-6 place-items-center rounded-full text-xs font-extrabold tabular-nums">
-                    {index + 1}
-                  </span>
-                  <p className="text-[1.03rem] font-medium">{step.title}</p>
-                  <p className="text-panel-muted mt-1 text-[0.84rem] leading-normal">
-                    {step.detail}
-                  </p>
-                </li>
-              ))}
-            </ol>
-          </Card>
-
-          <Card className="gap-0 p-6">
-            <div className="mb-[18px] flex items-center gap-3">
-              <Tile icon={Lightbulb} size="sm" />
-              <h2 className="text-xl font-medium tracking-tight">Tips</h2>
-            </div>
-            <ul className="space-y-4">
-              {MAINTENANCE_TIPS.map((tip) => (
-                <li key={tip} className="flex items-start gap-3 text-[0.9rem] leading-snug font-medium">
-                  <span className="bg-brand text-brand-foreground grid size-[22px] shrink-0 place-items-center rounded-full">
-                    <Check className="size-3 stroke-[3]" />
-                  </span>
-                  {tip}
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </aside>
-      </div>
-    </div>
-  );
-}
-
-const LOGO_TONES = [
-  "bg-brand text-brand-foreground",
-  "bg-panel text-panel-foreground",
-  "bg-info text-white",
-  "bg-success text-white",
-];
-
-/** A coloured square carrying the employer's initial; the colour follows the card's place in the list. */
-function Logo({ name, index }: { name: string; index: number }) {
-  const hue = index % LOGO_TONES.length;
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "grid size-14 shrink-0 place-items-center rounded-[18px] text-[1.375rem] font-extrabold",
-        LOGO_TONES[hue],
-      )}
-    >
-      {name.charAt(0).toUpperCase()}
-    </span>
-  );
-}
-
-function JobCard({
-  job,
-  index,
-  defaultOpen = false,
-}: {
-  job: Job;
-  index: number;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-
-  return (
-    <Card className="gap-0 px-[26px] py-6">
-      <Collapsible open={open} onOpenChange={setOpen}>
-        <div className="flex flex-wrap items-center gap-x-[18px] gap-y-3">
-          <Logo name={job.employer_name} index={index} />
-          <div className="min-w-0 flex-1 basis-60">
-            <h3 className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[1.375rem] leading-tight font-semibold tracking-tight">
-              {job.employer_name} — {job.role_title}
-              <Badge variant={job.status === "active" ? "success" : "secondary"}>
-                {job.status}
-              </Badge>
-            </h3>
-            <p className="text-muted-foreground mt-1 text-sm font-medium">
-              Started {shortDate(job.start_date)}
-              {job.manager_name && ` · reports to ${job.manager_name}`}
-              {job.team && ` · ${job.team}`}
-            </p>
-          </div>
-          <CollapsibleTrigger asChild>
-            <Button variant="outline" aria-expanded={open}>
-              Meetings
-              <ChevronDown
-                data-icon="inline-end"
-                className="transition-transform data-[state=open]:rotate-180"
-                data-state={open ? "open" : "closed"}
-              />
+      {creating && (
+        <Panel className="p-3">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              createJob.mutate(Object.fromEntries(f.entries()));
+            }}
+            className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_9rem_1fr_auto]"
+          >
+            <FormField label={copy.employer}>
+              {(control) => <Input {...control} name="employer_name" required />}
+            </FormField>
+            <FormField label={copy.role}>
+              {(control) => <Input {...control} name="role_title" required />}
+            </FormField>
+            <FormField label="Start date">
+              {(control) => <Input {...control} name="start_date" type="date" required />}
+            </FormField>
+            <FormField label="Manager">
+              {(control) => <Input {...control} name="manager_name" />}
+            </FormField>
+            <Button type="submit" variant="brand" disabled={createJob.isPending}>
+              {createJob.isPending && <Spinner />}
+              {copy.save}
             </Button>
-          </CollapsibleTrigger>
+          </form>
+        </Panel>
+      )}
+
+      <Toolbar>
+        <div className="relative w-64">
+          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
+          <Input
+            placeholder="Search"
+            aria-label="Search maintained jobs"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="pl-8"
+          />
         </div>
-        <CollapsibleContent>
-          <div className="border-border mt-[22px] border-t pt-5">
-            <SeriesPanel jobId={job.id} />
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
+        {statuses.length > 1 && (
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger className="w-36" aria-label="Filter by status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {statuses.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {value}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </Toolbar>
+
+      {isLoading ? (
+        <div className="space-y-1" aria-busy>
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-9 w-full" />
+          ))}
+        </div>
+      ) : !rows.length ? (
+        <Panel>
+          <EmptyState
+            icon={<Wrench />}
+            title={jobs?.length ? "Nothing matches" : copy.emptyTitle}
+            description={jobs?.length ? undefined : copy.emptyDescription}
+          />
+        </Panel>
+      ) : (
+        <Panel>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-8" />
+                <TableHead>{copy.employer}</TableHead>
+                <TableHead>{copy.role}</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Started</TableHead>
+                <TableHead>Reports to</TableHead>
+                <TableHead>Team</TableHead>
+                <TableHead className="text-right">Series</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((job) => {
+                const expanded = open === job.id;
+                const series = seriesOf.get(job.id);
+                return (
+                  <Fragment key={job.id}>
+                    <TableRow
+                      className="cursor-pointer"
+                      aria-expanded={expanded}
+                      onClick={() => setOpen(expanded ? null : job.id)}
+                    >
+                      <TableCell className="pr-0">
+                        <ChevronRight
+                          className={cn("text-muted-foreground size-3.5 transition-transform", expanded && "rotate-90")}
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">{job.employer_name}</TableCell>
+                      <TableCell>{job.role_title}</TableCell>
+                      <TableCell>
+                        <Badge variant={job.status === "active" ? "success" : "secondary"}>{job.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground tabular-nums">{shortDate(job.start_date)}</TableCell>
+                      <TableCell className="text-muted-foreground">{job.manager_name ?? "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{job.team ?? "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{series ? series.length : "—"}</TableCell>
+                    </TableRow>
+                    {expanded && (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={8} className="bg-soft p-3 whitespace-normal">
+                          <SeriesPanel jobId={job.id} />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Panel>
+      )}
+    </div>
   );
 }
 
@@ -411,56 +322,48 @@ function SeriesPanel({ jobId }: { jobId: string }) {
   });
 
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-2">
       {data?.map((s) => (
-        <div key={s.id} className="bg-soft rounded-[26px] px-[22px] pt-5 pb-[22px]">
-          <div className="flex flex-wrap items-start gap-x-3.5 gap-y-2">
-            <Tile icon={Repeat} tone={s.is_active ? "brand" : "neutral"} />
-            <div className="min-w-0 flex-1 basis-48">
-              <p className="flex flex-wrap items-center gap-2.5 text-[1.0625rem] font-semibold">
+        <div key={s.id} className="bg-card grid gap-2 rounded-md border p-2.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="flex flex-wrap items-center gap-1.5 text-[13px] font-medium">
                 {s.title}
                 {!s.is_active && <Badge variant="warning">paused</Badge>}
               </p>
-              <p className="text-muted-foreground mt-0.5 text-[0.84rem] font-medium tabular-nums">
-                {RECURRENCE_OPTIONS.find(([r]) => r === s.recurrence_rule)?.[1] ??
-                  s.recurrence_rule}{" "}
-                at {s.start_time_local} · {s.duration_min} min
+              <p className="text-muted-foreground text-xs tabular-nums">
+                {RECURRENCE_OPTIONS.find(([r]) => r === s.recurrence_rule)?.[1] ?? s.recurrence_rule} at{" "}
+                {s.start_time_local} · {s.duration_min} min · through{" "}
+                {s.materialized_through ? shortDate(s.materialized_through) : "—"}
               </p>
             </div>
-            <span className="text-muted-foreground pt-3 text-sm font-medium">
-              materialised through {s.materialized_through ? shortDate(s.materialized_through) : "—"}
-            </span>
             <Button
               variant="outline"
               size="xs"
-              className="mt-2"
               onClick={() => update.mutate({ id: s.id, body: { is_active: !s.is_active } })}
             >
               {s.is_active ? <Pause /> : <Play />}
               {s.is_active ? "Pause" : "Resume"}
             </Button>
           </div>
-          <FormField label="Standing preparation" className="mt-4">
-            {(control) => (
-              <Textarea
-                {...control}
-                rows={2}
-                className="bg-card min-h-[72px]"
-                defaultValue={s.preparation_template ?? ""}
-                onBlur={(e) =>
-                  update.mutate({
-                    id: s.id,
-                    body: { preparation_template: e.target.value },
-                  })
-                }
-              />
-            )}
-          </FormField>
+          <Textarea
+            aria-label={`Standing preparation for ${s.title}`}
+            placeholder="Standing preparation"
+            rows={2}
+            className="min-h-10"
+            defaultValue={s.preparation_template ?? ""}
+            onBlur={(e) =>
+              update.mutate({
+                id: s.id,
+                body: { preparation_template: e.target.value },
+              })
+            }
+          />
         </div>
       ))}
 
       <form
-        className="rounded-[26px] px-[22px] pt-5 pb-[22px] shadow-[inset_0_0_0_1.5px_var(--border)]"
+        className="bg-card rounded-md border border-dashed p-2.5"
         onSubmit={(e) => {
           e.preventDefault();
           const f = new FormData(e.currentTarget);
@@ -474,12 +377,10 @@ function SeriesPanel({ jobId }: { jobId: string }) {
           e.currentTarget.reset();
         }}
       >
-        <FieldGroup>
-          <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-[1.15fr_1.25fr_1fr_0.8fr]">
+        <FieldGroup className="gap-2">
+          <div className="grid items-end gap-2 sm:grid-cols-2 lg:grid-cols-[1.15fr_1.25fr_1fr_0.8fr_auto]">
             <FormField label="Title">
-              {(control) => (
-                <Input {...control} name="title" required placeholder="Team standup" />
-              )}
+              {(control) => <Input {...control} name="title" required placeholder="Team standup" />}
             </FormField>
             <RecurrenceField />
             <FormField label="From">
@@ -487,26 +388,15 @@ function SeriesPanel({ jobId }: { jobId: string }) {
             </FormField>
             <FormField label="Time (Eastern)">
               {(control) => (
-                <Input
-                  {...control}
-                  name="start_time_local"
-                  type="time"
-                  required
-                  defaultValue="10:00"
-                />
+                <Input {...control} name="start_time_local" type="time" required defaultValue="10:00" />
               )}
             </FormField>
+            <Button type="submit" variant="outline" disabled={create.isPending}>
+              {create.isPending ? <Spinner /> : <Plus />}
+              Add series
+            </Button>
           </div>
           <input type="hidden" name="duration_min" value="30" />
-          <Button
-            type="submit"
-            variant="outline"
-            className="self-start"
-            disabled={create.isPending}
-          >
-            {create.isPending ? <Spinner /> : <Plus />}
-            Add recurring meeting
-          </Button>
         </FieldGroup>
       </form>
     </div>

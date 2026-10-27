@@ -3,6 +3,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from pydantic import Field
+
 from app.models.enums import GenerationKind, GenerationStatus, LLMProvider
 from app.schemas.common import ORMModel
 
@@ -40,3 +42,17 @@ class GenerationEventOut(ORMModel):
     type: str
     payload: dict
     created_at: datetime
+
+
+class ImportAccepted(GenerationAccepted):
+    """An uploaded resume, taken in.
+
+    Either queued for restructuring (``direct`` false: follow the generation) or,
+    when the file was already in the house format, saved on the spot
+    (``direct`` true: ``result_id`` is the resume).
+    """
+
+    direct: bool = False
+    source_kind: str
+    characters: int
+    warnings: list[str] = Field(default_factory=list)

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Sparkles, X } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -11,9 +11,7 @@ import { FormField } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -99,54 +97,32 @@ export function NewProposalDialog({
     },
   });
 
-  const labelClass = "text-panel-foreground text-[13px] font-bold";
-  const controlClass =
-    "bg-panel-raised text-panel-foreground placeholder:text-panel-muted focus-visible:bg-panel-raised focus-visible:border-white/40 data-[state=open]:bg-panel-raised data-[state=open]:border-white/40";
   // Offer the posting list whenever the preselected posting is in it; a posting
   // opened from elsewhere (not focused) stays implied.
   const showPostings = !jobId || jobs.some((j) => j.id === jobId);
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent
-        showCloseButton={false}
-        className="bg-panel text-panel-foreground rounded-[2.25rem] ring-0 sm:max-w-md [&_[data-slot=field-description]]:text-panel-muted [&_[data-slot=field-label]]:text-panel-foreground [&_[data-slot=field-label]]:text-[13px] [&_[data-slot=field-label]]:font-bold"
-      >
-        <DialogHeader className="gap-1.5">
-          <div className="flex items-start justify-between gap-3">
-            <DialogTitle className="text-2xl leading-tight font-medium tracking-tight">
-              Draft a proposal
-            </DialogTitle>
-            <DialogClose asChild>
-              <button
-                type="button"
-                aria-label="Close"
-                className="bg-panel-raised hover:bg-panel-raised/70 focus-visible:ring-ring/40 grid size-9 shrink-0 place-items-center rounded-full outline-none focus-visible:ring-3"
-              >
-                <X className="size-4" />
-              </button>
-            </DialogClose>
-          </div>
-          <DialogDescription className="text-panel-muted leading-snug">
-            A first draft from your profile and the posting. Every line is meant to be rewritten.
-          </DialogDescription>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Draft a proposal</DialogTitle>
         </DialogHeader>
 
         {focused.isSuccess && !jobs.length && !jobId ? (
-          <p className="text-panel-muted text-sm">
+          <p className="text-muted-foreground text-[13px]">
             Focus a posting first.{" "}
-            <Link href="/freelancing/jobs" className="text-brand hover:underline">
+            <Link href="/freelancing/jobs" className="text-foreground underline underline-offset-2">
               Search jobs
             </Link>
             .
           </p>
         ) : (
-          <FieldGroup className="gap-4">
+          <FieldGroup className="gap-3">
             {showPostings && (
               <FormField label="Posting">
                 {(control) => (
                   <Select value={chosenJob} onValueChange={setJob}>
-                    <SelectTrigger {...control} className={cn("w-full", controlClass)}>
+                    <SelectTrigger {...control} className="w-full">
                       <SelectValue placeholder="Pick a focused posting" />
                     </SelectTrigger>
                     <SelectContent>
@@ -163,7 +139,7 @@ export function NewProposalDialog({
             <FormField label="Profile" hint={profiles.isSuccess && !profiles.data.length ? "No profile yet; the draft will be thinner." : undefined}>
               {(control) => (
                 <Select value={chosenProfile} onValueChange={setProfile} disabled={!profiles.data?.length}>
-                  <SelectTrigger {...control} className={cn("w-full", controlClass)}>
+                  <SelectTrigger {...control} className="w-full">
                     <SelectValue placeholder="No profile" />
                   </SelectTrigger>
                   <SelectContent>
@@ -177,15 +153,11 @@ export function NewProposalDialog({
                 </Select>
               )}
             </FormField>
-            <div className="flex flex-col gap-2">
-              <span id="proposal-tone" className={labelClass}>
+            <div className="flex flex-col gap-1.5">
+              <span id="proposal-tone" className="text-xs font-medium">
                 Tone
               </span>
-              <div
-                role="radiogroup"
-                aria-labelledby="proposal-tone"
-                className="bg-panel-raised flex gap-0.5 rounded-full p-1"
-              >
+              <div role="radiogroup" aria-labelledby="proposal-tone" className="bg-muted flex gap-0.5 rounded-md p-0.5">
                 {TONES.map(([value, label]) => (
                   <button
                     key={value}
@@ -194,10 +166,8 @@ export function NewProposalDialog({
                     aria-checked={tone === value}
                     onClick={() => setTone(value)}
                     className={cn(
-                      "focus-visible:ring-ring/40 h-10 flex-1 rounded-full text-sm font-semibold transition-colors outline-none focus-visible:ring-3",
-                      tone === value
-                        ? "bg-brand text-brand-foreground"
-                        : "text-panel-muted hover:text-panel-foreground",
+                      "focus-visible:ring-ring/40 h-7 flex-1 rounded-[5px] text-[13px] font-medium transition-colors outline-none focus-visible:ring-2",
+                      tone === value ? "bg-card shadow-sm" : "text-foreground/65 hover:text-foreground",
                     )}
                   >
                     {label}
@@ -205,7 +175,7 @@ export function NewProposalDialog({
                 ))}
               </div>
             </div>
-            <FormField label="Instructions" hint="Anything this draft should lead with or leave out.">
+            <FormField label="Instructions">
               {(control) => (
                 <Textarea
                   {...control}
@@ -213,35 +183,20 @@ export function NewProposalDialog({
                   value={instructions}
                   onChange={(e) => setInstructions(e.target.value)}
                   placeholder="Lead with the payments migration; keep it under 150 words."
-                  className={cn("min-h-24", controlClass)}
+                  className="min-h-16"
                 />
               )}
             </FormField>
           </FieldGroup>
         )}
 
-        {generate.error && (
-          <div className="mt-4">
-            <ErrorAlert>{(generate.error as Error).message}</ErrorAlert>
-          </div>
-        )}
+        {generate.error && <ErrorAlert>{(generate.error as Error).message}</ErrorAlert>}
 
-        <DialogFooter className="mx-0 mt-6 mb-0 flex-row gap-2.5 border-0 bg-transparent p-0">
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={onClose}
-            className="border-panel-muted/40 text-panel-foreground hover:bg-white/8"
-          >
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            variant="brand"
-            size="lg"
-            className="flex-1"
-            disabled={!chosenJob || generate.isPending}
-            onClick={() => generate.mutate()}
-          >
+          <Button variant="brand" disabled={!chosenJob || generate.isPending} onClick={() => generate.mutate()}>
             {generate.isPending ? <Spinner /> : <Sparkles />}
             Draft it
           </Button>

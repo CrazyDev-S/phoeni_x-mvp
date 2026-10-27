@@ -2,7 +2,7 @@ import type { ComponentType, ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-/** A rounded square holding one icon (or a letter): the leading mark of a row or card. */
+/** A small rounded square holding one icon (or a letter): the leading mark of a row. */
 export function Tile({
   icon: Icon,
   children,
@@ -20,10 +20,10 @@ export function Tile({
   return (
     <span
       className={cn(
-        "flex shrink-0 items-center justify-center font-bold",
-        size === "sm" && "size-9 rounded-xl [&_svg]:size-4",
-        size === "default" && "size-11 rounded-[14px] [&_svg]:size-[18px]",
-        size === "lg" && "size-14 rounded-[18px] [&_svg]:size-6",
+        "flex shrink-0 items-center justify-center font-semibold",
+        size === "sm" && "size-6 rounded text-[11px] [&_svg]:size-3.5",
+        size === "default" && "size-7 rounded-md text-xs [&_svg]:size-4",
+        size === "lg" && "size-9 rounded-md text-sm [&_svg]:size-[18px]",
         tone === "soft" && "bg-accent text-accent-foreground",
         tone === "brand" && "bg-brand text-brand-foreground",
         tone === "ink" && "bg-panel text-brand",

@@ -12,7 +12,6 @@ import re
 from datetime import date
 
 from app.core.timezone import app_today
-from app.llm.schemas import ScenarioLedger
 from app.remote.resume.document import Resume
 from app.remote.resume.keywords import contains_keyword
 
@@ -67,21 +66,21 @@ def total_months(resume: Resume, today: date) -> int:
 
 def build(
     resume: Resume,
-    ledger: ScenarioLedger | None,
+    ledger: dict | None,
     *,
     target_title: str,
     today: date | None = None,
     findings_count: int = 0,
 ) -> dict:
     today = today or app_today()
-    plan = ledger.keyword_plan if ledger else []
+    plan = _plan(ledger)
 
     rows = []
     must_total = must_covered = nice_total = nice_covered = 0
     for entry in plan:
-        sections = _where(resume, entry.keyword)
+        sections = _where(resume, entry["keyword"])
         covered = bool(sections)
-        is_must = entry.priority.upper().startswith("MUST")
+        is_must = entry["priority"].upper().startswith("MUST")
         if is_must:
             must_total += 1
             must_covered += covered
@@ -90,7 +89,7 @@ def build(
             nice_covered += covered
         rows.append(
             {
-                "keyword": entry.keyword,
+                "keyword": entry["keyword"],
                 "priority": "MUST" if is_must else "NICE",
                 "skills": SECTION_SKILLS in sections,
                 "experience": SECTION_EXPERIENCE in sections,
@@ -100,8 +99,8 @@ def build(
         )
 
     years_shown = round(total_months(resume, today) / 12, 1)
-    gate = ledger.gate if ledger else []
-    gate_passed = sum(1 for g in gate if g.result.upper() == "PASS")
+    gate = ledger["gate"] if ledger else []
+    gate_passed = sum(1 for g in gate if g["result"].upper() == "PASS")
 
     return {
         "target_title": target_title,
@@ -116,7 +115,7 @@ def build(
         "nice_to_have_covered": nice_covered,
         "nice_to_have_total": nice_total,
         "nice_to_have_coverage_percent": _percent(nice_covered, nice_total),
-        "years_required": ledger.job_required_years if ledger else 0,
+        "years_required": ledger["job_required_years"] if ledger else 0,
         "years_shown": years_shown,
         "scenario_gate_passed": gate_passed,
         "scenario_gate_total": len(gate),
@@ -128,10 +127,13 @@ def build(
     }
 
 
-def must_keywords(ledger: ScenarioLedger | None) -> list[str]:
-    if not ledger:
-        return []
-    return [k.keyword for k in ledger.keyword_plan if k.priority.upper().startswith("MUST")]
+def must_keywords(ledger: dict | None) -> list[str]:
+    return [k["keyword"] for k in _plan(ledger) if k["priority"].upper().startswith("MUST")]
+
+
+def _plan(ledger: dict | None) -> list[dict]:
+    """The keyword plan, without an entry that names no keyword."""
+    return [k for k in (ledger or {}).get("keyword_plan", []) if k["keyword"].strip()]
 
 
 def coverage_columns(report: dict) -> dict:

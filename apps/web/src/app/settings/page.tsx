@@ -6,19 +6,15 @@ import {
   Copy,
   Cpu,
   KeyRound,
-  Lightbulb,
-  Lock,
   LogOut,
   Monitor,
   Moon,
-  Package,
   Palette,
   Plug,
   PlugZap,
   Plus,
   Puzzle,
   Save,
-  ShieldCheck,
   Sparkles,
   Sun,
   Trash2,
@@ -27,13 +23,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Suspense,
-  useCallback,
-  useEffect,
-  useState,
-  type ComponentType,
-} from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 
 import { ApifyConnect } from "@/components/freelancing/apify-connect-card";
 import { useJobSource } from "@/components/freelancing/job-source";
@@ -48,15 +38,13 @@ import {
   useExtensionPackage,
 } from "@/components/portal/download-extension";
 import {
-  Hint,
   Row,
   Rule,
+  SettingRow,
   SettingsSection,
   SubHead,
 } from "@/components/settings/section";
-import { CheckList, SidePanel } from "@/components/side-panel";
 import { StatusBadge, type Tone } from "@/components/status-badge";
-import { Tile } from "@/components/tile";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,6 +61,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { initialsOf, nameOf, useMe } from "@/hooks/use-me";
 import { request, tokens as authTokens } from "@/lib/api";
+import { PALETTES } from "@/lib/palettes";
+import { usePalette } from "@/lib/use-palette";
 import { cn } from "@/lib/utils";
 
 interface Credential {
@@ -124,60 +114,10 @@ const TIME_ZONES = [
 ];
 
 const GENERATION_TOGGLES = [
-  [
-    "research_dossiers",
-    "Research company dossiers",
-    "Gives the model web search so every employer it names has a verified founding date, office, headcount and title ladder behind it. Required by the generator prompt.",
-  ],
-  [
-    "strict_dossier",
-    "Block employers with no sourced dossier",
-    "Holds the resume back for review if a company is named without at least one retrieved source.",
-  ],
-  [
-    "allow_real_company_names",
-    "Name real companies",
-    "Turning it off substitutes archetype descriptions (“a ~200-person Series B payments company”) instead, which reads weaker and has to be replaced by hand before sending.",
-  ],
+  ["research_dossiers", "Research company dossiers"],
+  ["strict_dossier", "Block employers with no sourced dossier"],
+  ["allow_real_company_names", "Name real companies"],
 ] as const;
-
-interface StorageNote {
-  Icon: ComponentType<{ className?: string }>;
-  title: string;
-  detail: string;
-}
-
-const STORAGE_NOTES: StorageNote[] = [
-  {
-    Icon: Lock,
-    title: "API keys are encrypted at rest",
-    detail:
-      "The API never returns one — only a mask and a status you can check.",
-  },
-  {
-    Icon: Plug,
-    title: "Job-source tokens are encrypted too",
-    detail:
-      "An Apify token or an Upwork key pair is sealed like an API key; only a mask is shown.",
-  },
-  {
-    Icon: Puzzle,
-    title: "Extension tokens are hashed",
-    detail: "The value is shown exactly once, at the moment you create it.",
-  },
-  {
-    Icon: Palette,
-    title: "Theme is per device",
-    detail: "It lives in this browser and is never synced to your account.",
-  },
-];
-
-const SETTINGS_TIPS = [
-  "Test the connection after saving a key — a bad key fails silently otherwise.",
-  "Heavy runs the scenario and the drafting; fast only answers form fields.",
-  "Turning off dossier research makes generated employers unverifiable.",
-  "Revoke an extension token the moment a device is out of your hands.",
-];
 
 const SECTIONS = [
   { id: "profile", label: "Profile", Icon: UserRound },
@@ -203,30 +143,23 @@ export default function SettingsPage() {
 
 function SettingsSkeleton() {
   return (
-    <div className="space-y-8" aria-busy>
-      <Skeleton className="h-12 w-56" />
-      <Skeleton className="h-10 w-full max-w-2xl" />
+    <div className="space-y-3" aria-busy>
+      <Skeleton className="h-8 w-40" />
       <Skeleton className="h-72 w-full" />
     </div>
   );
 }
 
 /**
- * The sub-navigation. Every section is on the page at once; this scrolls to
- * one, and lights up whichever is in view. It stays in view beside the
- * sections on a wide screen and becomes a scrolling row of pills on a narrow one.
+ * The section list. Every section is on the page at once; this scrolls to one,
+ * and lights up whichever is in view. It stays in view beside the sections on
+ * a wide screen and becomes a scrolling row on a narrow one.
  */
-function SubNav({
-  active,
-  onSelect,
-}: {
-  active: Section;
-  onSelect: (id: Section) => void;
-}) {
+function SubNav({ active, onSelect }: { active: Section; onSelect: (id: Section) => void }) {
   return (
     <nav
       aria-label="Settings sections"
-      className="bg-card shadow-card no-scrollbar flex gap-1 overflow-x-auto rounded-full p-2 lg:sticky lg:top-6 lg:flex-col lg:overflow-visible lg:rounded-[36px] lg:p-3"
+      className="no-scrollbar flex gap-1 overflow-x-auto lg:sticky lg:top-14 lg:flex-col lg:overflow-visible"
     >
       {SECTIONS.map(({ id, label, Icon }) => {
         const on = id === active;
@@ -237,22 +170,13 @@ function SubNav({
             aria-current={on ? "location" : undefined}
             onClick={() => onSelect(id)}
             className={cn(
-              "focus-visible:ring-ring/40 flex h-[54px] shrink-0 items-center gap-3.5 rounded-full pr-5 pl-3 text-[0.96rem] font-semibold transition-colors outline-none focus-visible:ring-3",
+              "focus-visible:ring-ring/40 flex h-8 shrink-0 items-center gap-2 rounded-md px-2.5 text-[13px] outline-none focus-visible:ring-2",
               on
-                ? "bg-primary text-primary-foreground"
+                ? "bg-accent text-accent-foreground font-medium"
                 : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
             )}
           >
-            <span
-              className={cn(
-                "grid size-[34px] place-items-center rounded-full [&_svg]:size-[17px]",
-                on
-                  ? "bg-brand text-brand-foreground"
-                  : "bg-soft text-muted-foreground",
-              )}
-            >
-              <Icon />
-            </span>
+            <Icon className="size-4" />
             {label}
           </button>
         );
@@ -342,24 +266,20 @@ function SettingsSections() {
 
   if (isLoading || !data) {
     return (
-      <div className="space-y-8" aria-busy>
-        <Skeleton className="h-10 w-40" />
-        <Skeleton className="h-10 w-full max-w-lg" />
+      <div className="space-y-3" aria-busy>
+        <Skeleton className="h-8 w-40" />
         {[0, 1].map((i) => (
-          <Skeleton key={i} className="h-56 w-full" />
+          <Skeleton key={i} className="h-40 w-full" />
         ))}
       </div>
     );
   }
 
   return (
-    <div className="space-y-7">
-      <PageHero
-        title="Settings"
-        description="Your account, the models that do the work, the services PhoeniX connects to, and how the generator behaves."
-      />
+    <div className="space-y-3">
+      <PageHero title="Settings" />
 
-      <div className="grid gap-6 lg:grid-cols-[296px_minmax(0,1fr)] lg:items-start">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[10rem_minmax(0,1fr)] lg:items-start">
         <SubNav
           active={active}
           onSelect={(id) => {
@@ -371,49 +291,24 @@ function SettingsSections() {
           }}
         />
 
-        <div className="min-w-0 space-y-6">
-          <SettingsSection
-            id="profile"
-            icon={UserRound}
-            title="Profile"
-            description="Who you are signed in as."
-          >
+        <div className="min-w-0 space-y-3">
+          <SettingsSection id="profile" title="Profile">
             <ProfileBody
               timezone={data.display_timezone}
-              onTimezone={(display_timezone) =>
-                patch.mutate({ display_timezone })
-              }
+              onTimezone={(display_timezone) => patch.mutate({ display_timezone })}
             />
           </SettingsSection>
 
-          <SettingsSection
-            id="models"
-            icon={Cpu}
-            title="Models"
-            description="The keys the models run on, and which model runs each tier of work."
-          >
+          <SettingsSection id="models" title="Models">
             <ApiKeys credentials={data.credentials} />
-            <SubHead className="mt-9">Model tiers</SubHead>
-            <ModelTiers
-              data={data}
-              models={models ?? []}
-              onPatch={patch.mutate}
-            />
+            <SubHead className="mt-4">Model tiers</SubHead>
+            <ModelTiers data={data} models={models ?? []} onPatch={patch.mutate} />
           </SettingsSection>
 
           <IntegrationsSection upworkNotice={upworkNotice} />
 
-          <SettingsSection
-            id="generation"
-            icon={Sparkles}
-            title="Generation"
-            description="How the generator sources and names the companies it writes about."
-          >
-            <FormField
-              className="max-w-[420px]"
-              label="Base country"
-              hint="Overrides the generator prompt's default. Sets the universities, academic calendar and work-mode timeline used for constructed scenarios."
-            >
+          <SettingsSection id="generation" title="Generation">
+            <SettingRow label="Base country">
               {(control) => (
                 <Input
                   {...control}
@@ -424,101 +319,33 @@ function SettingsSections() {
                   }
                 />
               )}
-            </FormField>
-
-            <Rule className="mt-7 mb-1.5" />
-
-            <div>
-              {GENERATION_TOGGLES.map(([key, label, hint]) => (
-                <div
-                  key={key}
-                  className="border-border flex items-start gap-5 py-[22px] not-first:border-t sm:gap-[22px]"
-                >
-                  <label
-                    htmlFor={key}
-                    className="min-w-0 flex-1 cursor-pointer"
-                  >
-                    <span className="block text-[1.03rem] font-semibold">
-                      {label}
-                    </span>
-                    <span className="text-muted-foreground mt-1 block max-w-[640px] text-sm leading-normal font-medium">
-                      {hint}
-                    </span>
-                  </label>
+            </SettingRow>
+            {GENERATION_TOGGLES.map(([key, label]) => (
+              <SettingRow key={key} label={label}>
+                {(control) => (
                   <Switch
-                    id={key}
-                    className="mt-0.5"
+                    id={control.id}
                     checked={data[key]}
-                    onCheckedChange={(checked) =>
-                      patch.mutate({ [key]: checked })
-                    }
+                    onCheckedChange={(checked) => patch.mutate({ [key]: checked })}
                   />
-                </div>
-              ))}
-            </div>
+                )}
+              </SettingRow>
+            ))}
           </SettingsSection>
 
-          <SettingsSection
-            id="autofill"
-            icon={Wand2}
-            title="Autofill profile"
-            description="What the extension answers application forms with. The form filler is not allowed to invent a phone number or a notice period — if it is not here, it hands the field back to you."
-          >
+          <SettingsSection id="autofill" title="Autofill profile">
             <AutofillProfile />
           </SettingsSection>
 
-          <SettingsSection
-            id="extension"
-            icon={Puzzle}
-            title="Extension tokens"
-            description="The browser extension authenticates with its own long-lived token. Only a hash is stored, so the value is shown exactly once."
-          >
+          <SettingsSection id="extension" title="Extension">
             <ExtensionTokens />
           </SettingsSection>
 
-          <SettingsSection
-            id="appearance"
-            icon={Palette}
-            title="Appearance"
-            description="Light or dark on this device. Each portal brings its own accent colour."
-          >
+          <SettingsSection id="appearance" title="Appearance">
             <AppearanceBody />
             <Rule />
             <AccountRow />
           </SettingsSection>
-
-          <div className="grid items-stretch gap-6 lg:grid-cols-2">
-            <SidePanel
-              tone="dark"
-              icon={ShieldCheck}
-              title="How this is stored"
-              className="rounded-[40px] [--card-spacing:--spacing(8)]"
-            >
-              <ul className="space-y-[18px]">
-                {STORAGE_NOTES.map(({ Icon, title, detail }) => (
-                  <li key={title} className="flex gap-3">
-                    <span className="bg-panel-raised text-brand grid size-[34px] shrink-0 place-items-center rounded-full [&_svg]:size-4">
-                      <Icon />
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold">{title}</p>
-                      <p className="text-panel-muted mt-0.5 text-[0.78rem] leading-snug font-medium">
-                        {detail}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </SidePanel>
-            <SidePanel
-              tone="soft"
-              icon={Lightbulb}
-              title="Tips"
-              className="rounded-[40px] [--card-spacing:--spacing(8)]"
-            >
-              <CheckList items={SETTINGS_TIPS} />
-            </SidePanel>
-          </div>
         </div>
       </div>
     </div>
@@ -538,26 +365,9 @@ function IntegrationsSection({
 }) {
   const { data, isLoading } = useJobSource();
   return (
-    <SettingsSection
-      id="integrations"
-      icon={Plug}
-      title="Integrations"
-      description={
-        data ? (
-          <>
-            Freelancing job search runs through{" "}
-            <strong className="text-foreground">{data.label}</strong>. The
-            backend chooses it with{" "}
-            <code className="font-mono text-[0.8125rem]">
-              FREELANCING_JOB_SOURCE
-            </code>
-            .
-          </>
-        ) : undefined
-      }
-    >
+    <SettingsSection id="integrations" title={data ? `Integrations · ${data.label}` : "Integrations"}>
       {isLoading || !data ? (
-        <Skeleton className="h-64 w-full rounded-[30px]" />
+        <Skeleton className="h-32 w-full" />
       ) : data.key === "upwork" ? (
         <UpworkConnect notice={upworkNotice} />
       ) : (
@@ -588,30 +398,20 @@ function ProfileBody({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-5">
-        <Avatar className="size-20">
-          <AvatarFallback className="bg-accent text-accent-foreground text-2xl font-semibold">
+      <div className="flex items-center gap-3 pb-1">
+        <Avatar className="size-9">
+          <AvatarFallback className="bg-accent text-accent-foreground text-xs font-semibold">
             {initialsOf(me)}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-2xl font-semibold tracking-tight">
-            {nameOf(me)}
-          </p>
-          <p className="text-muted-foreground mt-0.5 truncate text-[0.97rem] font-medium">
-            {me?.email}
-          </p>
+          <p className="truncate text-[13px] font-semibold">{nameOf(me)}</p>
+          <p className="text-muted-foreground truncate text-xs">{me?.email}</p>
         </div>
         <Badge variant="outline">Read-only</Badge>
       </div>
 
-      <Rule />
-
-      <FormField
-        className="max-w-[420px]"
-        label="Display timezone"
-        hint="Every time in the app is rendered in this zone, never the browser's."
-      >
+      <SettingRow label="Display timezone" className="mt-2">
         {(control) => (
           <Select value={timezone} onValueChange={onTimezone}>
             <SelectTrigger {...control} className="w-full">
@@ -626,11 +426,7 @@ function ProfileBody({
             </SelectContent>
           </Select>
         )}
-      </FormField>
-
-      <Hint quiet className="mt-[22px]">
-        Name and email are set at registration and cannot be changed here yet.
-      </Hint>
+      </SettingRow>
     </>
   );
 }
@@ -675,30 +471,24 @@ function ApiKeys({ credentials }: { credentials: Credential[] }) {
   return (
     <>
       <SubHead>API keys</SubHead>
-      <Hint className="-mt-1 mb-4">
-        Keys are encrypted at rest and are never returned by the API — only a
-        mask and a status.
-      </Hint>
-      <ul className="space-y-2.5">
+      <ul>
         {credentials.map((c) => (
           <li key={c.provider}>
             <Row icon={KeyRound} className="sm:flex-nowrap">
-              <span className="w-24 shrink-0 text-[0.96rem] font-semibold">
+              <span className="w-24 shrink-0 text-[13px] font-medium">
                 {PROVIDER_LABEL[c.provider] ?? c.provider}
               </span>
-              <span className="text-muted-foreground min-w-0 flex-1 truncate font-mono text-[13px]">
+              <span className="text-muted-foreground min-w-0 flex-1 truncate font-mono text-xs">
                 {c.masked_key}
               </span>
-              <StatusBadge tone={CREDENTIAL_TONE[c.status] ?? "neutral"}>
-                {c.status}
-              </StatusBadge>
+              <StatusBadge tone={CREDENTIAL_TONE[c.status] ?? "neutral"}>{c.status}</StatusBadge>
             </Row>
           </li>
         ))}
       </ul>
 
-      <div className="mt-[22px] flex flex-wrap items-end gap-3">
-        <FormField label="Provider" className="w-full sm:w-48 sm:flex-none">
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <FormField label="Provider" className="w-full sm:w-40 sm:flex-none">
           {(control) => (
             <Select value={keyProvider} onValueChange={setKeyProvider}>
               <SelectTrigger {...control} className="w-full">
@@ -722,20 +512,11 @@ function ApiKeys({ credentials }: { credentials: Credential[] }) {
             />
           )}
         </FormField>
-        <Button
-          size="lg"
-          disabled={keyInput.length < 12 || saveKey.isPending}
-          onClick={() => saveKey.mutate()}
-        >
+        <Button disabled={keyInput.length < 12 || saveKey.isPending} onClick={() => saveKey.mutate()}>
           {saveKey.isPending ? <Spinner /> : <Save />}
           Save key
         </Button>
-        <Button
-          size="lg"
-          variant="outline"
-          disabled={test.isPending}
-          onClick={() => test.mutate()}
-        >
+        <Button variant="outline" disabled={test.isPending} onClick={() => test.mutate()}>
           {test.isPending ? <Spinner /> : <PlugZap />}
           Test connection
         </Button>
@@ -744,16 +525,16 @@ function ApiKeys({ credentials }: { credentials: Credential[] }) {
       {testResult && (
         <p
           className={cn(
-            "mt-4 flex items-center gap-2 text-sm font-semibold",
+            "mt-2 flex items-center gap-1.5 text-[13px] font-medium",
             testResult.ok ? "text-success" : "text-destructive",
           )}
         >
-          {testResult.ok && <Check className="size-[17px] stroke-[2.4]" />}
+          {testResult.ok && <Check className="size-3.5" />}
           {testResult.text}
         </p>
       )}
       {saveKey.isError && (
-        <div className="mt-4">
+        <div className="mt-2">
           <ErrorAlert>{(saveKey.error as Error).message}</ErrorAlert>
         </div>
       )}
@@ -775,13 +556,10 @@ function ModelTiers({
   const available = models.filter((m) => m.provider === data.default_provider);
 
   return (
-    <div className="grid gap-5 sm:grid-cols-2">
-      <FormField label="Provider">
+    <div>
+      <SettingRow label="Provider">
         {(control) => (
-          <Select
-            value={data.default_provider}
-            onValueChange={(v) => onPatch({ default_provider: v })}
-          >
+          <Select value={data.default_provider} onValueChange={(v) => onPatch({ default_provider: v })}>
             <SelectTrigger {...control} className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -791,21 +569,18 @@ function ModelTiers({
             </SelectContent>
           </Select>
         )}
-      </FormField>
+      </SettingRow>
 
       {(
         [
-          ["heavy_model", "Heavy — scenario and drafting"],
-          ["mid_model", "Mid — short edits"],
-          ["fast_model", "Fast — form answers"],
+          ["heavy_model", "Heavy · scenario and drafting"],
+          ["mid_model", "Mid · short edits"],
+          ["fast_model", "Fast · form answers"],
         ] as const
       ).map(([key, label]) => (
-        <FormField key={key} label={label}>
+        <SettingRow key={key} label={label}>
           {(control) => (
-            <Select
-              value={data[key]}
-              onValueChange={(v) => onPatch({ [key]: v })}
-            >
+            <Select value={data[key]} onValueChange={(v) => onPatch({ [key]: v })}>
               <SelectTrigger {...control} className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -821,7 +596,7 @@ function ModelTiers({
               </SelectContent>
             </Select>
           )}
-        </FormField>
+        </SettingRow>
       ))}
     </div>
   );
@@ -835,41 +610,70 @@ const THEMES = [
 
 function AppearanceBody() {
   const { theme, setTheme } = useTheme();
+  const { palette, setPalette } = usePalette();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   return (
-    <div className="space-y-2.5">
-      <p id="appearance-mode" className="text-sm font-medium">
-        Mode
-      </p>
-      <div
-        role="radiogroup"
-        aria-labelledby="appearance-mode"
-        className="grid max-w-[510px] grid-cols-3 gap-3.5"
-      >
-        {THEMES.map(({ value, label, Icon }) => {
-          const active = mounted && theme === value;
-          return (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              onClick={() => setTheme(value)}
-              className={cn(
-                "focus-visible:ring-ring/40 flex h-[104px] flex-col items-center justify-center gap-2.5 rounded-[26px] text-[0.94rem] font-semibold transition-colors outline-none focus-visible:ring-3",
-                active
-                  ? "bg-primary text-primary-foreground [&_svg]:text-brand"
-                  : "bg-soft text-foreground/70 hover:bg-soft-2",
-              )}
-            >
-              <Icon className="size-[22px]" />
-              {label}
-            </button>
-          );
-        })}
-      </div>
+    <div>
+      <SettingRow label="Mode">
+        {() => (
+          <div role="radiogroup" aria-label="Mode" className="inline-flex gap-1">
+            {THEMES.map(({ value, label, Icon }) => {
+              const active = mounted && theme === value;
+              return (
+                <Button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  size="sm"
+                  variant={active ? "default" : "outline"}
+                  onClick={() => setTheme(value)}
+                >
+                  <Icon />
+                  {label}
+                </Button>
+              );
+            })}
+          </div>
+        )}
+      </SettingRow>
+
+      <SettingRow label="Palette">
+        {() => (
+          <div role="radiogroup" aria-label="Palette" className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+            {PALETTES.map(({ id, name, swatches }) => {
+              const active = palette === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setPalette(id)}
+                  className={cn(
+                    "focus-visible:ring-ring/40 flex h-8 items-center gap-2 rounded-md border px-2 text-left text-xs outline-none focus-visible:ring-2",
+                    active ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted",
+                  )}
+                >
+                  <span className="flex">
+                    {swatches.map((color) => (
+                      <span
+                        key={color}
+                        aria-hidden
+                        style={{ backgroundColor: color }}
+                        className="ring-card -ml-1 size-3.5 rounded-full ring-1 first:ml-0"
+                      />
+                    ))}
+                  </span>
+                  <span className="truncate font-medium">{name}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </SettingRow>
     </div>
   );
 }
@@ -879,16 +683,9 @@ function AccountRow() {
   const queryClient = useQueryClient();
 
   return (
-    <div className="flex flex-wrap items-center gap-4">
-      <Tile icon={LogOut} size="lg" tone="soft" />
-      <div className="min-w-0 flex-1">
-        <div className="text-[1.03rem] font-semibold">Account</div>
-        <div className="text-muted-foreground mt-0.5 text-[0.8125rem] font-medium">
-          Sessions on this device.
-        </div>
-      </div>
+    <div className="flex items-center gap-3">
+      <span className="flex-1 text-[13px] font-medium">Sign out of this device</span>
       <Button
-        size="lg"
         variant="outline"
         onClick={() => {
           authTokens.clear();
@@ -950,18 +747,17 @@ function ExtensionTokens() {
   return (
     <>
       {fresh && (
-        <div role="alert" className="bg-accent mb-5 rounded-[26px] p-5">
-          <div className="text-accent-foreground flex items-center gap-2.5 text-[0.96rem] font-bold">
-            <KeyRound className="size-[18px]" />
+        <div role="alert" className="bg-accent mb-3 rounded-md p-3">
+          <div className="text-accent-foreground flex items-center gap-2 text-[13px] font-semibold">
+            <KeyRound className="size-4" />
             Copy this now — it will not be shown again.
           </div>
-          <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
-            <code className="bg-card flex min-h-[52px] min-w-0 flex-1 basis-56 items-center rounded-[18px] px-[18px] font-mono text-[13px]">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <code className="bg-card flex h-8 min-w-0 flex-1 basis-56 items-center rounded-md border px-2.5 font-mono text-xs">
               <span className="truncate">{fresh}</span>
             </code>
             <Button
               variant="outline"
-              className="bg-card h-[52px]"
               onClick={() => {
                 void navigator.clipboard.writeText(fresh);
                 setCopied(true);
@@ -970,28 +766,24 @@ function ExtensionTokens() {
               {copied ? <Check /> : <Copy />}
               {copied ? "Copied" : "Copy"}
             </Button>
-            <Button className="h-[52px]" onClick={() => setFresh(null)}>
-              Done
-            </Button>
+            <Button onClick={() => setFresh(null)}>Done</Button>
           </div>
         </div>
       )}
 
       {active.length ? (
-        <ul className="space-y-2.5">
+        <ul>
           {active.map((t) => (
             <li key={t.id}>
               <Row icon={Puzzle} className="sm:flex-nowrap">
-                <span className="min-w-0 flex-1 truncate text-[0.96rem] font-semibold">
-                  {t.name}
-                </span>
-                <span className="text-muted-foreground shrink-0 text-[0.8125rem] font-medium">
+                <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{t.name}</span>
+                <span className="text-muted-foreground shrink-0 text-xs">
                   {t.last_used_at
                     ? `used ${new Date(t.last_used_at).toLocaleDateString()}`
                     : "never used"}
                 </span>
                 <Button
-                  size="icon-sm"
+                  size="icon-xs"
                   variant="destructive"
                   aria-label={`Revoke ${t.name}`}
                   onClick={() => revoke.mutate(t.id)}
@@ -1003,24 +795,16 @@ function ExtensionTokens() {
           ))}
         </ul>
       ) : (
-        <p className="text-muted-foreground text-sm">No active tokens.</p>
+        <p className="text-muted-foreground text-xs">No active tokens.</p>
       )}
 
-      <div className="mt-[22px] flex flex-wrap items-end gap-3">
+      <div className="mt-3 flex flex-wrap items-end gap-2">
         <FormField label="Token name" className="min-w-48 flex-1">
           {(control) => (
-            <Input
-              {...control}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+            <Input {...control} value={name} onChange={(e) => setName(e.target.value)} />
           )}
         </FormField>
-        <Button
-          size="lg"
-          disabled={create.isPending}
-          onClick={() => create.mutate()}
-        >
+        <Button disabled={create.isPending} onClick={() => create.mutate()}>
           {create.isPending ? <Spinner /> : <Plus />}
           Create token
         </Button>
@@ -1028,13 +812,10 @@ function ExtensionTokens() {
 
       <Rule />
 
-      <div className="flex flex-wrap items-center gap-4">
-        <Tile icon={Package} size="lg" tone="soft" />
+      <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          <div className="text-[1.03rem] font-semibold">
-            Browser extension package
-          </div>
-          <div className="text-muted-foreground mt-0.5 text-[0.8125rem] font-medium">
+          <div className="text-[13px] font-medium">Browser extension package</div>
+          <div className="text-muted-foreground text-xs">
             {pack.isLoading
               ? "Checking…"
               : pkg?.available
@@ -1042,10 +823,7 @@ function ExtensionTokens() {
                 : "Not packaged yet"}
           </div>
         </div>
-        <DownloadExtension
-          showSize={false}
-          className="border-foreground/20 h-12 border-[1.5px] shadow-none"
-        />
+        <DownloadExtension showSize={false} />
       </div>
     </>
   );

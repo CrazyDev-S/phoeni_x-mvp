@@ -2,17 +2,13 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Building2,
   CalendarPlus,
   ChevronDown,
   Download,
   ExternalLink,
-  FileText,
   Globe,
   Link2,
-  ListChecks,
   Maximize2,
-  NotebookPen,
   Pencil,
   RefreshCw,
   Save,
@@ -23,7 +19,7 @@ import {
   WandSparkles,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { EditApplicationDialog } from "@/components/remote/applications/edit-dialog";
 import { StageMenu } from "@/components/remote/applications/stage-menu";
@@ -36,9 +32,8 @@ import {
 import { ErrorAlert } from "@/components/error-alert";
 import { GenerationProgress } from "@/components/remote/generation-progress";
 import { PageHero } from "@/components/page-hero";
-import { FactList } from "@/components/side-panel";
+import { Panel, PanelHead } from "@/components/panel";
 import { StatusBadge } from "@/components/status-badge";
-import { Tile } from "@/components/tile";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -52,15 +47,15 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Progress } from "@/components/ui/progress";
-import { Ring } from "@/components/ui/ring";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -76,10 +71,13 @@ import { cn } from "@/lib/utils";
 import {
   CLOSED_STATUSES,
   currentStage,
+  resumeHref,
   stageStatus,
   type ApplicationDetail,
+  type ResumeBrief,
+  type ResumeKind,
+  type ResumeRef,
   type StageUpdated,
-  type TailoredResumeBrief,
 } from "./shared";
 
 type Layout = "sheet" | "page";
@@ -174,9 +172,20 @@ export function ApplicationDetailView({
   const resume = (
     <ResumeSection
       detail={data}
-      resume={data.tailored_resume}
+      resume={data.resume}
       pending={patch.isPending}
-      onLink={(resumeId) => patch.mutate({ tailored_resume_id: resumeId })}
+      onLink={(ref) =>
+        patch.mutate(
+          { resume: ref },
+          {
+            // The resume cards list the jobs each resume is linked to.
+            onSuccess: () => {
+              queryClient.invalidateQueries({ queryKey: ["resumes"] });
+              queryClient.invalidateQueries({ queryKey: ["tailored-resumes"] });
+            },
+          },
+        )
+      }
     />
   );
   const company = (
@@ -209,7 +218,7 @@ export function ApplicationDetailView({
   );
 
   return (
-    <div className={layout === "page" ? "space-y-7" : "space-y-5"}>
+    <div className="space-y-3">
       <DetailHeader
         detail={data}
         layout={layout}
@@ -230,7 +239,7 @@ export function ApplicationDetailView({
               Passed. Next up: <strong className="text-foreground">{suggestion.name}</strong>.
             </span>
             <Button
-              size="sm"
+              size="xs"
               className="ml-auto"
               onClick={() => {
                 schedule(suggestion.stage_id!, suggestion.suggested_duration_min ?? undefined);
@@ -239,7 +248,7 @@ export function ApplicationDetailView({
             >
               Schedule it
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setSuggestion(null)}>
+            <Button size="xs" variant="ghost" onClick={() => setSuggestion(null)}>
               Dismiss
             </Button>
           </AlertDescription>
@@ -249,20 +258,20 @@ export function ApplicationDetailView({
       <NextUp detail={data} onSchedule={schedule} onEditMeeting={editMeeting} />
 
       {layout === "page" ? (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
-          <div className="min-w-0 space-y-6">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+          <div className="min-w-0 space-y-3">
             {pipeline}
             {notes}
             {description}
           </div>
-          <aside className="space-y-6">
+          <aside className="space-y-3">
             {resume}
             {company}
             {danger}
           </aside>
         </div>
       ) : (
-        <div className="space-y-3.5">
+        <div className="space-y-2">
           {pipeline}
           {notes}
           {resume}
@@ -286,32 +295,44 @@ export function ApplicationDetailView({
 }
 
 function Section({
-  icon,
   title,
   meta,
   action,
   children,
 }: {
-  icon: ComponentType<{ className?: string }>;
   title: string;
   meta?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <Card tone="soft" className="gap-0 rounded-[1.625rem] p-5">
-      <div className="mb-3 flex min-h-9 flex-wrap items-center gap-x-2.5 gap-y-2">
-        <Tile icon={icon} size="sm" />
-        <h2 className="text-[1.0625rem] font-semibold whitespace-nowrap">{title}</h2>
-        {meta && (
-          <span className="text-muted-foreground ml-auto text-[0.78rem] font-semibold tabular-nums">
-            {meta}
-          </span>
-        )}
-        {action && <div className="ml-auto flex items-center gap-1.5">{action}</div>}
-      </div>
-      {children}
-    </Card>
+    <Panel>
+      <PanelHead title={title}>
+        {meta && <span className="text-muted-foreground text-xs tabular-nums">{meta}</span>}
+        {action}
+      </PanelHead>
+      <div className="p-3">{children}</div>
+    </Panel>
+  );
+}
+
+/** Label/value rows for a record's facts. */
+function Facts({
+  items,
+}: {
+  items: { label: string; value: ReactNode; tone?: "default" | "muted" }[];
+}) {
+  return (
+    <dl className="divide-y text-[13px]">
+      {items.map(({ label, value, tone }) => (
+        <div key={label} className="flex items-baseline justify-between gap-3 py-1 first:pt-0 last:pb-0">
+          <dt className="text-muted-foreground text-xs">{label}</dt>
+          <dd className={cn("min-w-0 truncate text-right tabular-nums", tone === "muted" && "text-muted-foreground")}>
+            {value}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -346,14 +367,14 @@ function DetailHeader({
     />
   );
   const posting = detail.job_url ? (
-    <Button asChild size="sm" className="h-[46px] px-5">
+    <Button asChild variant="outline">
       <a href={detail.job_url} target="_blank" rel="noreferrer">
         <ExternalLink />
         Job posting
       </a>
     </Button>
   ) : (
-    <Button variant="outline" size="sm" className="h-[46px] px-5" onClick={onEdit}>
+    <Button variant="outline" onClick={onEdit}>
       <Link2 />
       Add the job link
     </Button>
@@ -362,19 +383,18 @@ function DetailHeader({
   if (layout === "page") {
     return (
       <PageHero
-        size="page"
         back="/remote/applications"
         title={detail.company_name}
         description={`${detail.role_title} · ${when}`}
         actions={
           <>
-            <div className="w-44">{status}</div>
+            <div className="w-36">{status}</div>
             {posting}
-            <Button variant="outline" size="lg" onClick={onSchedule}>
+            <Button variant="outline" onClick={onSchedule}>
               <CalendarPlus />
               Schedule
             </Button>
-            <Button variant="outline" size="lg" onClick={onEdit}>
+            <Button variant="outline" onClick={onEdit}>
               <Pencil />
               Edit details
             </Button>
@@ -385,22 +405,18 @@ function DetailHeader({
   }
 
   return (
-    <header className="space-y-4">
-      <div className="flex items-start justify-between gap-3 pr-11">
-        <div className="min-w-0 space-y-1">
-          <p className="text-muted-foreground text-[0.8125rem] font-medium">{when}</p>
-          <h2 className="font-heading text-[2.125rem] leading-[1.1] font-semibold tracking-tight text-balance">
-            {detail.company_name}
-          </h2>
-          <p className="text-muted-foreground text-[0.9375rem] font-semibold">
-            {detail.role_title}
-          </p>
+    <header className="space-y-2">
+      <div className="flex items-start justify-between gap-2 pr-8">
+        <div className="min-w-0">
+          <h2 className="font-heading truncate text-lg leading-tight font-semibold">{detail.company_name}</h2>
+          <p className="text-muted-foreground truncate text-[13px]">{detail.role_title}</p>
+          <p className="text-subtle text-xs">{when}</p>
         </div>
         <Button
           asChild
           variant="ghost"
           size="icon-sm"
-          className="bg-soft shrink-0 rounded-full"
+          className="shrink-0"
           aria-label="Open as a full page"
         >
           <Link href={`/remote/applications/${detail.id}`}>
@@ -409,16 +425,16 @@ function DetailHeader({
         </Button>
       </div>
 
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-1.5">
         <div className="min-w-0 flex-1">{status}</div>
         {posting}
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <Button variant="outline" size="sm" className="h-[38px]" onClick={onSchedule}>
+      <div className="grid grid-cols-2 gap-1.5">
+        <Button variant="outline" size="sm" onClick={onSchedule}>
           <CalendarPlus />
           Schedule
         </Button>
-        <Button variant="outline" size="sm" className="h-[38px]" onClick={onEdit}>
+        <Button variant="outline" size="sm" onClick={onEdit}>
           <Pencil />
           Edit details
         </Button>
@@ -449,59 +465,45 @@ function NextUp({
   if (next) {
     const minutes = Math.round((new Date(next.meeting.starts_at).getTime() - now) / 60_000);
     return (
-      <Card tone="accent" className="@container gap-0 rounded-[1.625rem] px-5 py-[18px]">
-        <div className="flex flex-col gap-3.5 @md:flex-row @md:items-center">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <Tile icon={Video} tone="ink" />
-            <div className="min-w-0 flex-1">
-              <p className="text-base font-bold">
-                {next.stage.name} · {relative(minutes)}
-              </p>
-              <p className="text-brand-foreground/65 mt-0.5 text-[0.8125rem] font-medium tabular-nums">
-                {formatDateTime(next.meeting.starts_at)}
-                {next.meeting.location && ` · ${next.meeting.location}`}
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            {next.meeting.conferencing_url && (
-              <Button asChild size="sm" className="flex-1 @md:flex-none @md:px-6">
-                <a href={next.meeting.conferencing_url} target="_blank" rel="noreferrer">
-                  <Video />
-                  Join
-                </a>
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="secondary"
-              className="flex-1 shadow-none @md:flex-none @md:px-6"
-              onClick={() => onEditMeeting(next.meeting, next.stage.name)}
-            >
-              Edit
-            </Button>
-          </div>
-        </div>
-      </Card>
+      <div className="bg-accent text-accent-foreground flex flex-wrap items-center gap-2 rounded-lg px-3 py-1.5">
+        <Video className="size-4 shrink-0" />
+        <p className="min-w-0 flex-1 truncate text-[13px]">
+          <span className="font-semibold">
+            {next.stage.name} · {relative(minutes)}
+          </span>
+          <span className="tabular-nums">
+            {" "}
+            · {formatDateTime(next.meeting.starts_at)}
+            {next.meeting.location && ` · ${next.meeting.location}`}
+          </span>
+        </p>
+        {next.meeting.conferencing_url && (
+          <Button asChild size="xs">
+            <a href={next.meeting.conferencing_url} target="_blank" rel="noreferrer">
+              <Video />
+              Join
+            </a>
+          </Button>
+        )}
+        <Button size="xs" variant="outline" onClick={() => onEditMeeting(next.meeting, next.stage.name)}>
+          Edit
+        </Button>
+      </div>
     );
   }
 
   const stage = currentStage(detail.stages);
   if (!stage || CLOSED_STATUSES.has(detail.status)) return null;
   return (
-    <Card
-      tone="soft"
-      className="flex-row flex-wrap items-center gap-3 rounded-[1.625rem] px-5 py-4"
-    >
-      <Tile icon={CalendarPlus} size="sm" tone="neutral" />
-      <p className="min-w-0 flex-1 text-sm">
-        <span className="font-bold">{stage.name}</span>{" "}
-        <span className="text-muted-foreground font-medium">has nothing booked yet.</span>
+    <Panel className="flex flex-wrap items-center gap-2 px-3 py-1.5">
+      <p className="min-w-0 flex-1 text-[13px]">
+        <span className="font-semibold">{stage.name}</span>{" "}
+        <span className="text-muted-foreground">has nothing booked yet.</span>
       </p>
-      <Button size="sm" onClick={() => onSchedule(stage.id)}>
+      <Button size="xs" onClick={() => onSchedule(stage.id)}>
         Schedule it
       </Button>
-    </Card>
+    </Panel>
   );
 }
 
@@ -520,34 +522,24 @@ function PipelineSection({
 }) {
   const passed = detail.stages.filter((s) => s.status === "passed").length;
   return (
-    <Section
-      icon={ListChecks}
-      title="Interview steps"
-      meta={`${passed}/${detail.stages.length} passed`}
-    >
-      <Progress
-        value={detail.stages.length ? (passed / detail.stages.length) * 100 : 0}
-        className="mb-1.5 h-1.5"
-      />
+    <Section title="Interview steps" meta={`${passed}/${detail.stages.length} passed`}>
       {!detail.stages.length ? (
-        <p className="text-muted-foreground py-8 text-center text-sm font-medium">
-          This application has no steps yet.
-        </p>
+        <p className="text-muted-foreground text-xs">This application has no steps yet.</p>
       ) : (
-        <ol className="divide-foreground/10 divide-y">
+        <ol className="divide-y">
           {detail.stages.map((stage) => {
             const { label } = stageStatus(stage.status);
             return (
-              <li key={stage.id} className="flex items-start gap-3 py-3">
+              <li key={stage.id} className="flex items-start gap-2 py-1.5 first:pt-0 last:pb-0">
                 <StepMark status={stage.status} className="mt-px" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[0.9063rem] font-bold">{stage.name}</p>
+                  <p className="text-[13px] font-semibold">{stage.name}</p>
                   {stage.meetings.length > 0 ? (
-                    <ul className="mt-0.5 space-y-0.5">
+                    <ul className="space-y-0.5">
                       {stage.meetings.map((meeting) => (
                         <li
                           key={meeting.id}
-                          className="flex flex-wrap items-center gap-x-2 text-[0.78rem] font-medium"
+                          className="flex flex-wrap items-center gap-x-2 text-xs"
                         >
                           <button
                             type="button"
@@ -565,7 +557,7 @@ function PipelineSection({
                               href={meeting.conferencing_url}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-accent-foreground font-semibold hover:underline"
+                              className="text-accent-foreground font-medium hover:underline"
                             >
                               Join
                             </a>
@@ -575,9 +567,7 @@ function PipelineSection({
                     </ul>
                   ) : (
                     stage.kind !== "applied" && (
-                      <p className="text-subtle mt-0.5 text-[0.78rem] font-medium">
-                        No meeting booked
-                      </p>
+                      <p className="text-subtle text-xs">No meeting booked</p>
                     )
                   )}
                 </div>
@@ -589,11 +579,7 @@ function PipelineSection({
                   onSchedule={() => onSchedule(stage.id)}
                   onEditMeeting={(meeting) => onEditMeeting(meeting, stage.name)}
                 >
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    className="h-8 shrink-0 gap-1.5 px-3.5 text-[0.78rem]"
-                  >
+                  <Button variant="outline" size="xs" className="shrink-0">
                     {label}
                     <ChevronDown />
                   </Button>
@@ -614,9 +600,9 @@ function ResumeSection({
   onLink,
 }: {
   detail: ApplicationDetail;
-  resume: TailoredResumeBrief | null;
+  resume: ResumeBrief | null;
   pending: boolean;
-  onLink: (resumeId: string | null) => void;
+  onLink: (resume: ResumeRef | null) => void;
 }) {
   const queryClient = useQueryClient();
   const upgrade = useGeneration();
@@ -626,29 +612,36 @@ function ResumeSection({
     // The linked resume was rewritten in place; refetch everything showing it.
     queryClient.invalidateQueries({ queryKey: ["application"] });
     queryClient.invalidateQueries({ queryKey: ["tailored-resumes"] });
+    queryClient.invalidateQueries({ queryKey: ["resumes"] });
   }, [upgraded, queryClient]);
 
   if (!resume) {
-    const suggestion = detail.suggested_tailored_resume;
+    const suggestion = detail.suggested_resume;
     return (
-      <Section icon={FileText} title="Resume sent">
-        <div className="space-y-4">
+      <Section title="Resume sent">
+        <div className="space-y-2">
           {suggestion ? (
-            <div className="bg-accent space-y-2.5 rounded-[20px] p-4">
-              <p className="text-accent-foreground text-sm font-medium">
-                <span className="font-bold">{suggestion.display_name}</span> was tailored for this
-                posting
+            <div className="bg-accent space-y-1.5 rounded-md p-2">
+              <p className="text-accent-foreground text-[13px]">
+                <span className="font-semibold">{suggestion.display_name}</span>{" "}
+                {suggestion.reason === "panel"
+                  ? "is this posting’s resume in the side panel"
+                  : "was tailored for this posting"}
                 {suggestion.must_have_coverage_percent != null &&
                   ` · ${Math.round(suggestion.must_have_coverage_percent)}% must-have coverage`}
                 .
               </p>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" disabled={pending} onClick={() => onLink(suggestion.id)}>
+              <div className="flex flex-wrap gap-1.5">
+                <Button
+                  size="xs"
+                  disabled={pending}
+                  onClick={() => onLink({ kind: suggestion.kind, id: suggestion.id })}
+                >
                   <Link2 />
                   Link it
                 </Button>
-                <Button asChild size="sm" variant="secondary" className="shadow-none">
-                  <Link href={`/remote/resumes/tailored/${suggestion.id}`}>
+                <Button asChild size="xs" variant="outline">
+                  <Link href={resumeHref(suggestion)}>
                     <Pencil />
                     Review
                   </Link>
@@ -656,44 +649,38 @@ function ResumeSection({
               </div>
             </div>
           ) : (
-            <p className="text-muted-foreground text-sm font-medium">
-              No resume is linked yet. Tailor one for this job, or link the version you applied
-              with, so its coverage and interview prep sit next to the job.
-            </p>
+            <p className="text-muted-foreground text-xs">No resume is linked yet.</p>
           )}
-          <div className="space-y-1.5">
-            <Button asChild className="w-full">
-              <Link href={tailorHref(detail)}>
-                <Sparkles />
-                Tailor a resume for this job
-              </Link>
-            </Button>
-            <p className="text-muted-foreground text-center text-xs font-medium">
-              Opens the Tailor page with this job&apos;s description, company, role and link filled
-              in.
-            </p>
-          </div>
+          <Button asChild className="w-full">
+            <Link href={tailorHref(detail)}>
+              <Sparkles />
+              Tailor a resume for this job
+            </Link>
+          </Button>
           <Disclosure title="Or tailor it here">
             <TailorForJob detail={detail} />
           </Disclosure>
-          <ResumePicker value={null} disabled={pending} onPick={onLink} />
+          <ResumePicker linked={null} disabled={pending} onPick={onLink} />
         </div>
       </Section>
     );
   }
 
+  const tailored = resume.kind === "tailored";
   const gaps = resume.flags?.uncovered_requirements ?? [];
   const probes = resume.flags?.interview_probes ?? [];
   const coverage = resume.must_have_coverage_percent;
+  // A base resume is only scored once it has been tailored to this job.
+  const scored = tailored || resume.must_have_total != null;
+  const others = resume.shared_with;
 
   return (
     <Section
-      icon={FileText}
       title="Resume sent"
       action={
         <>
-          <Button asChild size="xs" variant="outline" className="h-8 px-3">
-            <Link href={`/remote/resumes/tailored/${resume.id}`}>
+          <Button asChild size="xs" variant="outline">
+            <Link href={resumeHref(resume)}>
               <Pencil />
               Review &amp; edit
             </Link>
@@ -701,10 +688,9 @@ function ResumeSection({
           <Button
             size="xs"
             variant="outline"
-            className="h-8 px-3"
             onClick={() =>
               downloadDocx(
-                { resume_id: resume.id, kind: "tailored", profile: "designed" },
+                { resume_id: resume.id, kind: resume.kind, profile: "designed" },
                 `${resume.display_name}.docx`,
               )
             }
@@ -715,16 +701,18 @@ function ResumeSection({
         </>
       }
     >
-      <div className="space-y-3">
-        <div className="bg-card flex items-center gap-3.5 rounded-[20px] px-4 py-3.5">
-          {coverage != null && <Ring value={coverage} size={54} />}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          {coverage != null && (
+            <span className="text-base font-semibold tabular-nums">{Math.round(coverage)}%</span>
+          )}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[0.9063rem] font-bold">{resume.display_name}</p>
-            <p className="text-muted-foreground text-[0.78rem] font-medium">
+            <p className="truncate text-[13px] font-semibold">{resume.display_name}</p>
+            <p className="text-muted-foreground truncate text-xs">
               {resume.must_have_covered != null && resume.must_have_total != null
                 ? `${resume.must_have_covered} of ${resume.must_have_total} must-haves · `
                 : ""}
-              {resume.base_resume_name ?? "a base resume"}
+              {tailored ? (resume.base_resume_name ?? "a base resume") : "Base resume, as it is"}
             </p>
           </div>
           <StatusBadge tone={resume.status === "final" ? "ok" : "warn"}>
@@ -732,36 +720,56 @@ function ResumeSection({
           </StatusBadge>
         </div>
 
-        <FactList
+        <Facts
           items={[
+            ...(scored
+              ? [
+                  {
+                    label: "Nice-to-have coverage",
+                    value:
+                      resume.nice_to_have_coverage_percent != null
+                        ? `${Math.round(resume.nice_to_have_coverage_percent)}%`
+                        : "—",
+                  },
+                  {
+                    label: "Years asked / shown",
+                    value: `${resume.years_required ?? "—"} / ${resume.years_shown ?? "—"}`,
+                  },
+                ]
+              : []),
+            ...(tailored
+              ? [
+                  {
+                    label: "Tailored via",
+                    value: humanize(resume.job_source ?? "web"),
+                    tone: "muted" as const,
+                  },
+                ]
+              : others > 0
+                ? [
+                    {
+                      label: "Also sent with",
+                      value: `${others} other application${others === 1 ? "" : "s"}`,
+                      tone: "muted" as const,
+                    },
+                  ]
+                : []),
             {
-              label: "Nice-to-have coverage",
-              value:
-                resume.nice_to_have_coverage_percent != null
-                  ? `${Math.round(resume.nice_to_have_coverage_percent)}%`
-                  : "—",
-            },
-            {
-              label: "Years asked / shown",
-              value: `${resume.years_required ?? "—"} / ${resume.years_shown ?? "—"}`,
-            },
-            { label: "Tailored via", value: humanize(resume.job_source), tone: "muted" },
-            {
-              label: "Tailored",
-              value: formatDateTime(resume.created_at, "d MMM yyyy"),
+              label: "Updated",
+              value: formatDateTime(resume.updated_at, "d MMM yyyy"),
               tone: "muted",
             },
           ]}
         />
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <Button
             size="xs"
             variant="outline"
-            className="h-9 flex-1 px-3"
+            className="flex-1"
             disabled={upgrade.state.running}
             onClick={() =>
-              upgrade.start(`/api/v1/remote/tailored-resumes/${resume.id}/upgrade`, {
+              upgrade.start(`/api/v1/remote/applications/${detail.id}/upgrade-resume`, {
                 strategy: "existing",
               })
             }
@@ -771,10 +779,10 @@ function ResumeSection({
           </Button>
           <Button
             size="xs"
-            className="h-9 flex-1 px-3"
+            className="flex-1"
             disabled={upgrade.state.running}
             onClick={() =>
-              upgrade.start(`/api/v1/remote/tailored-resumes/${resume.id}/upgrade`, {
+              upgrade.start(`/api/v1/remote/applications/${detail.id}/upgrade-resume`, {
                 strategy: "full",
               })
             }
@@ -782,35 +790,18 @@ function ResumeSection({
             <WandSparkles />
             Full upgrade
           </Button>
-          <Button
-            asChild
-            size="icon-sm"
-            variant="secondary"
-            className="size-9 shadow-none"
-            aria-label="Open in Tailor"
-            title="Open in Tailor"
-          >
-            <Link href={tailorHref(detail)}>
-              <Sparkles />
-            </Link>
-          </Button>
         </div>
-        <p className="text-muted-foreground text-xs leading-relaxed font-medium">
-          Upgrade existing keeps employers, titles and dates and rewrites for this posting&apos;s
-          keywords. Full upgrade builds a new resume from the job description. Both replace this
-          version, so the application stays linked.
-        </p>
         {(upgrade.state.running || upgrade.state.error) && (
-          <GenerationProgress state={upgrade.state} />
+          <GenerationProgress state={upgrade.state} onStop={upgrade.stop} />
         )}
 
         {gaps.length > 0 && (
           <Disclosure title={`Gaps to prepare for (${gaps.length})`}>
-            <ul className="space-y-3">
+            <ul className="space-y-1.5">
               {gaps.map((gap, index) => (
-                <li key={index} className="space-y-0.5 text-sm">
-                  <p className="font-semibold">{gap.requirement}</p>
-                  <p className="text-muted-foreground text-xs leading-relaxed">
+                <li key={index} className="space-y-0.5 text-[13px]">
+                  <p className="font-medium">{gap.requirement}</p>
+                  <p className="text-muted-foreground text-xs leading-snug">
                     {gap.how_to_close}
                   </p>
                 </li>
@@ -820,11 +811,11 @@ function ResumeSection({
         )}
         {probes.length > 0 && (
           <Disclosure title={`Likely interview questions (${probes.length})`}>
-            <ul className="space-y-3">
+            <ul className="space-y-1.5">
               {probes.map((probe, index) => (
-                <li key={index} className="space-y-0.5 text-sm">
-                  <p className="font-semibold">{probe.question}</p>
-                  <p className="text-muted-foreground text-xs leading-relaxed">
+                <li key={index} className="space-y-0.5 text-[13px]">
+                  <p className="font-medium">{probe.question}</p>
+                  <p className="text-muted-foreground text-xs leading-snug">
                     {probe.suggested_answer}
                   </p>
                 </li>
@@ -833,24 +824,18 @@ function ResumeSection({
           </Disclosure>
         )}
         <Disclosure title="Resume content">
-          <ScrollArea className="bg-soft h-72 rounded-2xl">
-            <pre className="p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
+          <ScrollArea className="bg-muted/50 h-72 rounded-md">
+            <pre className="p-2 font-mono text-xs leading-snug whitespace-pre-wrap">
               {resume.content_markdown}
             </pre>
           </ScrollArea>
         </Disclosure>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <div className="min-w-0 flex-1">
-            <ResumePicker value={resume.id} disabled={pending} onPick={onLink} />
+            <ResumePicker linked={resume} disabled={pending} onPick={onLink} />
           </div>
-          <Button
-            variant="outline"
-            size="xs"
-            className="h-11 px-4"
-            disabled={pending}
-            onClick={() => onLink(null)}
-          >
+          <Button variant="outline" disabled={pending} onClick={() => onLink(null)}>
             Unlink
           </Button>
         </div>
@@ -865,8 +850,7 @@ function ResumeSection({
  */
 function tailorHref(detail: ApplicationDetail): string {
   const params = new URLSearchParams({ application: detail.id });
-  const base =
-    detail.tailored_resume?.base_resume_id ?? detail.suggested_tailored_resume?.base_resume_id;
+  const base = detail.resume?.base_resume_id ?? detail.suggested_resume?.base_resume_id;
   if (base) params.set("base", base);
   return `/remote/tailor?${params}`;
 }
@@ -900,9 +884,8 @@ function TailorForJob({ detail }: { detail: ApplicationDetail }) {
 
   if ((detail.job_description_text ?? "").trim().length < 40) {
     return (
-      <p className="text-muted-foreground text-xs leading-relaxed">
-        No job description is saved with this application, so it can&apos;t be tailored from here.
-        Add it under Edit details, or{" "}
+      <p className="text-muted-foreground text-xs">
+        No job description is saved with this application. Add it under Edit details, or{" "}
         <Link href={tailorPage} className="text-primary hover:underline">
           paste it on the Tailor page
         </Link>
@@ -912,14 +895,13 @@ function TailorForJob({ detail }: { detail: ApplicationDetail }) {
   }
 
   return (
-    <div className="space-y-2.5">
-      <p className="text-sm font-bold">Tailor without leaving this page</p>
+    <div className="space-y-1.5">
       <Select
         value={chosen}
         onValueChange={(v) => v && setBaseId(v)}
         disabled={running || !items.length}
       >
-        <SelectTrigger className="bg-soft h-11 w-full rounded-full" aria-label="Base resume">
+        <SelectTrigger className="w-full" aria-label="Base resume">
           <SelectValue
             placeholder={items.length ? "Choose a base resume…" : "No base resumes yet"}
           />
@@ -932,12 +914,12 @@ function TailorForJob({ detail }: { detail: ApplicationDetail }) {
           ))}
         </SelectContent>
       </Select>
-      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="How to tailor">
+      <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="How to tailor">
         {(["existing", "full"] as const).map((option) => (
           <Button
             key={option}
             type="button"
-            size="sm"
+            size="xs"
             role="radio"
             aria-checked={strategy === option}
             variant={strategy === option ? "default" : "outline"}
@@ -962,55 +944,80 @@ function TailorForJob({ detail }: { detail: ApplicationDetail }) {
         {running ? <Spinner /> : <Sparkles />}
         {running ? "Tailoring…" : "Tailor and link"}
       </Button>
-      <p className="text-muted-foreground text-xs leading-relaxed">
-        Uses the job description saved with this application, and links the result here.{" "}
-        <Link href={tailorPage} className="text-primary hover:underline">
-          Open in the Tailor page
-        </Link>
-      </p>
-      {(running || tailor.state.error) && <GenerationProgress state={tailor.state} />}
+      <Link href={tailorPage} className="text-primary block text-xs hover:underline">
+        Open in the Tailor page
+      </Link>
+      {(running || tailor.state.error) && <GenerationProgress state={tailor.state} onStop={tailor.stop} />}
     </div>
   );
 }
 
+/** Every resume, tailored and base, with the linked one in it even when it is not listed. */
 function ResumePicker({
-  value,
+  linked,
   disabled,
   onPick,
 }: {
-  value: string | null;
+  linked: ResumeBrief | null;
   disabled: boolean;
-  onPick: (resumeId: string) => void;
+  onPick: (resume: ResumeRef) => void;
 }) {
-  const { data } = useQuery({
+  const { data: tailoredList } = useQuery({
     queryKey: ["tailored-resumes", "picker"],
     queryFn: () =>
       request<{ items: { id: string; display_name: string }[] }>(
         "/api/v1/remote/tailored-resumes?limit=100",
       ),
   });
-  const items = data?.items ?? [];
+  const { data: baseList } = useQuery({
+    queryKey: ["resumes", ""],
+    queryFn: () =>
+      request<{ items: { id: string; display_name: string }[] }>("/api/v1/remote/resumes"),
+  });
+  const options = (kind: ResumeKind, items: { id: string; display_name: string }[]) => {
+    const missing = linked?.kind === kind && !items.some((item) => item.id === linked.id);
+    return missing ? [{ id: linked.id, display_name: linked.display_name }, ...items] : items;
+  };
+  const tailored = options("tailored", tailoredList?.items ?? []);
+  const bases = options("base", baseList?.items ?? []);
+
   return (
     <Select
-      value={value ?? ""}
+      value={linked ? `${linked.kind}:${linked.id}` : ""}
       // Radix can report an empty value while its items reload; that is not a pick.
-      onValueChange={(v) => v && onPick(v)}
-      disabled={disabled || !items.length}
+      onValueChange={(value) => {
+        const [kind, id] = value.split(":");
+        if (id) onPick({ kind: kind as ResumeKind, id });
+      }}
+      disabled={disabled || !(tailored.length + bases.length)}
     >
-      <SelectTrigger
-        className="bg-card h-11 w-full rounded-full text-sm"
-        aria-label="Linked tailored resume"
-      >
+      <SelectTrigger className="w-full" aria-label="Linked resume">
         <SelectValue
-          placeholder={items.length ? "Link a tailored resume…" : "No tailored resumes yet"}
+          placeholder={tailored.length + bases.length ? "Link a resume…" : "No resumes yet"}
         />
       </SelectTrigger>
       <SelectContent>
-        {items.map((item) => (
-          <SelectItem key={item.id} value={item.id}>
-            {item.display_name}
-          </SelectItem>
-        ))}
+        {tailored.length > 0 && (
+          <SelectGroup>
+            <SelectLabel>Tailored</SelectLabel>
+            {tailored.map((item) => (
+              <SelectItem key={item.id} value={`tailored:${item.id}`}>
+                {item.display_name}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        )}
+        {tailored.length > 0 && bases.length > 0 && <SelectSeparator />}
+        {bases.length > 0 && (
+          <SelectGroup>
+            <SelectLabel>Base, as it is</SelectLabel>
+            {bases.map((item) => (
+              <SelectItem key={item.id} value={`base:${item.id}`}>
+                {item.display_name}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        )}
       </SelectContent>
     </Select>
   );
@@ -1032,25 +1039,24 @@ function CompanySection({ detail, onEdit }: { detail: ApplicationDetail; onEdit:
 
   return (
     <Section
-      icon={Building2}
       title="Company & job"
       action={
-        <Button variant="ghost" size="icon-sm" aria-label="Edit details" onClick={onEdit}>
+        <Button variant="ghost" size="icon-xs" aria-label="Edit details" onClick={onEdit}>
           <Pencil />
         </Button>
       }
     >
-      <div className="bg-card space-y-4 rounded-[20px] p-4">
-        <div className="flex items-center gap-3">
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
           <CompanyMark name={detail.company_name} />
           <div className="min-w-0">
-            <p className="truncate font-bold">{detail.company_name}</p>
+            <p className="truncate text-[13px] font-semibold">{detail.company_name}</p>
             {site ? (
               <a
                 href={site}
                 target="_blank"
                 rel="noreferrer"
-                className="text-accent-foreground inline-flex items-center gap-1 text-xs font-semibold hover:underline"
+                className="text-accent-foreground inline-flex items-center gap-1 text-xs hover:underline"
               >
                 <Globe className="size-3" />
                 {site.replace(/^https?:\/\//, "")}
@@ -1067,7 +1073,7 @@ function CompanySection({ detail, onEdit }: { detail: ApplicationDetail; onEdit:
           </div>
         </div>
 
-        <FactList
+        <Facts
           items={[
             { label: "Role", value: detail.role_title },
             {
@@ -1095,9 +1101,9 @@ function CompanySection({ detail, onEdit }: { detail: ApplicationDetail; onEdit:
           ]}
         />
 
-        <div>
-          <p className="text-muted-foreground mb-2 text-xs font-semibold">Research the company</p>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-1">
+          <span className="text-muted-foreground mr-1 text-xs">Research</span>
+          <div className="flex flex-wrap gap-1">
             {research.map(([label, href]) => (
               <Button key={label} asChild variant="outline" size="xs">
                 <a href={href} target="_blank" rel="noreferrer">
@@ -1127,19 +1133,18 @@ function NotesSection({
   const dirty = draft !== saved;
 
   return (
-    <Section icon={NotebookPen} title="Prep notes">
+    <Section title="Prep notes">
       <Textarea
         aria-label="Notes"
-        rows={5}
+        rows={4}
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         placeholder="Who you spoke to, what they asked, what to follow up on…"
-        className="bg-card field-sizing-fixed min-h-24 rounded-[18px] px-4 py-3.5 text-sm"
+        className="field-sizing-fixed min-h-20"
       />
-      <div className="mt-3 flex justify-end">
+      <div className="mt-2 flex justify-end">
         <Button
           size="xs"
-          className="h-9 px-4"
           disabled={!dirty || pending}
           onClick={() => onSave(draft)}
         >
@@ -1153,9 +1158,9 @@ function NotesSection({
 
 function DescriptionSection({ text }: { text: string }) {
   return (
-    <Section icon={FileText} title="Job description">
-      <ScrollArea className="bg-card h-80 rounded-[20px]">
-        <p className="px-4 py-3 text-sm leading-relaxed font-medium whitespace-pre-wrap">{text}</p>
+    <Section title="Job description">
+      <ScrollArea className="h-80">
+        <p className="text-[13px] leading-snug whitespace-pre-wrap">{text}</p>
       </ScrollArea>
     </Section>
   );
@@ -1163,12 +1168,12 @@ function DescriptionSection({ text }: { text: string }) {
 
 function Disclosure({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <Collapsible className="group/disclosure bg-card rounded-[18px]">
-      <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-[18px] px-[18px] py-3.5 text-left text-sm font-semibold outline-none focus-visible:ring-3 focus-visible:ring-ring/40">
+    <Collapsible className="group/disclosure rounded-md border">
+      <CollapsibleTrigger className="focus-visible:ring-ring/40 flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] font-medium outline-none focus-visible:ring-2">
         {title}
-        <ChevronDown className="text-muted-foreground size-[17px] transition-transform group-data-[state=open]/disclosure:rotate-180" />
+        <ChevronDown className="text-muted-foreground size-3.5 transition-transform group-data-[state=open]/disclosure:rotate-180" />
       </CollapsibleTrigger>
-      <CollapsibleContent className="px-[18px] pt-1 pb-4">{children}</CollapsibleContent>
+      <CollapsibleContent className="px-2.5 pt-1 pb-2">{children}</CollapsibleContent>
     </Collapsible>
   );
 }
@@ -1185,7 +1190,7 @@ function DeleteApplication({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="destructive" size="sm" className="h-[38px]">
+        <Button variant="destructive" size="sm">
           <Trash2 />
           Delete application
         </Button>
@@ -1194,8 +1199,7 @@ function DeleteApplication({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete the {name} application?</AlertDialogTitle>
           <AlertDialogDescription>
-            Its interview steps, meetings and notes go with it. The tailored resume stays in
-            Resumes.
+            Its interview steps, meetings and notes go with it. Its resume stays in Resumes.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -1215,13 +1219,12 @@ function DeleteApplication({
 
 function DetailSkeleton({ layout }: { layout: Layout }) {
   return (
-    <div className="space-y-5" aria-busy>
-      <Skeleton className="h-4 w-40" />
-      <Skeleton className="h-9 w-72" />
-      <Skeleton className="h-14 w-full rounded-3xl" />
-      <div className={cn("grid gap-6", layout === "page" && "lg:grid-cols-[minmax(0,1fr)_24rem]")}>
-        <Skeleton className="h-96 rounded-[1.625rem]" />
-        <Skeleton className="h-72 rounded-[1.625rem]" />
+    <div className="space-y-3" aria-busy>
+      <Skeleton className="h-8 w-72" />
+      <Skeleton className="h-9 w-full" />
+      <div className={cn("grid gap-3", layout === "page" && "lg:grid-cols-[minmax(0,1fr)_22rem]")}>
+        <Skeleton className="h-96" />
+        <Skeleton className="h-72" />
       </div>
     </div>
   );

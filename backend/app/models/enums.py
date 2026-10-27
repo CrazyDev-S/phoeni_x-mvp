@@ -69,6 +69,10 @@ class GenerationKind(StrEnum):
     TAILOR_JOB = "tailor_job"
     TAILOR_INSTRUCTION = "tailor_instruction"
     RESUME_REPAIR = "resume_repair"
+    # An uploaded document restructured into the house format.
+    RESUME_IMPORT = "resume_import"
+    # Interview prep written for a saved resume, in place.
+    RESUME_PREP = "resume_prep"
     FORM_ANSWER = "form_answer"
     JD_PARSE = "jd_parse"
     # Freelancing: a proposal drafted for an Upwork posting.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -13,11 +14,13 @@ from sqlalchemy import text
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
+from app.db.schema import sync_enum_values
 from app.db.session import engine
 from app.freelancing.errors import JobSourceError
 from app.worker.runner import run_workers
 
 settings = get_settings()
+log = logging.getLogger("app")
 
 
 @asynccontextmanager
@@ -27,6 +30,14 @@ async def lifespan(app: FastAPI):
     One process, no extra infrastructure. Set WORKER_IN_PROCESS=false and run
     ``python -m app.worker.runner`` when you want it on its own box.
     """
+    try:
+        if added := await sync_enum_values():
+            log.info("added enum values: %s", ", ".join(added))
+    except Exception:
+        # Two processes starting together can race on the same ALTER; the
+        # winner has done the work. Anything else surfaces on first use.
+        log.exception("enum sync failed at startup")
+
     stop = asyncio.Event()
     task = None
     if settings.worker_in_process:

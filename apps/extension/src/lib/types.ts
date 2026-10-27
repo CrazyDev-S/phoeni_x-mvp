@@ -115,6 +115,8 @@ export interface JobLink {
   base_resume_id: string | null;
   resume: LinkedResume | null;
   generation: LinkGeneration | null;
+  /** The application tracking this posting, once it is saved as one. */
+  application_id: string | null;
 }
 
 export interface ResumeFacts {
@@ -162,4 +164,20 @@ export interface AutofillResponse {
   cached: boolean;
   resume: LinkedResume | null;
   facts: ResumeFacts | null;
+}
+
+/** Who a generated resume is for: what "New generate" reads as the candidate. */
+export interface ResumeProfile {
+  full_name: string | null;
+  headline: string | null;
+  email: string | null;
+  phone: string | null;
+  location: string | null;
+  links: string[];
+  education: string[];
+  /** Work history. Given, generation keeps employers, titles and dates. */
+  summary: string | null;
+  mode: "grounded" | "constructed";
+  /** False until something is saved: the model then invents a name and contacts. */
+  configured: boolean;
 }

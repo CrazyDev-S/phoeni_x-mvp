@@ -22,7 +22,10 @@ from app.models.generation import Generation
 from app.models.profile import CandidateProfile
 from app.models.resume import BaseResume, TailoredResume
 from app.models.user import UserSettings
-from app.remote.services.links import link_resume
+from app.remote.services.candidate_profile import default_profile, generation_mode
+from app.remote.services.links import link_application_posting, link_resume
+from app.remote.services.upgrades import enqueue_upgrade
+from app.remote.validation.posting import require_posting
 from app.schemas.generation import GenerationAccepted
 from app.schemas.tailoring import (
     GenerateFromJob,
@@ -30,7 +33,7 @@ from app.schemas.tailoring import (
     TailorApplication,
     TailorByInstruction,
     TailorToJob,
-    UpgradeTailored,
+    UpgradeResume,
 )
 from app.services.generation import enqueue, idempotency_key, job_description_hash
 
@@ -50,10 +53,14 @@ async def _profile_text(session: Session, user_id: uuid.UUID) -> str | None:
 
 
 async def _mode(session: Session, user_id: uuid.UUID, requested: str | None) -> str:
-    """Default to Grounded when a profile exists, Constructed when it does not."""
+    """Default to Grounded when the profile gives a work history, Constructed when not.
+
+    A profile with only a name, contacts and education still reaches the model,
+    but there is no career in it to ground on.
+    """
     if requested in ("grounded", "constructed"):
         return requested
-    return "grounded" if await _profile_text(session, user_id) else "constructed"
+    return generation_mode(await default_profile(session, user_id))
 
 
 async def _owned_base(session: Session, user: CurrentUser, rid: uuid.UUID) -> BaseResume:
@@ -117,6 +124,7 @@ async def generate_from_story(
 async def generate_from_job(
     body: GenerateFromJob, user: CurrentUser, session: Session
 ) -> GenerationAccepted:
+    require_posting(body.job_description)
     mode = await _mode(session, user.id, body.mode)
     gen = await enqueue(
         session,
@@ -144,6 +152,7 @@ async def generate_from_job(
 async def tailor_to_job(
     body: TailorToJob, user: CurrentUser, session: Session
 ) -> GenerationAccepted:
+    require_posting(body.job_description)
     base = await _owned_base(session, user, body.base_resume_id)
     application = (
         await _owned_application(session, user, body.application_id)
@@ -155,7 +164,8 @@ async def tailor_to_job(
         cached = await _instant_path(session, user.id, base.id, body.job_description)
         if cached is not None:
             if application is not None:
-                await link_resume(session, application, cached.id)
+                await link_resume(session, application, tailored_id=cached.id)
+                await link_application_posting(session, application)
             return GenerationAccepted(
                 id=cached.generation_id or cached.id,
                 status=GenerationStatus.SUCCEEDED,
@@ -261,13 +271,72 @@ async def repair_resume(
     return GenerationAccepted(id=gen.id, status=gen.status, kind=gen.kind)
 
 
+async def _enqueue_prep(
+    session: Session, user: CurrentUser, kind: str, resume_id: uuid.UUID
+) -> Generation:
+    """Queue interview prep for a saved resume, or hand back the run in flight.
+
+    Not idempotency-keyed: running it again after an edit must write new prep.
+    """
+    running = await session.scalar(
+        select(Generation).where(
+            Generation.user_id == user.id,
+            Generation.kind == GenerationKind.RESUME_PREP,
+            Generation.status.in_([GenerationStatus.QUEUED, GenerationStatus.RUNNING]),
+            Generation.input["resume_id"].astext == str(resume_id),
+        )
+    )
+    return running or await enqueue(
+        session,
+        user_id=user.id,
+        kind=GenerationKind.RESUME_PREP,
+        payload={"resume_kind": kind, "resume_id": str(resume_id)},
+    )
+
+
+@router.post(
+    "/resumes/{resume_id}/prep",
+    response_model=GenerationAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def prep_base_resume(
+    resume_id: uuid.UUID, user: CurrentUser, session: Session
+) -> GenerationAccepted:
+    """Analyse a base resume and write its interview prep. The resume is not changed."""
+    base = await _owned_base(session, user, resume_id)
+    gen = await _enqueue_prep(session, user, "base", base.id)
+    return GenerationAccepted(id=gen.id, status=gen.status, kind=gen.kind)
+
+
+@router.post(
+    "/tailored-resumes/{resume_id}/prep",
+    response_model=GenerationAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def prep_tailored_resume(
+    resume_id: uuid.UUID, user: CurrentUser, session: Session
+) -> GenerationAccepted:
+    """Analyse a tailored resume against its job and write its interview prep."""
+    row = await session.scalar(
+        select(TailoredResume).where(
+            TailoredResume.id == resume_id, TailoredResume.user_id == user.id
+        )
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Tailored resume not found"
+        )
+    gen = await _enqueue_prep(session, user, "tailored", row.id)
+    return GenerationAccepted(id=gen.id, status=gen.status, kind=gen.kind)
+
+
 @router.post(
     "/tailored-resumes/{resume_id}/upgrade",
     response_model=GenerationAccepted,
     status_code=status.HTTP_202_ACCEPTED,
 )
 async def upgrade_tailored_resume(
-    resume_id: uuid.UUID, body: UpgradeTailored, user: CurrentUser, session: Session
+    resume_id: uuid.UUID, body: UpgradeResume, user: CurrentUser, session: Session
 ) -> GenerationAccepted:
     """Re-tailor a saved tailored resume against its own posting, in place.
 
@@ -282,36 +351,42 @@ async def upgrade_tailored_resume(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Tailored resume not found"
         )
-    if len(row.job_description_text.strip()) < 40:
+    gen = await enqueue_upgrade(session, row, strategy=body.strategy)
+    return GenerationAccepted(id=gen.id, status=gen.status, kind=gen.kind)
+
+
+@router.post(
+    "/applications/{application_id}/upgrade-resume",
+    response_model=GenerationAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def upgrade_application_resume(
+    application_id: uuid.UUID, body: UpgradeResume, user: CurrentUser, session: Session
+) -> GenerationAccepted:
+    """Tailor the application's resume to its job, in place - whichever kind it is.
+
+    No new resume: the application keeps the one it has, rewritten for this
+    posting. A base resume is rewritten for every job it is linked to.
+    """
+    application = await _owned_application(session, user, application_id)
+    resume: BaseResume | TailoredResume | None = None
+    if application.tailored_resume_id:
+        resume = await session.get(TailoredResume, application.tailored_resume_id)
+    elif application.base_resume_id:
+        resume = await session.get(BaseResume, application.base_resume_id)
+    if resume is None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="No job description is saved with this resume, so there is nothing to match.",
+            detail="No resume is linked to this application. Link one, or tailor a new one.",
         )
-
-    running = await session.scalar(
-        select(Generation).where(
-            Generation.user_id == user.id,
-            Generation.kind == GenerationKind.TAILOR_JOB,
-            Generation.status.in_([GenerationStatus.QUEUED, GenerationStatus.RUNNING]),
-            Generation.input["tailored_resume_id"].astext == str(row.id),
-        )
-    )
-    gen = running or await enqueue(
+    gen = await enqueue_upgrade(
         session,
-        user_id=user.id,
-        kind=GenerationKind.TAILOR_JOB,
-        payload={
-            "tailored_resume_id": str(row.id),
-            "base_resume_id": str(row.base_resume_id),
-            "base_resume_md": row.content_markdown,
-            "job_description": row.job_description_text,
-            "job_url": row.job_url,
-            "company_name": row.company_name,
-            "target_title": row.job_title or row.display_name,
-            "job_source": row.job_source,
-            "mode": "grounded",
-            "strategy": body.strategy,
-        },
+        resume,
+        strategy=body.strategy,
+        job_description=application.job_description_text,
+        job_url=application.job_url,
+        company_name=application.company_name,
+        job_title=application.role_title,
     )
     return GenerationAccepted(id=gen.id, status=gen.status, kind=gen.kind)
 

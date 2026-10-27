@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+/** An empty list: one line saying what is empty, and the action that fills it. */
 export function EmptyState({
   icon,
   title,
@@ -12,20 +13,10 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-      {icon && (
-        <div className="bg-accent text-accent-foreground flex size-12 items-center justify-center rounded-2xl [&_svg]:size-5">
-          {icon}
-        </div>
-      )}
-      <div className="space-y-1">
-        <p className="text-lg font-semibold tracking-tight">{title}</p>
-        {description && (
-          <p className="text-muted-foreground mx-auto max-w-md text-sm font-medium text-balance">
-            {description}
-          </p>
-        )}
-      </div>
+    <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+      {icon && <div className="text-muted-foreground [&_svg]:size-5">{icon}</div>}
+      <p className="text-[13px] font-semibold">{title}</p>
+      {description && <p className="text-muted-foreground max-w-sm text-xs text-balance">{description}</p>}
       {action}
     </div>
   );

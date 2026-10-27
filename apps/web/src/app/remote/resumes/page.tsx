@@ -1,18 +1,19 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Layers, Lightbulb, Plus, Search } from "lucide-react";
+import { FileText, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
 import { PageHero } from "@/components/page-hero";
-import { CheckList, SidePanel } from "@/components/side-panel";
+import { Panel, Toolbar } from "@/components/panel";
 import {
-  ResumeCard,
-  type ResumeCardModel,
-} from "@/components/remote/resume-card";
+  ResumeTable,
+  type LinkedJob,
+  type ResumeListItem,
+} from "@/components/remote/resume-table";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -24,7 +25,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Chip, ChipRow } from "@/components/ui/chip";
@@ -46,6 +46,7 @@ interface BaseRow {
   mode: string;
   status: string;
   created_at: string;
+  linked_jobs: LinkedJob[];
 }
 
 interface TailoredRow {
@@ -56,6 +57,7 @@ interface TailoredRow {
   status: string;
   must_have_coverage_percent: number | null;
   created_at: string;
+  linked_jobs: LinkedJob[];
 }
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -76,18 +78,11 @@ const FILTERS: [Filter, string][] = [
 
 const RECENT_DAYS = 14;
 
-const RESUME_TIPS = [
-  "Name a resume for its stack, not for a company.",
-  "Keep the target title close to the roles you are applying for.",
-  "Tailored versions inherit everything from their base — fix the base once.",
-  "Search covers the whole resume body, not just the title.",
-];
-
 export default function ResumesPage() {
   const queryClient = useQueryClient();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
-  const [pendingDelete, setPendingDelete] = useState<ResumeCardModel | null>(
+  const [pendingDelete, setPendingDelete] = useState<ResumeListItem | null>(
     null,
   );
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -116,7 +111,7 @@ export default function ResumesPage() {
       resume,
       withCascade,
     }: {
-      resume: ResumeCardModel;
+      resume: ResumeListItem;
       withCascade: boolean;
     }) =>
       request(
@@ -148,10 +143,10 @@ export default function ResumesPage() {
     },
   });
 
-  const cards = useMemo<ResumeCardModel[]>(() => {
+  const cards = useMemo<ResumeListItem[]>(() => {
     const cutoff = Date.now() - RECENT_DAYS * 86_400_000;
 
-    const baseCards: ResumeCardModel[] = (base.data?.items ?? []).map((r) => ({
+    const baseCards: ResumeListItem[] = (base.data?.items ?? []).map((r) => ({
       id: r.id,
       kind: "base",
       title: r.display_name,
@@ -161,9 +156,10 @@ export default function ResumesPage() {
       createdAt: r.created_at,
       coverage: null,
       href: `/remote/resumes/${r.id}`,
+      linkedJobs: r.linked_jobs,
     }));
 
-    const tailoredCards: ResumeCardModel[] = (tailored.data?.items ?? []).map(
+    const tailoredCards: ResumeListItem[] = (tailored.data?.items ?? []).map(
       (t) => ({
         id: t.id,
         kind: "tailored",
@@ -177,6 +173,7 @@ export default function ResumesPage() {
         createdAt: t.created_at,
         coverage: t.must_have_coverage_percent,
         href: `/remote/resumes/tailored/${t.id}`,
+        linkedJobs: t.linked_jobs,
       }),
     );
 
@@ -198,7 +195,7 @@ export default function ResumesPage() {
   const error = (base.error ?? tailored.error) as Error | null;
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-3">
       <PageHero
         title="Resumes"
         stats={
@@ -210,7 +207,7 @@ export default function ResumesPage() {
             : undefined
         }
         actions={
-          <Button asChild variant="brand" size="lg" className="h-12">
+          <Button asChild variant="brand">
             <Link href="/remote/resumes/new">
               <Plus />
               Add resume
@@ -219,131 +216,64 @@ export default function ResumesPage() {
         }
       />
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-        <div className="relative w-full min-w-56 sm:w-[23.75rem]">
-          <Search className="text-subtle pointer-events-none absolute top-1/2 left-4 size-[1.0625rem] -translate-y-1/2" />
+      <Toolbar>
+        <div className="relative w-full min-w-56 sm:w-72">
+          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
           <Input
             aria-label="Search resumes"
-            placeholder="Search resumes…"
+            placeholder="Search resumes"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="bg-card shadow-card h-12 rounded-full pl-11"
+            className="pl-8"
           />
         </div>
         <ChipRow>
           {FILTERS.map(([value, label]) => (
-            <Chip
-              key={value}
-              active={filter === value}
-              onClick={() => setFilter(value)}
-            >
+            <Chip key={value} active={filter === value} onClick={() => setFilter(value)}>
               {label}
             </Chip>
           ))}
         </ChipRow>
         {filter === "recent" && (
-          <span className="text-muted-foreground text-sm font-medium lg:ml-auto">
-            Created in the last {RECENT_DAYS} days
-          </span>
+          <span className="text-muted-foreground text-xs">Created in the last {RECENT_DAYS} days</span>
         )}
-      </div>
+      </Toolbar>
 
       {error && <ErrorAlert>{error.message}</ErrorAlert>}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22.5rem] lg:items-start">
-        <div className="min-w-0">
-          {loading ? (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              {[0, 1, 2, 3, 4, 5].map((i) => (
-                <Card key={i} className="min-h-[16.75rem] gap-0 p-6">
-                  <Skeleton className="size-11 rounded-[14px]" />
-                  <Skeleton className="mt-5 h-6 w-3/4" />
-                  <Skeleton className="mt-2 h-4 w-1/2" />
-                  <div className="mt-5 flex gap-1.5">
-                    <Skeleton className="h-6 w-16 rounded-full" />
-                    <Skeleton className="h-6 w-20 rounded-full" />
-                  </div>
-                  <Skeleton className="mt-auto h-6 w-24 rounded-full" />
-                </Card>
-              ))}
-            </div>
-          ) : !cards.length ? (
-            <Card className="py-0">
-              <EmptyState
-                icon={<FileText />}
-                title={q ? "Nothing matches that search" : "No resumes yet"}
-                description={
-                  q
-                    ? "Full-text search covers the whole resume body, not just the title."
-                    : "Upload an existing resume or create one from a job description."
-                }
-                action={
-                  !q && (
-                    <Button asChild>
-                      <Link href="/remote/resumes/new">
-                        <Plus />
-                        Add your first resume
-                      </Link>
-                    </Button>
-                  )
-                }
-              />
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              {cards.map((resume) => (
-                <ResumeCard
-                  key={`${resume.kind}-${resume.id}`}
-                  resume={resume}
-                  onDelete={(r) => {
-                    setPendingDelete(r);
-                    setCascade(null);
-                    setDeleteError(null);
-                  }}
-                />
-              ))}
-            </div>
-          )}
+      {loading ? (
+        <div className="space-y-1" aria-busy>
+          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+            <Skeleton key={i} className="h-8 w-full" />
+          ))}
         </div>
-
-        <aside className="space-y-5 lg:sticky lg:top-24">
-          <SidePanel icon={Layers} title="What is in your library" tone="dark">
-            <dl className="divide-panel-raised -mt-1 divide-y">
-              {[
-                {
-                  label: "Base resumes",
-                  value: base.data?.total ?? 0,
-                  accent: false,
-                },
-                {
-                  label: "Tailored versions",
-                  value: tailored.data?.total ?? 0,
-                  accent: false,
-                },
-                { label: "Showing", value: cards.length, accent: true },
-              ].map(({ label, value, accent }) => (
-                <div
-                  key={label}
-                  className="flex items-baseline justify-between py-3.5"
-                >
-                  <dt className="text-panel-muted font-medium">{label}</dt>
-                  <dd
-                    className={cn(
-                      "text-4xl font-medium tracking-tight tabular-nums",
-                      accent && "text-brand",
-                    )}
-                  >
-                    {value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </SidePanel>
-          <SidePanel icon={Lightbulb} title="Tips for better results">
-            <CheckList items={RESUME_TIPS} />
-          </SidePanel>
-        </aside>
-      </div>
+      ) : !cards.length ? (
+        <Panel>
+          <EmptyState
+            icon={<FileText />}
+            title={q ? "Nothing matches that search" : "No resumes yet"}
+            action={
+              !q && (
+                <Button asChild size="sm">
+                  <Link href="/remote/resumes/new">
+                    <Plus />
+                    Add your first resume
+                  </Link>
+                </Button>
+              )
+            }
+          />
+        </Panel>
+      ) : (
+        <ResumeTable
+          resumes={cards}
+          onDelete={(r) => {
+            setPendingDelete(r);
+            setCascade(null);
+            setDeleteError(null);
+          }}
+        />
+      )}
 
       <AlertDialog
         open={Boolean(pendingDelete)}

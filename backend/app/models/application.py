@@ -8,6 +8,7 @@ from datetime import datetime
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -39,6 +40,10 @@ class JobApplication(PrimaryKey, Timestamps, Base):
             "next_action_at",
             postgresql_where=text("next_action_at IS NOT NULL"),
         ),
+        # Sent with one resume: tailored for it, or a base resume as it is.
+        CheckConstraint(
+            "num_nonnulls(tailored_resume_id, base_resume_id) <= 1", name="one_resume"
+        ),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -50,6 +55,13 @@ class JobApplication(PrimaryKey, Timestamps, Base):
     tailored_resume_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("tailored_resumes.id", ondelete="SET NULL", use_alter=True),
+    )
+    # A base resume can go with any number of applications, so unlike a
+    # tailored one it is linked from this side only.
+    base_resume_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("base_resumes.id", ondelete="SET NULL"),
+        index=True,
     )
 
     company_name: Mapped[str] = mapped_column(Text, nullable=False)

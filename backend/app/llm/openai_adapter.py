@@ -7,7 +7,8 @@ which benefits both providers. What differs:
 * Caching is implicit: no breakpoints to place, no TTL to choose. We pass a
   ``prompt_cache_key`` to improve routing instead.
 * Strict JSON schema requires ``additionalProperties: false`` AND every
-  property listed in ``required``; optional fields must be ``anyOf: [T, null]``.
+  property listed in ``required``. The schemas in ``app.llm.schemas`` are
+  written that way, so they are sent as they are.
 * Pricing is not carried in this project's authoritative reference, so cost is
   reported as unknown rather than guessed. See ``catalog.py``.
 """
@@ -59,9 +60,9 @@ class OpenAIAdapter:
             kwargs["text"] = {
                 "format": {
                     "type": "json_schema",
-                    "name": req.output_schema.__name__,
+                    "name": req.purpose,
                     "strict": True,
-                    "schema": _openai_schema(req.output_schema),
+                    "schema": req.output_schema,
                 }
             }
         if req.temperature is not None and self.caps.get("temperature"):
@@ -173,23 +174,6 @@ def _to_input(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
             )
         out.append({"role": role, "content": content})
     return out
-
-
-def _openai_schema(model: type[Any]) -> dict[str, Any]:
-    return _strictify(model.model_json_schema())
-
-
-def _strictify(node: Any) -> Any:
-    if isinstance(node, dict):
-        out = {k: _strictify(v) for k, v in node.items()}
-        if out.get("type") == "object" and "properties" in out:
-            out["additionalProperties"] = False
-            # Strict mode demands every property appear in `required`.
-            out["required"] = list(out["properties"].keys())
-        return out
-    if isinstance(node, list):
-        return [_strictify(v) for v in node]
-    return node
 
 
 def _translate(exc: Exception) -> LLMError:

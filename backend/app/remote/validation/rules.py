@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from itertools import pairwise
 from typing import Any
@@ -59,6 +59,8 @@ class Context:
     strict_dossier: bool = False
     ledger: dict[str, Any] = field(default_factory=dict)
     today: date = field(default_factory=date.today)
+    # A real person's resume restructured from a file, not a generated one.
+    imported: bool = False
 
     @property
     def today_ordinal(self) -> int:
@@ -351,11 +353,11 @@ def dossier_provenance(context: Context) -> list[Finding]:
             ]
         return []
     dossiers = [d for d in context.ledger.get("dossiers", []) if d.get("employer")]
-    by_key = {key: d for d in dossiers for key in _employer_keys(d["employer"])}
-    used = {k for e in context.resume.experience for k in _employer_keys(e.company)}
+    by_key = {key: d for d in dossiers for key in employer_keys(d["employer"])}
+    used = {k for e in context.resume.experience for k in employer_keys(e.company)}
     findings = []
     for e in context.resume.experience:
-        d = next((by_key[k] for k in _employer_keys(e.company) if k in by_key), None)
+        d = next((by_key[k] for k in employer_keys(e.company) if k in by_key), None)
         if d is None:
             # Name the researched companies outright. "Use an archetype" sent
             # a real run round in circles: the model swapped "Agoda" for
@@ -363,7 +365,7 @@ def dossier_provenance(context: Context) -> list[Finding]:
             unused = [
                 _display_employer(x["employer"])
                 for x in dossiers
-                if x.get("sources") and not (_employer_keys(x["employer"]) & used)
+                if x.get("sources") and not (employer_keys(x["employer"]) & used)
             ]
             fix = (
                 "Name this employer exactly as one of the researched companies in "
@@ -397,7 +399,7 @@ LEGAL_SUFFIX_RE = re.compile(
 )
 
 
-def _employer_keys(name: str) -> set[str]:
+def employer_keys(name: str) -> set[str]:
     """Every spelling that should count as the same employer.
 
     The ledger records the legal entity ("Agoda (Agoda Services Co., Ltd. -
@@ -426,10 +428,31 @@ def _display_employer(name: str) -> str:
 HARD_BLOCK_RULES = frozenset({"PLACEHOLDER_TOKEN", "DOSSIER_PROVENANCE"})
 
 
+# The generator's own constraints. They shape a resume being made up; applied
+# to someone's real career they would demand an invented promotion or the
+# deletion of a real employer, so an import is told about them, not blocked.
+GENERATOR_POLICY_RULES = frozenset(
+    {"SKILL_CATEGORY_COUNT", "COMPANY_COUNT", "PROMOTION_PRESENT", "TENURE_ARITHMETIC"}
+)
+
+
+def _advisory(finding: Finding) -> Finding:
+    """The same finding, as a warning the user can read and ignore."""
+    return replace(finding, severity="warning")
+
+
 def validate(context: Context) -> list[Finding]:
     findings: list[Finding] = []
     for fn in REGISTRY.values():
         findings.extend(fn(context))
+    if context.imported:
+        findings = [
+            _advisory(f)
+            if f.severity == "error"
+            and (f.rule_id in GENERATOR_POLICY_RULES or f.message.startswith("vague quantifier"))
+            else f
+            for f in findings
+        ]
     order = {"error": 0, "warning": 1, "info": 2}
     return sorted(findings, key=lambda f: (order[f.severity], f.rule_id))
 

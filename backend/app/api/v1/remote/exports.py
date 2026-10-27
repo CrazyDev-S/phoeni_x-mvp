@@ -12,6 +12,7 @@ from sqlalchemy import select
 from app.core.deps import CurrentUser, Session
 from app.models.resume import BaseResume, TailoredResume
 from app.remote.export.docx_renderer import render_docx
+from app.remote.export.pdf import PdfFailed, PdfUnavailable, docx_to_pdf
 from app.remote.export.preview import render_preview
 from app.remote.export.profiles import ExportOptions, PageSize, RenderProfile
 from app.remote.services.resumes import parse_or_422
@@ -20,6 +21,7 @@ from app.schemas.resume import ExportRequest, PreviewOut
 router = APIRouter(prefix="/export", tags=["export"])
 
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+PDF_MIME = "application/pdf"
 
 
 def safe_filename(name: str) -> str:
@@ -28,7 +30,7 @@ def safe_filename(name: str) -> str:
     return (cleaned or "Resume")[:120]
 
 
-def content_disposition(stem: str) -> str:
+def content_disposition(stem: str, extension: str = "docx") -> str:
     """RFC 6266 attachment header.
 
     HTTP headers are latin-1, but resume names routinely contain em dashes and
@@ -44,8 +46,8 @@ def content_disposition(stem: str) -> str:
     )
     ascii_stem = re.sub(r"\s+", " ", ascii_stem) or "Resume"
     return (
-        f'attachment; filename="{ascii_stem}.docx"; '
-        f"filename*=UTF-8''{quote(stem + '.docx', safe='')}"
+        f'attachment; filename="{ascii_stem}.{extension}"; '
+        f"filename*=UTF-8''{quote(f'{stem}.{extension}', safe='')}"
     )
 
 
@@ -98,6 +100,48 @@ async def export_docx(
         media_type=DOCX_MIME,
         headers={
             "Content-Disposition": content_disposition(stem),
+            "Content-Length": str(len(data)),
+        },
+    )
+
+
+@router.post(
+    "/pdf",
+    responses={200: {"content": {PDF_MIME: {}}, "description": "The PDF file"}},
+)
+async def export_pdf(
+    body: ExportRequest, user: CurrentUser, session: Session
+) -> Response:
+    """The same document as ``/docx``, as a PDF.
+
+    It IS the .docx, converted by LibreOffice, so the two can never differ.
+    """
+    content_markdown, default_name = await _source(body, user, session)
+    docx = render_docx(parse_or_422(content_markdown), _options(body))
+    try:
+        data = await docx_to_pdf(docx)
+    except PdfUnavailable as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "PDF_UNAVAILABLE",
+                "message": "PDF export needs LibreOffice on the server. Download the .docx instead.",
+            },
+        ) from exc
+    except PdfFailed as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"code": "PDF_FAILED", "message": f"The PDF could not be made: {exc}"},
+        ) from exc
+
+    stem = safe_filename(body.filename or default_name)
+    if body.profile == "ats_plain":
+        stem += "_ATS"
+    return Response(
+        content=data,
+        media_type=PDF_MIME,
+        headers={
+            "Content-Disposition": content_disposition(stem, "pdf"),
             "Content-Length": str(len(data)),
         },
     )

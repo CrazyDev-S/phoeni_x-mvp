@@ -160,6 +160,21 @@ export interface GenerationEvent {
   payload: Record<string, unknown>;
 }
 
+/** Stop a run. The backend drops it mid-call and saves nothing. */
+export async function stopGeneration(id: string): Promise<void> {
+  try {
+    await api(`/api/v1/generations/${id}/cancel`, { method: "POST" });
+  } catch (e) {
+    // 409: it had just finished, and its result arrives as usual.
+    if (!(e instanceof ApiError && e.status === 409)) throw e;
+  }
+}
+
+/** True for the error `waitForGeneration` throws when a run was stopped. */
+export function wasStopped(error: unknown): boolean {
+  return error instanceof ApiError && error.code === "CANCELLED";
+}
+
 /** Poll a generation to completion. The panel can hold this open; a worker cannot. */
 export async function waitForGeneration(
   id: string,
@@ -180,6 +195,7 @@ export async function waitForGeneration(
           onPhase(String(event.payload.label ?? ""), Number(event.payload.percent ?? 0));
         }
         if (event.type === "complete") return event.payload;
+        if (event.type === "cancelled") throw new ApiError(499, "CANCELLED", "Stopped");
         if (event.type === "error") {
           throw new ApiError(500, String(event.payload.code), String(event.payload.detail));
         }
@@ -194,6 +210,7 @@ export async function waitForGeneration(
         result_id: string | null;
       }>(`/api/v1/generations/${id}`);
       onPhase(gen.phase ?? "Working", gen.progress_percent);
+      if (gen.status === "cancelled") throw new ApiError(499, "CANCELLED", "Stopped");
       if (gen.status === "failed")
         throw new ApiError(500, "FAILED", gen.error_detail ?? "Failed");
       if (gen.status === "succeeded" || gen.status === "needs_review") {

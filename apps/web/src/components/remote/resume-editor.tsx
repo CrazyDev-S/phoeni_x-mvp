@@ -10,7 +10,7 @@ import {
   type ResumePreviewData,
 } from "@/components/remote/resume-preview";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Panel } from "@/components/panel";
 import {
   Collapsible,
   CollapsibleContent,
@@ -36,12 +36,6 @@ import { cn } from "@/lib/utils";
  * the two editors cannot drift apart.
  */
 
-/** The pill segmented control used for the document's view switches. */
-const SEG_LIST =
-  "bg-soft h-auto gap-0.5 p-1 shadow-none group-data-horizontal/tabs:h-auto";
-const SEG_TRIGGER =
-  "h-9 flex-none px-4 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground [&_svg:not([class*='size-'])]:size-[15px]";
-
 /** The document itself: a live preview, or the Markdown it is written in. */
 export function DocumentPane({
   draft,
@@ -57,34 +51,34 @@ export function DocumentPane({
 }) {
   const [view, setView] = useState<"preview" | "markdown">("preview");
   return (
-    <Card className="min-w-0 gap-0 overflow-hidden py-0">
+    <Panel className="overflow-hidden">
       <Tabs
         value={view}
         onValueChange={(v) => setView(v as "preview" | "markdown")}
         className="gap-0"
       >
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-3 border-b p-4">
-          <TabsList className={SEG_LIST}>
-            <TabsTrigger value="preview" className={SEG_TRIGGER}>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 border-b px-3 py-2">
+          <TabsList>
+            <TabsTrigger value="preview" className="gap-1.5">
               <Eye />
               Preview
             </TabsTrigger>
-            <TabsTrigger value="markdown" className={SEG_TRIGGER}>
+            <TabsTrigger value="markdown" className="gap-1.5">
               <Code />
               Markdown
             </TabsTrigger>
           </TabsList>
-          <div className="ml-auto flex flex-wrap items-center gap-2.5">
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
             <span
               className={cn(
-                "text-muted-foreground mr-1 inline-flex items-center gap-2 text-[0.8125rem] font-semibold",
+                "text-muted-foreground mr-1 inline-flex items-center gap-1.5 text-xs",
                 dirty && "text-warning",
               )}
             >
               <span
                 aria-hidden
                 className={cn(
-                  "size-2 rounded-full",
+                  "size-1.5 rounded-full",
                   dirty ? "bg-warning" : "bg-success",
                 )}
               />
@@ -107,11 +101,11 @@ export function DocumentPane({
             spellCheck={false}
             value={draft}
             onChange={(e) => onChange(e.target.value)}
-            className="field-sizing-fixed h-[70vh] resize-none rounded-none border-0 bg-transparent px-5 py-4 font-mono text-xs focus-visible:bg-transparent"
+            className="field-sizing-fixed h-[75vh] resize-none rounded-none border-0 bg-transparent px-3 py-2 font-mono text-xs focus-visible:ring-0"
           />
         </TabsContent>
       </Tabs>
-    </Card>
+    </Panel>
   );
 }
 
@@ -160,27 +154,17 @@ export function PreviewPane({ markdown }: { markdown: string }) {
 
   return (
     <div>
-      <div className="bg-soft/40 flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
+      <div className="bg-muted/40 flex flex-wrap items-center justify-between gap-2 border-b px-3 py-1.5">
         <Tabs
           value={profile}
           onValueChange={(v) => setProfile(v as ResumePreviewData["profile"])}
         >
-          <TabsList className={SEG_LIST}>
-            <TabsTrigger
-              value="designed"
-              className={cn(SEG_TRIGGER, "h-[30px] px-3.5 text-[0.8125rem]")}
-            >
-              Designed
-            </TabsTrigger>
-            <TabsTrigger
-              value="ats_plain"
-              className={cn(SEG_TRIGGER, "h-[30px] px-3.5 text-[0.8125rem]")}
-            >
-              ATS version
-            </TabsTrigger>
+          <TabsList>
+            <TabsTrigger value="designed">Designed</TabsTrigger>
+            <TabsTrigger value="ats_plain">ATS version</TabsTrigger>
           </TabsList>
         </Tabs>
-        <span className="text-muted-foreground text-[0.8125rem] font-medium tabular-nums">
+        <span className="text-muted-foreground text-xs tabular-nums">
           {preview.isFetching || source !== markdown
             ? "Updating…"
             : pageCount !== null &&
@@ -199,7 +183,7 @@ export function PreviewPane({ markdown }: { markdown: string }) {
         </div>
       )}
 
-      <div className="bg-soft-2 h-[70vh] overflow-y-auto p-4 sm:p-7">
+      <div className="bg-soft-2 h-[75vh] overflow-y-auto p-3 sm:p-4">
         {shown ? (
           <ResumePreview data={shown} onPageCount={setPageCount} />
         ) : (
@@ -213,7 +197,7 @@ export function PreviewPane({ markdown }: { markdown: string }) {
 }
 
 export function PanelNote({ children }: { children: React.ReactNode }) {
-  return <p className="text-muted-foreground px-4 py-6 text-sm">{children}</p>;
+  return <p className="text-muted-foreground px-3 py-3 text-xs">{children}</p>;
 }
 
 export function AtsPanel({
@@ -223,10 +207,7 @@ export function AtsPanel({
 }) {
   if (!report) {
     return (
-      <PanelNote>
-        No ATS report — generate or tailor this resume against a job description
-        to get one.
-      </PanelNote>
+      <PanelNote>No ATS report. Tailor this resume against a job description to get one.</PanelNote>
     );
   }
   const rows = (report.keywords as Array<Record<string, unknown>>) ?? [];
@@ -234,7 +215,7 @@ export function AtsPanel({
 
   return (
     <div className="min-w-0">
-      <dl className="bg-border grid grid-cols-2 gap-px border-b text-sm">
+      <dl className="bg-border grid grid-cols-2 gap-px border-b text-xs">
         {[
           [
             "MUST-HAVE coverage",
@@ -255,21 +236,21 @@ export function AtsPanel({
             `${stat("companies")} · ${stat("skill_categories")}`,
           ],
         ].map(([label, value]) => (
-          <div key={label} className="bg-card px-4 py-3">
-            <dt className="text-muted-foreground text-xs">{label}</dt>
-            <dd className="mt-0.5 font-medium tabular-nums">{value}</dd>
+          <div key={label} className="bg-card px-3 py-1.5">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="font-medium tabular-nums">{value}</dd>
           </div>
         ))}
       </dl>
 
       {rows.length > 0 && (
-        <ScrollArea className="h-72">
+        <ScrollArea className="h-80">
           <Table className="text-xs">
             <TableHeader className="bg-muted sticky top-0 z-10">
               <TableRow>
                 {["Keyword", "Priority", "Skills", "Experience", "Summary"].map(
                   (h) => (
-                    <TableHead key={h} className="h-8">
+                    <TableHead key={h}>
                       {h}
                     </TableHead>
                   ),
@@ -300,10 +281,6 @@ export function AtsPanel({
         </ScrollArea>
       )}
 
-      <p className="text-muted-foreground border-t px-4 py-2 text-xs">
-        Every count here is computed from the parsed resume, not written by the
-        model — so it cannot disagree with the document.
-      </p>
     </div>
   );
 }
@@ -312,7 +289,7 @@ export function JsonPanel({ value, empty }: { value: unknown; empty: string }) {
   if (!value) return <PanelNote>{empty}</PanelNote>;
   return (
     <ScrollArea className="h-96">
-      <pre className="min-w-0 px-4 py-3 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">
+      <pre className="min-w-0 px-3 py-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">
         {JSON.stringify(value, null, 2)}
       </pre>
     </ScrollArea>
@@ -416,18 +393,18 @@ export function PrepPanel({
   if (!sections.length) return <JsonPanel value={value} empty={empty} />;
 
   return (
-    <ScrollArea className="h-[32rem]">
+    <ScrollArea className="h-[60vh]">
       <div className="min-w-0">
         {sections.map(([heading, body]) => (
-          <section key={heading} className="border-b px-4 py-3 last:border-0">
-            <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
+          <section key={heading} className="border-b px-3 py-2 last:border-0">
+            <h3 className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wide uppercase">
               {heading}
             </h3>
-            <div className="space-y-1 text-sm">{body}</div>
+            <div className="space-y-1 text-[13px]">{body}</div>
           </section>
         ))}
         {value.notes && (
-          <p className="text-muted-foreground border-t px-4 py-3 text-sm break-words">
+          <p className="text-muted-foreground border-t px-3 py-2 text-xs break-words">
             {value.notes}
           </p>
         )}

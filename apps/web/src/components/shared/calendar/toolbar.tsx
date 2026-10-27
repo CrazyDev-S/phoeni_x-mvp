@@ -3,7 +3,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Chip } from "@/components/ui/chip";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -31,6 +30,7 @@ export function rangeTitle(view: CalendarView, anchor: DayKey, days: DayKey[]): 
   return `${dayLabel(first, samePattern)} – ${dayLabel(last, "d MMM yyyy")}`;
 }
 
+/** The calendar's one 32px control row: paging, the range, today, the view switch. */
 export function Toolbar({
   view,
   title,
@@ -38,6 +38,7 @@ export function Toolbar({
   onView,
   onToday,
   onStep,
+  children,
 }: {
   view: CalendarView;
   title: string;
@@ -45,10 +46,12 @@ export function Toolbar({
   onView: (view: CalendarView) => void;
   onToday: () => void;
   onStep: (direction: -1 | 1) => void;
+  /** Filters and extra actions, sitting before the view switch. */
+  children?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3.5 gap-y-3">
-      <div className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-1">
         <StepButton label="Previous" onClick={() => onStep(-1)}>
           <ChevronLeft />
         </StepButton>
@@ -57,20 +60,18 @@ export function Toolbar({
         </StepButton>
       </div>
 
-      <h2 className="mx-1.5 flex items-center gap-2 text-2xl font-medium tracking-tight sm:text-[1.625rem]">
+      <h2 className="flex items-center gap-2 text-[13px] font-semibold tabular-nums">
         {title}
-        {busy && <Spinner className="text-muted-foreground" />}
+        {busy && <Spinner className="text-muted-foreground size-3.5" />}
       </h2>
 
-      <Chip onClick={onToday} className="bg-card h-10">
+      <Button variant="outline" size="sm" onClick={onToday}>
         Today
-      </Chip>
+      </Button>
 
-      <Tabs
-        value={view}
-        onValueChange={(next) => onView(next as CalendarView)}
-        className="ml-auto"
-      >
+      <div className="ml-auto flex flex-wrap items-center gap-1.5">{children}</div>
+
+      <Tabs value={view} onValueChange={(next) => onView(next as CalendarView)}>
         <TabsList>
           {VIEWS.map((option) => (
             <TabsTrigger key={option.value} value={option.value} title={option.hint}>
@@ -83,7 +84,7 @@ export function Toolbar({
   );
 }
 
-/** The round white paging button beside the range title. */
+/** The paging button beside the range title. */
 function StepButton({
   label,
   onClick,
@@ -96,41 +97,7 @@ function StepButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          variant="secondary"
-          size="icon"
-          aria-label={label}
-          onClick={onClick}
-          className="size-11"
-        >
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-/** A small ghost round button, for the mini calendar and popover. */
-export function IconButton({
-  label,
-  onClick,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={label}
-          onClick={onClick}
-          className="bg-foreground/6 hover:bg-foreground/10 size-9 rounded-full"
-        >
+        <Button variant="outline" size="icon-sm" aria-label={label} onClick={onClick}>
           {children}
         </Button>
       </TooltipTrigger>

@@ -43,7 +43,6 @@ import {
   type TrackStage,
 } from "@/lib/freelancing";
 import { invalidateSchedule } from "@/lib/schedule";
-import { cn } from "@/lib/utils";
 
 /**
  * One track, opened beside the board.
@@ -62,7 +61,7 @@ export function TrackSheet({
 }) {
   return (
     <Sheet open={id !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-full gap-0 overflow-y-auto p-0 data-[side=right]:sm:max-w-xl">
+      <SheetContent side="right" className="w-full gap-0 overflow-y-auto p-0 data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:rounded-none data-[side=right]:sm:max-w-lg">
         <SheetHeader className="sr-only">
           <SheetTitle asChild>
             <span>Track</span>
@@ -124,29 +123,28 @@ function TrackDetailView({ id, onClose, onSchedule }: { id: string; onClose: () 
 
   if (isLoading || !data) {
     return (
-      <div className="space-y-4 p-6" aria-busy>
+      <div className="space-y-3 p-4" aria-busy>
         <Skeleton className="h-8 w-3/4" />
         <Skeleton className="h-40 w-full" />
       </div>
     );
   }
-  if (error) return <div className="p-6"><ErrorAlert>{(error as Error).message}</ErrorAlert></div>;
+  if (error) return <div className="p-4"><ErrorAlert>{(error as Error).message}</ErrorAlert></div>;
 
   const closed = CLOSED_STAGES.has(data.stage);
-  const onSoft = "bg-card";
 
   return (
-    <div className="space-y-6 p-6 sm:p-7">
-      <header className="space-y-3 pr-10">
+    <div className="space-y-4 p-4">
+      <header className="space-y-2 pr-8">
         <StatusBadge tone={STAGE_TONE[data.stage]}>{STAGE_LABEL[data.stage]}</StatusBadge>
-        <h2 className="text-2xl leading-tight font-medium tracking-tight text-balance">{data.job.title}</h2>
-        <p className="text-muted-foreground text-sm font-medium">
-          <span className="text-foreground font-bold">{formatBudget(data.job)}</span>
+        <h2 className="text-base leading-snug font-semibold text-balance">{data.job.title}</h2>
+        <p className="text-muted-foreground text-xs">
+          <span className="text-foreground font-semibold">{formatBudget(data.job)}</span>
           {data.job.client_country ? ` · ${data.job.client_country}` : ""}
           {data.job.total_applicants != null ? ` · ${data.job.total_applicants} proposals` : ""}
         </p>
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Button asChild size="sm">
+        <div className="flex flex-wrap gap-1.5">
+          <Button asChild size="sm" variant="brand">
             <Link href={`/freelancing/jobs/${data.job_id}`}>
               Open posting
               <ArrowRight data-icon="inline-end" />
@@ -178,24 +176,23 @@ function TrackDetailView({ id, onClose, onSchedule }: { id: string; onClose: () 
         </div>
       </header>
 
-      <div className="bg-soft grid gap-4 rounded-3xl p-5 sm:grid-cols-2">
+      <div className="bg-muted/50 grid gap-3 rounded-md p-3 sm:grid-cols-2">
         <FormField label="Stage">
           {() => (
             <StageSelect
               value={data.stage}
               disabled={patch.isPending}
               label="Stage"
-              className={cn("h-12 text-[0.9375rem]", onSoft)}
+              className="h-8"
               onChange={(stage: TrackStage) => patch.mutate({ stage })}
             />
           )}
         </FormField>
-        <FormField label="Next action" hint="A date to come back to this one.">
+        <FormField label="Next action">
           {(control) => (
             <Input
               {...control}
               type="date"
-              className={onSoft}
               value={nextAction}
               onChange={(e) => setNextAction(e.target.value)}
               onBlur={() =>
@@ -210,16 +207,15 @@ function TrackDetailView({ id, onClose, onSchedule }: { id: string; onClose: () 
               {...control}
               type="number"
               min={0}
-              className={onSoft}
               value={connects}
               onChange={(e) => setConnects(e.target.value)}
               onBlur={() => patch.mutate({ connects_spent: connects === "" ? null : Number(connects) })}
             />
           )}
         </FormField>
-        <div className="space-y-2 text-sm">
-          <p className="text-sm leading-snug font-medium">Timeline</p>
-          <dl className="text-muted-foreground space-y-0.5 text-[0.8125rem] font-medium">
+        <div className="space-y-1">
+          <p className="text-xs font-medium">Timeline</p>
+          <dl className="text-muted-foreground space-y-0.5 text-xs">
             {data.submitted_at && <div>Submitted {formatDateTime(data.submitted_at, "d MMM, HH:mm")}</div>}
             {data.client_replied_at && <div>Client replied {formatDateTime(data.client_replied_at, "d MMM, HH:mm")}</div>}
             {data.closed_at && <div>Closed {formatDateTime(data.closed_at, "d MMM, HH:mm")}</div>}
@@ -228,14 +224,14 @@ function TrackDetailView({ id, onClose, onSchedule }: { id: string; onClose: () 
         </div>
       </div>
 
-      <FormField label="Notes" hint="Saved when you leave the field.">
+      <FormField label="Notes">
         {(control) => (
           <Textarea
             {...control}
             rows={4}
-            className="resize-none"
+            className="min-h-20"
             value={notes}
-            placeholder="Questions to ask, what the client said, what to send next…"
+            placeholder="Questions to ask, what the client said, what to send next"
             onChange={(e) => setNotes(e.target.value)}
             onBlur={() => notes !== (data.notes_markdown ?? "") && patch.mutate({ notes_markdown: notes || null })}
           />
@@ -256,21 +252,21 @@ function TrackDetailView({ id, onClose, onSchedule }: { id: string; onClose: () 
         </FormField>
       )}
 
-      <section className="space-y-3">
+      <section className="space-y-1.5">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-lg font-medium tracking-tight">Calls</h3>
+          <h3 className="text-[13px] font-semibold">Calls</h3>
           {!closed && (
-            <Button size="sm" variant="outline" onClick={onSchedule}>
+            <Button size="xs" variant="outline" onClick={onSchedule}>
               <CalendarPlus />
               Schedule
             </Button>
           )}
         </div>
         {data.meetings.length ? (
-          <ul className="bg-soft space-y-2 rounded-3xl p-2.5">
+          <ul className="divide-y rounded-md border">
             {data.meetings.map((m) => (
-              <li key={m.id} className="bg-card flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl px-4 py-3 text-sm">
-                <span className="min-w-0 flex-1 truncate font-semibold">{m.title}</span>
+              <li key={m.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5 text-[13px]">
+                <span className="min-w-0 flex-1 truncate font-medium">{m.title}</span>
                 <span className="text-muted-foreground text-xs font-medium tabular-nums">{formatDateTime(m.starts_at, "d MMM, HH:mm")}</span>
                 <StatusBadge tone={m.status === "held" ? "ok" : m.status === "cancelled" ? "bad" : "neutral"}>{m.status}</StatusBadge>
                 {m.conferencing_url && (
@@ -285,19 +281,19 @@ function TrackDetailView({ id, onClose, onSchedule }: { id: string; onClose: () 
             ))}
           </ul>
         ) : (
-          <p className="text-muted-foreground text-sm font-medium">No calls booked. They show up on the shared calendar.</p>
+          <p className="text-muted-foreground text-xs">No calls booked.</p>
         )}
       </section>
 
-      <section className="space-y-3">
-        <h3 className="text-lg font-medium tracking-tight">History</h3>
-        <ol className="space-y-3">
+      <section className="space-y-1.5">
+        <h3 className="text-[13px] font-semibold">History</h3>
+        <ol className="space-y-1.5">
           {data.events.map((e) => (
-            <li key={e.id} className="flex items-baseline gap-3 text-[0.8125rem]">
-              <span aria-hidden className="bg-brand mt-1.5 size-2 shrink-0 self-start rounded-full" />
-              <span className="text-muted-foreground w-28 shrink-0 font-medium tabular-nums">{formatDateTime(e.occurred_at, "d MMM, HH:mm")}</span>
-              <span className="text-muted-foreground font-medium">
-                <span className="text-foreground font-semibold">{STAGE_LABEL[e.to_stage]}</span>
+            <li key={e.id} className="flex items-baseline gap-2 text-xs">
+              <span aria-hidden className="bg-brand mt-1.5 size-1.5 shrink-0 self-start rounded-full" />
+              <span className="text-muted-foreground w-28 shrink-0 tabular-nums">{formatDateTime(e.occurred_at, "d MMM, HH:mm")}</span>
+              <span className="text-muted-foreground">
+                <span className="text-foreground font-medium">{STAGE_LABEL[e.to_stage]}</span>
                 {e.reason ? ` — ${e.reason}` : ""}
                 {e.actor !== "user" ? ` (${e.actor})` : ""}
               </span>
@@ -310,11 +306,11 @@ function TrackDetailView({ id, onClose, onSchedule }: { id: string; onClose: () 
         <ErrorAlert>{((patch.error ?? remove.error ?? promote.error) as Error).message}</ErrorAlert>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 border-t pt-5">
+      <div className="flex flex-wrap items-center gap-2 border-t pt-3">
         {(data.stage === "interviewing" || data.stage === "hired") && (
           <Button variant="brand" disabled={promote.isPending} onClick={() => promote.mutate()}>
             {promote.isPending ? <Spinner /> : <Trophy />}
-            Won it — add to Job Maintenance
+            Won it: add to Job Maintenance
           </Button>
         )}
         <Button

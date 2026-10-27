@@ -5,7 +5,6 @@ import { Download, Puzzle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import {
   Tooltip,
   TooltipContent,
@@ -32,9 +31,6 @@ export interface PackageStatus {
   /** Where the server looked, when it found nothing. */
   searched?: string;
 }
-
-/** The white pill both the portal picker and Settings use for the download. */
-const PILL = "h-14 px-6 text-[0.9375rem]";
 
 /** The packaged extension's status; the same request wherever it is shown. */
 export function useExtensionPackage() {
@@ -63,7 +59,7 @@ export function DownloadExtension({
 }) {
   const { data, isLoading, isError, error, refetch } = useExtensionPackage();
 
-  if (isLoading) return <Skeleton className="h-14 w-56 rounded-full" />;
+  if (isLoading) return <Skeleton className="h-8 w-40" />;
 
   // The check itself failed: say so, and let the user try again.
   if (isError) {
@@ -72,7 +68,7 @@ export function DownloadExtension({
         <TooltipTrigger asChild>
           <Button
             variant="secondary"
-            className={cn(PILL, className)}
+            className={className}
             onClick={() => refetch()}
           >
             <Puzzle />
@@ -90,11 +86,11 @@ export function DownloadExtension({
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span tabIndex={0} className="block rounded-full">
+          <span tabIndex={0} className="block rounded-md">
             <Button
               variant="secondary"
               disabled
-              className={cn(PILL, className)}
+              className={className}
             >
               <Puzzle />
               Browser extension
@@ -118,7 +114,7 @@ export function DownloadExtension({
     <Button
       asChild
       variant="secondary"
-      className={cn(PILL, className)}
+      className={className}
       title={`Packaged ${new Date(data.builtAt!).toLocaleDateString()}`}
     >
       {/* A real navigation, not fetch + object URL: the browser owns the save
@@ -127,7 +123,7 @@ export function DownloadExtension({
         <Download />
         Download extension
         {showSize && (
-          <span className="text-subtle ml-1 text-xs font-semibold tabular-nums">
+          <span className="text-subtle ml-1 text-xs tabular-nums">
             {formatBytes(data.bytes!)}
           </span>
         )}

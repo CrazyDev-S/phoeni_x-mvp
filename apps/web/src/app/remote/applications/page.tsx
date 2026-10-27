@@ -20,9 +20,9 @@ import {
 } from "@/components/shared/calendar/meeting-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { PageHero } from "@/components/page-hero";
+import { Panel, Toolbar } from "@/components/panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -129,50 +129,43 @@ export default function ApplicationsPage() {
       ];
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-3">
       <PageHero
         title="Applications"
         stats={stats}
         actions={
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() => setDialog({ mode: "create", draft: {} })}
-          >
+          <Button variant="outline" onClick={() => setDialog({ mode: "create", draft: {} })}>
             <CalendarPlus />
             Schedule
           </Button>
         }
       />
 
-      <div className="flex flex-wrap items-center gap-3">
+      <Toolbar>
         <Tabs value={view} onValueChange={(v) => setView(v as View)}>
-          <TabsList className="h-12">
-            <TabsTrigger value="table" className="gap-2 px-5">
+          <TabsList>
+            <TabsTrigger value="table" className="gap-1.5">
               <Table2 />
               Table
             </TabsTrigger>
-            <TabsTrigger value="board" className="gap-2 px-5">
+            <TabsTrigger value="board" className="gap-1.5">
               <Columns3 />
               Board
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="relative min-w-56 flex-1 sm:max-w-sm">
-          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 size-[17px] -translate-y-1/2" />
+        <div className="relative min-w-56 flex-1 sm:max-w-xs">
+          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
           <Input
-            placeholder="Search company, role or location…"
+            placeholder="Search company, role or location"
             aria-label="Search applications"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="bg-card h-12 rounded-full pl-11"
+            className="pl-8"
           />
         </div>
         <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger
-            className="bg-card ml-auto h-12 w-44 rounded-full pl-5"
-            aria-label="Filter by status"
-          >
+          <SelectTrigger className="w-36" aria-label="Filter by status">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -184,7 +177,7 @@ export default function ApplicationsPage() {
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </Toolbar>
 
       {nextStep && (
         <Alert>
@@ -195,7 +188,7 @@ export default function ApplicationsPage() {
               <strong className="text-foreground">{nextStep.name}</strong>.
             </span>
             <Button
-              size="sm"
+              size="xs"
               className="ml-auto"
               onClick={() => {
                 setDialog({
@@ -210,7 +203,7 @@ export default function ApplicationsPage() {
             >
               Schedule it
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setNextStep(null)}>
+            <Button variant="ghost" size="xs" onClick={() => setNextStep(null)}>
               Dismiss
             </Button>
           </AlertDescription>
@@ -218,21 +211,16 @@ export default function ApplicationsPage() {
       )}
 
       {isLoading ? (
-        <div className="space-y-2" aria-busy>
-          {[0, 1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-3xl" />
+        <div className="space-y-1" aria-busy>
+          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+            <Skeleton key={i} className="h-10 w-full" />
           ))}
         </div>
       ) : !rows.length ? (
-        <Card className="py-0">
+        <Panel>
           <EmptyState
             icon={<Briefcase />}
             title={q || filter !== ALL ? "Nothing matches those filters" : "No applications yet"}
-            description={
-              q || filter !== ALL
-                ? "Clear the search or pick a different status."
-                : "Save one after tailoring a resume — from the portal or the extension."
-            }
             action={
               !q && filter === ALL ? (
                 <Button asChild>
@@ -251,7 +239,7 @@ export default function ApplicationsPage() {
               )
             }
           />
-        </Card>
+        </Panel>
       ) : view === "board" ? (
         <ApplicationBoard
           rows={rows}

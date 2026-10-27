@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { request } from "@/lib/api";
 import { streamGeneration } from "@/lib/sse";
@@ -26,6 +27,10 @@ export interface GenerationState {
   needsReview: boolean;
   error: string | null;
   running: boolean;
+  /** Stop was pressed and the backend has not confirmed it yet. */
+  stopping: boolean;
+  /** The run was stopped before it finished; nothing was saved. */
+  cancelled: boolean;
   /** When the run was started, for the elapsed timer. */
   startedAt: number | null;
 }
@@ -44,6 +49,8 @@ const IDLE: GenerationState = {
   needsReview: false,
   error: null,
   running: false,
+  stopping: false,
+  cancelled: false,
   startedAt: null,
 };
 
@@ -57,11 +64,16 @@ const IDLE: GenerationState = {
 export function useGeneration() {
   const [state, setState] = useState<GenerationState>(IDLE);
   const cancelRef = useRef<(() => void) | null>(null);
+  const idRef = useRef<string | null>(null);
+  // Stop pressed before the backend had named the run.
+  const stopEarly = useRef(false);
 
   useEffect(() => () => cancelRef.current?.(), []);
 
   const start = useCallback(async (path: string, body: unknown) => {
     cancelRef.current?.();
+    idRef.current = null;
+    stopEarly.current = false;
     setState({ ...IDLE, running: true, label: "Starting…", startedAt: Date.now() });
 
     let accepted: {
@@ -89,7 +101,9 @@ export function useGeneration() {
       return accepted;
     }
 
+    idRef.current = accepted.id;
     setState((s) => ({ ...s, id: accepted.id }));
+    if (stopEarly.current) void requestStop(accepted.id);
     cancelRef.current = streamGeneration(accepted.id, {
       onEvent: (event) => {
         setState((s) => {
@@ -119,6 +133,8 @@ export function useGeneration() {
                 resultId: (d.result_id as string) ?? null,
                 needsReview: Boolean(d.needs_review),
               };
+            case "cancelled":
+              return { ...s, running: false, stopping: false, cancelled: true, label: "Stopped" };
             case "error":
               return { ...s, running: false, error: `${d.code}: ${d.detail}` };
             default:
@@ -137,6 +153,8 @@ export function useGeneration() {
   /** Follow a run that was started elsewhere - a dialog, another page. */
   const attach = useCallback((id: string) => {
     cancelRef.current?.();
+    idRef.current = id;
+    stopEarly.current = false;
     setState({ ...IDLE, id, running: true, label: "Working…", startedAt: Date.now() });
     cancelRef.current = streamGeneration(id, {
       onEvent: (event) => {
@@ -160,6 +178,8 @@ export function useGeneration() {
                 resultId: (d.result_id as string) ?? null,
                 needsReview: Boolean(d.needs_review),
               };
+            case "cancelled":
+              return { ...s, running: false, stopping: false, cancelled: true, label: "Stopped" };
             case "error":
               return { ...s, running: false, error: `${d.code}: ${d.detail}` };
             default:
@@ -172,12 +192,31 @@ export function useGeneration() {
     });
   }, []);
 
+  /**
+   * Stop the run. The backend drops it mid-call and saves nothing; the stream
+   * then reports "cancelled", which is what ends the running state.
+   */
+  const stop = useCallback(async () => {
+    setState((s) => (s.running ? { ...s, stopping: true, label: "Stopping…" } : s));
+    if (idRef.current) await requestStop(idRef.current);
+    else stopEarly.current = true;
+  }, []);
+
   const reset = useCallback(() => {
     cancelRef.current?.();
     setState(IDLE);
   }, []);
 
-  return { state, start, attach, reset };
+  return { state, start, attach, stop, reset };
+}
+
+async function requestStop(id: string): Promise<void> {
+  try {
+    await request(`/api/v1/generations/${id}/cancel`, { method: "POST" });
+    toast("Stopped. Nothing was saved.");
+  } catch {
+    // Refused because it had just finished: the stream reports the result.
+  }
 }
 
 function describe(error: unknown): string {

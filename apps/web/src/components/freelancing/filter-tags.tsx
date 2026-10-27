@@ -6,10 +6,10 @@ import { useState, type KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * The search panel's tag field: dark chips and the typing cursor share one
- * soft box. Same behaviour as `TagInput` (Enter or a comma adds, Backspace on
- * an empty draft removes the last, pasting "a, b" adds both); this one only
- * lays the chips inside the field, which suits a narrow panel.
+ * The filter sheet's tag field: chips and the typing cursor share one box. Same
+ * behaviour as `TagInput` (Enter or a comma adds, Backspace on an empty draft
+ * removes the last, pasting "a, b" adds both); this one lays the chips inside
+ * the field, which suits a narrow sheet.
  */
 export function FilterTags({
   id,
@@ -52,19 +52,19 @@ export function FilterTags({
   return (
     <div
       className={cn(
-        "bg-input focus-within:bg-card focus-within:border-foreground/80 flex min-h-11 flex-wrap items-center gap-1.5 rounded-[14px] border border-transparent px-2 py-1.5 transition-colors",
+        "bg-card border-input focus-within:border-ring focus-within:ring-ring/25 flex min-h-8 flex-wrap items-center gap-1 rounded-md border px-1.5 py-1 transition-colors focus-within:ring-2",
       )}
     >
       {value.map((item) => (
         <span
           key={item}
-          className="bg-primary text-primary-foreground inline-flex h-7 items-center gap-1 rounded-full pr-1.5 pl-3 text-[12.5px] font-semibold"
+          className="bg-primary text-primary-foreground inline-flex h-5 items-center gap-1 rounded pr-1 pl-2 text-xs font-medium"
         >
           {item}
           <button
             type="button"
             aria-label={`Remove ${item}`}
-            className="text-primary-foreground/60 hover:text-primary-foreground rounded-full p-0.5 transition-colors"
+            className="text-primary-foreground/60 hover:text-primary-foreground rounded p-0.5 transition-colors"
             onClick={() => onChange(value.filter((v) => v !== item))}
           >
             <X className="size-3" />
@@ -86,7 +86,7 @@ export function FilterTags({
             commit(text);
           }
         }}
-        className="placeholder:text-muted-foreground h-7 min-w-24 flex-1 bg-transparent px-1.5 text-sm font-medium outline-none"
+        className="placeholder:text-muted-foreground h-5 min-w-24 flex-1 bg-transparent px-1 text-[13px] outline-none"
       />
     </div>
   );

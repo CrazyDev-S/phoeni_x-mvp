@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.models.enums import CredentialStatus, LLMProvider
@@ -75,3 +77,24 @@ class AutofillProfileOut(BaseModel):
 class AutofillProfileIn(BaseModel):
     fields: dict[str, str] = Field(default_factory=dict, max_length=80)
     extra_notes_markdown: str | None = Field(default=None, max_length=4000)
+
+
+class ResumeProfileIn(BaseModel):
+    """Who a generated resume is for. Every field is optional."""
+
+    full_name: str | None = Field(default=None, max_length=160)
+    headline: str | None = Field(default=None, max_length=200)
+    email: str | None = Field(default=None, max_length=254)
+    phone: str | None = Field(default=None, max_length=60)
+    location: str | None = Field(default=None, max_length=160)
+    links: list[str] = Field(default_factory=list, max_length=10)
+    education: list[str] = Field(default_factory=list, max_length=10)
+    # Employers, titles, dates and stack. Given, generation keeps them (Grounded).
+    summary: str | None = Field(default=None, max_length=20_000)
+
+
+class ResumeProfileOut(ResumeProfileIn):
+    # What generating a resume runs in with this profile.
+    mode: Literal["grounded", "constructed"] = "constructed"
+    # False until something is saved: the model then invents a name and contacts.
+    configured: bool = False

@@ -59,25 +59,65 @@ async def create_all(*, drop_first: bool = False) -> None:
         await conn.execute(text(ALL_RESUMES_VIEW))
 
 
-async def _add_missing_enum_values(conn: AsyncConnection) -> None:
+async def sync_enum_values() -> list[str]:
+    """Bring the database's enum types up to the Python enums. Returns what it added.
+
+    Run on every startup. A value added to a Python enum (a new generation kind,
+    say) is otherwise rejected by the running database until someone remembers
+    to run this module - and the tests cannot catch it, because they build
+    their database from scratch.
+    """
+    async with engine.begin() as conn:
+        return await _add_missing_enum_values(conn)
+
+
+async def _add_missing_enum_values(
+    conn: AsyncConnection, wanted: dict[str, list[str]] | None = None
+) -> list[str]:
     """Add enum labels introduced after their type was created.
 
     ``create_all`` skips a type that already exists, so a value added to a
     Python enum would otherwise be rejected by the database until a --reset
-    wiped every row.
+    wiped every row. Only missing labels are altered, so a database that is
+    already current is left untouched.
     """
-    seen: set[str] = set()
+    wanted = wanted if wanted is not None else _model_enums()
+    rows = await conn.execute(
+        text(
+            "SELECT t.typname, e.enumlabel FROM pg_type t "
+            "JOIN pg_enum e ON e.enumtypid = t.oid "
+            "JOIN pg_namespace n ON n.oid = t.typnamespace "
+            "WHERE n.nspname = current_schema()"
+        )
+    )
+    present: dict[str, set[str]] = {}
+    for name, label in rows:
+        present.setdefault(name, set()).add(label)
+
+    added: list[str] = []
+    for name, labels in wanted.items():
+        if name not in present:
+            # Not created yet; create_all makes it whole.
+            continue
+        for label in labels:
+            if label in present[name]:
+                continue
+            quoted = label.replace("'", "''")
+            await conn.execute(
+                text(f"ALTER TYPE \"{name}\" ADD VALUE IF NOT EXISTS '{quoted}'")
+            )
+            added.append(f"{name}.{label}")
+    return added
+
+
+def _model_enums() -> dict[str, list[str]]:
+    found: dict[str, list[str]] = {}
     for table in Base.metadata.tables.values():
         for column in table.columns:
             kind = column.type
-            if not isinstance(kind, SAEnum) or not kind.name or kind.name in seen:
-                continue
-            seen.add(kind.name)
-            for label in kind.enums:
-                quoted = label.replace("'", "''")
-                await conn.execute(
-                    text(f"ALTER TYPE \"{kind.name}\" ADD VALUE IF NOT EXISTS '{quoted}'")
-                )
+            if isinstance(kind, SAEnum) and kind.name and kind.name not in found:
+                found[kind.name] = list(kind.enums)
+    return found
 
 
 # Changes to EXISTING tables. ``create_all`` only ever adds whole tables, so a
@@ -106,6 +146,15 @@ UPGRADES = (
     "ALTER TABLE user_settings ALTER COLUMN heavy_model SET DEFAULT 'claude-sonnet-5-5'",
     "ALTER TABLE user_settings ALTER COLUMN mid_model SET DEFAULT 'claude-sonnet-5-5'",
     "ALTER TABLE user_settings ALTER COLUMN fast_model SET DEFAULT 'claude-sonnet-5-5'",
+    # 2026-10: an application can go with a base resume, used as it is.
+    "ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS base_resume_id uuid "
+    "CONSTRAINT fk_job_applications_base_resume_id_base_resumes "
+    "REFERENCES base_resumes(id) ON DELETE SET NULL",
+    "CREATE INDEX IF NOT EXISTS ix_job_applications_base_resume_id "
+    "ON job_applications (base_resume_id)",
+    "ALTER TABLE job_applications DROP CONSTRAINT IF EXISTS ck_job_applications_one_resume",
+    "ALTER TABLE job_applications ADD CONSTRAINT ck_job_applications_one_resume "
+    "CHECK (num_nonnulls(tailored_resume_id, base_resume_id) <= 1)",
 )
 
 

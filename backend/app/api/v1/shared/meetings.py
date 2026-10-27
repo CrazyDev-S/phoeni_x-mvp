@@ -21,7 +21,13 @@ from app.models.enums import MeetingStatus
 from app.models.freelancing import FreelanceJobTrack
 from app.models.maintenance import MaintainedJob
 from app.models.user import UserSettings
-from app.schemas.tracking import Category, CalendarMeetingOut, MeetingCreate, MeetingPatch, UpcomingOut
+from app.schemas.tracking import (
+    CalendarMeetingOut,
+    Category,
+    MeetingCreate,
+    MeetingPatch,
+    UpcomingOut,
+)
 from app.shared.calendar.tracking import describe_meetings, sync_stage
 
 router = APIRouter(prefix="/meetings", tags=["calendar"])

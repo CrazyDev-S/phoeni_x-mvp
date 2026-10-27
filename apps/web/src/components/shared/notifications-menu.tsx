@@ -44,12 +44,12 @@ export function NotificationsMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="bg-card text-card-foreground focus-visible:ring-brand/60 relative grid size-12 shrink-0 place-items-center rounded-full outline-none focus-visible:ring-3"
+          className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring/40 relative grid size-8 shrink-0 place-items-center rounded-md outline-none focus-visible:ring-2"
           aria-label={imminent ? `${imminent} upcoming calls` : "Upcoming calls"}
         >
-          <Bell className="size-[18px]" />
+          <Bell className="size-4" />
           {imminent > 0 && (
-            <span className="bg-destructive ring-card absolute top-3 right-3.5 size-2.5 rounded-full ring-2" />
+            <span className="bg-destructive ring-card absolute top-1.5 right-1.5 size-2 rounded-full ring-2" />
           )}
         </button>
       </DropdownMenuTrigger>

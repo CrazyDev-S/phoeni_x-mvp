@@ -13,16 +13,15 @@ import logging
 import uuid
 from datetime import timedelta
 
-from pydantic import ValidationError
-from sqlalchemy import func, select, update
+from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.core.timezone import app_today, utc_now
 from app.db.session import SessionLocal
 from app.llm.factory import get_provider
-from app.llm.prompts import FULL_UPGRADE_INSTRUCTIONS
+from app.llm.prompts import FULL_UPGRADE_INSTRUCTIONS, IMPORT_SYSTEM, PREP_SYSTEM
 from app.llm.provider import LLMError
-from app.llm.schemas import ScenarioLedger
+from app.llm.schemas import SCENARIO_LEDGER, shape
 from app.models.application import JobApplication
 from app.models.enums import (
     GenerationKind,
@@ -41,11 +40,17 @@ from app.remote.orchestration.resume_pipeline import (
     ResumePipeline,
 )
 from app.remote.resume.parser import ResumeMarkdownError
-from app.remote.services.links import link_resume
+from app.remote.services.links import (
+    link_application_posting,
+    link_posting_applications,
+    link_resume,
+)
+from app.remote.services.resumes import free_display_name as _free_display_name
 from app.services.generation import (
     claim_next,
     emit,
     emit_now,
+    is_cancelled,
     job_description_hash,
     reclaim_stale,
     record_calls,
@@ -57,6 +62,9 @@ POLL_SECONDS = 1.0
 # slowest healthy gap is one model turn, well under a minute on the heavy
 # tier, so this leaves generous headroom.
 STALE_AFTER = timedelta(minutes=10)
+# How often a running job is checked for a Stop. A model turn can take a
+# minute, so this is the most a stopped run keeps spending.
+STOP_POLL_SECONDS = 1.0
 
 
 async def run_once() -> bool:
@@ -77,14 +85,14 @@ async def run_once() -> bool:
         await session.commit()
 
     try:
-        async with SessionLocal() as session:
-            generation = await session.get(Generation, generation_id)
-            await _process(session, generation)
-            await session.commit()
+        await _run_until_stopped(generation_id)
     except Exception as exc:
         log.exception("generation %s failed", generation_id)
         async with SessionLocal() as session:
             row = await session.get(Generation, generation_id)
+            if row.status is GenerationStatus.CANCELLED:
+                # Stopped by the user; the error is just the abort unwinding.
+                return True
             row.status = GenerationStatus.FAILED
             row.finished_at = utc_now()
             row.error_code = getattr(exc, "code", type(exc).__name__)
@@ -95,6 +103,58 @@ async def run_once() -> bool:
             )
             await session.commit()
     return True
+
+
+async def _run_job(generation_id: uuid.UUID) -> None:
+    async with SessionLocal() as session:
+        generation = await session.get(Generation, generation_id)
+        await _process(session, generation)
+        await session.commit()
+
+
+async def _watch_for_stop(generation_id: uuid.UUID) -> None:
+    while True:
+        await asyncio.sleep(STOP_POLL_SECONDS)
+        try:
+            if await is_cancelled(generation_id):
+                return
+        except Exception:
+            # A database blip must not end the watch, or Stop stops working.
+            log.exception("stop check for %s failed", generation_id)
+
+
+async def _run_until_stopped(generation_id: uuid.UUID) -> None:
+    """Run a job, abandoning it the moment the user stops it.
+
+    Cancelling the task cuts the in-flight model request, so a stopped run
+    stops costing money rather than finishing in the background and being
+    thrown away.
+    """
+    job = asyncio.create_task(_run_job(generation_id))
+    watcher = asyncio.create_task(_watch_for_stop(generation_id))
+    try:
+        await asyncio.wait({job, watcher}, return_when=asyncio.FIRST_COMPLETED)
+        if job.done():
+            job.result()
+        else:
+            log.info("generation %s stopped by the user", generation_id)
+    finally:
+        for task in (job, watcher):
+            task.cancel()
+        await asyncio.gather(job, watcher, return_exceptions=True)
+
+
+async def _was_stopped(session, generation: Generation) -> bool:
+    """Whether the user stopped the job, checked under a lock on its row.
+
+    The lock is held until the worker commits, so a Stop arriving after this
+    check waits and then finds the job finished (and is refused), instead of
+    marking a saved result cancelled.
+    """
+    status = await session.scalar(
+        select(Generation.status).where(Generation.id == generation.id).with_for_update()
+    )
+    return status is GenerationStatus.CANCELLED
 
 
 async def _process(session, generation: Generation) -> None:
@@ -126,9 +186,17 @@ async def _process(session, generation: Generation) -> None:
         strict_dossier=bool(settings and settings.strict_dossier),
         research_dossiers=bool(settings and settings.research_dossiers),
         today=app_today(settings.display_timezone if settings else "America/New_York"),
+        imported=generation.kind is GenerationKind.RESUME_IMPORT,
     )
 
-    pipeline = ResumePipeline(provider, research_dossiers=spec.research_dossiers)
+    pipeline = ResumePipeline(
+        provider,
+        research_dossiers=spec.research_dossiers,
+        system_prompt={
+            GenerationKind.RESUME_IMPORT: IMPORT_SYSTEM,
+            GenerationKind.RESUME_PREP: PREP_SYSTEM,
+        }.get(generation.kind),
+    )
     # Lets a long turn report progress while it is still running.
     pipeline.on_event = lambda event: emit_now(generation.id, event.type, event.data)
     # Set when the job rewrites an existing row, so a user edit saved while it
@@ -139,10 +207,15 @@ async def _process(session, generation: Generation) -> None:
         stream = pipeline.generate(spec)
     elif generation.kind is GenerationKind.TAILOR_JOB:
         base = await session.get(BaseResume, uuid.UUID(payload["base_resume_id"]))
+        # Tailoring a job's resume rewrites that resume, of either kind.
+        in_place = payload.get("tailored_resume_id") or payload.get("base_in_place")
         if payload.get("tailored_resume_id"):
             target = await session.get(
                 TailoredResume, uuid.UUID(payload["tailored_resume_id"])
             )
+        elif payload.get("base_in_place"):
+            target = base
+        if in_place:
             if target is None or target.user_id != generation.user_id:
                 raise LLMError("RESUME_NOT_FOUND", "The resume to upgrade no longer exists.")
             repaired_from = target.content_markdown
@@ -158,7 +231,8 @@ async def _process(session, generation: Generation) -> None:
         else:
             ledger = (target.ledger if target else None) or (base.ledger if base else None)
             stream = pipeline.tailor(
-                base_resume_md=payload["base_resume_md"],
+                # The resume as it is now, not as it was when the run was queued.
+                base_resume_md=repaired_from or payload["base_resume_md"],
                 job_description=payload.get("job_description", ""),
                 company=payload.get("company_name"),
                 spec=spec,
@@ -169,6 +243,24 @@ async def _process(session, generation: Generation) -> None:
             base_resume_md=payload["base_resume_md"],
             instructions=payload.get("instructions", ""),
             spec=spec,
+        )
+    elif generation.kind is GenerationKind.RESUME_IMPORT:
+        stream = pipeline.import_document(
+            source_text=payload["source_text"],
+            filename=payload.get("filename") or "resume",
+            spec=spec,
+        )
+    elif generation.kind is GenerationKind.RESUME_PREP:
+        row = await _prep_target(session, generation, payload)
+        spec.target_title = (
+            row.job_title if isinstance(row, TailoredResume) else row.target_title
+        ) or ""
+        spec.job_description = row.job_description_text
+        stream = pipeline.prepare(
+            resume_md=row.content_markdown,
+            spec=spec,
+            origin=_origin(row),
+            ledger=_stored_ledger(row.ledger),
         )
     elif generation.kind is GenerationKind.RESUME_REPAIR:
         target = await session.get(BaseResume, uuid.UUID(payload["base_resume_id"]))
@@ -209,6 +301,9 @@ async def _process(session, generation: Generation) -> None:
                 "not saved. Run it again on the saved version.",
             )
     await record_calls(session, generation, result.calls)
+    if await _was_stopped(session, generation):
+        # Spent, so recorded - but never saved, linked, or announced.
+        return
     await _persist(session, generation, payload, result)
 
     generation.status = (
@@ -234,9 +329,18 @@ async def _persist(session, generation: Generation, payload: dict, result) -> No
 
     Job-based tailoring becomes a tailored_resume; instruction-based editing
     saves back to base_resumes. That routing is a product requirement, not an
-    implementation detail.
+    implementation detail. Tailoring a job's own resume rewrites that resume,
+    whichever table it is in.
     """
     status = ResumeStatus.NEEDS_REVIEW if result.needs_review else ResumeStatus.FINAL
+
+    if generation.kind is GenerationKind.RESUME_PREP:
+        # Only the prep changes; the resume, its rules and its report stay.
+        row = await _prep_target(session, generation, payload)
+        row.flags = result.flags
+        generation.result_kind = f"{payload['resume_kind']}_resume"
+        generation.result_id = row.id
+        return
 
     if generation.kind is GenerationKind.RESUME_REPAIR:
         # An upgrade fixes the resume the user is looking at, not a copy. The
@@ -257,17 +361,41 @@ async def _persist(session, generation: Generation, payload: dict, result) -> No
         "content_markdown": result.content_markdown,
         "content_text": result.content_text,
         "markdown_version": CURRENT_MARKDOWN_VERSION,
-        "ledger": result.ledger.model_dump() if result.ledger else None,
+        "ledger": result.ledger_record(),
         "ats_report": result.report or None,
-        "flags": result.flags.model_dump() if result.flags else None,
+        "flags": result.flags,
         "validation": {"findings": [f.as_dict() for f in result.findings]},
-        "generation_meta": {"mode": payload.get("mode"), **result.usage},
+        "generation_meta": {
+            "mode": payload.get("mode"),
+            **result.usage,
+            **(
+                {"source_file": payload.get("filename"), "source_kind": payload.get("source_kind")}
+                if generation.kind is GenerationKind.RESUME_IMPORT
+                else {}
+            ),
+        },
     }
 
-    if generation.kind is GenerationKind.TAILOR_JOB:
+    if generation.kind is GenerationKind.TAILOR_JOB and payload.get("base_in_place"):
+        # The base resume linked to a job, rewritten for it rather than copied.
+        # It keeps its name and title; its report now describes this job.
+        row = await session.get(BaseResume, uuid.UUID(payload["base_resume_id"]))
+        for key, value in common.items():
+            # What the generation that made it recorded stays.
+            if key == "generation_meta" or (
+                key in ("ledger", "flags", "ats_report") and value is None
+            ):
+                continue
+            setattr(row, key, value)
+        row.job_description_text = payload.get("job_description") or row.job_description_text
+        row.status = status
+        generation.result_kind = "base_resume"
+    elif generation.kind is GenerationKind.TAILOR_JOB:
         jd_hash = job_description_hash(payload.get("job_description", ""))
         if payload.get("tailored_resume_id"):
             row = await session.get(TailoredResume, uuid.UUID(payload["tailored_resume_id"]))
+            if row.job_description_hash != jd_hash:
+                await _retarget(session, row, payload, jd_hash)
         else:
             # A unique index allows one non-draft row per (base, posting). A
             # re-run - forced, or a full upgrade - replaces that row rather than
@@ -310,12 +438,13 @@ async def _persist(session, generation: Generation, payload: dict, result) -> No
             GenerationKind.RESUME_STORY: ResumeSource.GENERATED_STORY,
             GenerationKind.RESUME_JOB: ResumeSource.GENERATED_JOB,
             GenerationKind.TAILOR_INSTRUCTION: ResumeSource.TAILORED_INSTRUCTION,
+            GenerationKind.RESUME_IMPORT: ResumeSource.UPLOAD,
         }[generation.kind]
         row = BaseResume(
             display_name=await _free_display_name(
                 session,
                 generation.user_id,
-                payload.get("display_name") or _auto_name(result, payload),
+                payload.get("display_name") or _auto_name(generation, result, payload),
             ),
             target_title=payload.get("target_title") or result.resume.header.title,
             stack_label=payload.get("stack_label"),
@@ -328,56 +457,74 @@ async def _persist(session, generation: Generation, payload: dict, result) -> No
             **common,
         )
         generation.result_kind = "base_resume"
+        if generation.kind is GenerationKind.RESUME_IMPORT:
+            # The uploaded text has done its job; the resume is the record.
+            generation.input = {k: v for k, v in payload.items() if k != "source_text"}
 
     session.add(row)
     await session.flush()
     generation.result_id = row.id
 
-    if generation.kind is GenerationKind.TAILOR_JOB:
-        # Every posting the side panel started this run from - two tabs can be
-        # the same job - now uses its result, even if the panel was closed.
-        await session.execute(
-            update(JobLink)
-            .where(
-                JobLink.generation_id == generation.id,
-                JobLink.user_id == generation.user_id,
-            )
-            .values(resume_kind="tailored", tailored_resume_id=row.id)
+    # Every posting the side panel started this run from - two tabs can be the
+    # same job - now uses its result, even if the panel was closed. So does an
+    # application tracking that posting.
+    postings = await session.scalars(
+        select(JobLink).where(
+            JobLink.generation_id == generation.id,
+            JobLink.user_id == generation.user_id,
         )
+    )
+    for link in postings:
+        if isinstance(row, TailoredResume):
+            link.resume_kind = "tailored"
+            link.tailored_resume_id = row.id
+        else:
+            link.resume_kind = "base"
+            link.base_resume_id = row.id
+        await link_posting_applications(session, link)
 
     if generation.kind is GenerationKind.TAILOR_JOB and payload.get("application_id"):
         # Tailored from a tracked application: link it there, on both sides.
         application = await session.get(JobApplication, uuid.UUID(payload["application_id"]))
         if application is not None and application.user_id == generation.user_id:
-            await link_resume(session, application, row.id)
+            await link_resume(session, application, tailored_id=row.id)
+            await link_application_posting(session, application)
 
 
-async def _free_display_name(session, user_id, wanted: str) -> str:
-    """Find a name no existing resume is using.
-
-    Display names are unique per user, and regenerating for the same target
-    title produces the same auto-generated name every time. Without this, a
-    re-run fails on the unique index at the very last step - after the whole
-    generation has been paid for.
-    """
-    taken = set(
-        await session.scalars(
-            select(func.lower(BaseResume.display_name)).where(
-                BaseResume.user_id == user_id, BaseResume.is_archived.is_(False)
-            )
+async def _retarget(session, row: TailoredResume, payload: dict, jd_hash: bytes) -> None:
+    """A tailored resume tailored to a different job now describes that job."""
+    clash = await session.scalar(
+        select(TailoredResume).where(
+            TailoredResume.base_resume_id == row.base_resume_id,
+            TailoredResume.job_description_hash == jd_hash,
+            TailoredResume.status != ResumeStatus.DRAFT,
+            TailoredResume.id != row.id,
         )
     )
-    if wanted.lower() not in taken:
-        return wanted
-    for suffix in range(2, 100):
-        candidate = f"{wanted} ({suffix})"
-        if candidate.lower() not in taken:
-            return candidate
-    return f"{wanted} ({utc_now():%Y-%m-%d %H:%M:%S})"
+    if clash is not None:
+        raise LLMError(
+            "ALREADY_TAILORED",
+            f"“{clash.display_name}” is already tailored from the same base resume for "
+            "this job, so the upgrade was not saved. Link that one instead.",
+        )
+    row.job_description_text = payload.get("job_description", "")
+    row.job_description_hash = jd_hash
+    # The flags' gaps were the old job's.
+    row.flags = None
+    for key, value in (
+        ("company_name", payload.get("company_name")),
+        ("job_title", payload.get("target_title")),
+        ("job_url", payload.get("job_url")),
+    ):
+        if value:
+            setattr(row, key, value)
 
 
-def _auto_name(result, payload: dict) -> str:
+def _auto_name(generation: Generation, result, payload: dict) -> str:
     """Display name carries the stack, per the product requirement."""
+    if generation.kind is GenerationKind.RESUME_IMPORT:
+        header = result.resume.header
+        return f"{header.name} — {header.title}"
     title = payload.get("target_title") or result.resume.header.title
     tags = _stack_tags(result)[:2]
     return f"{title} — {'/'.join(tags)}" if tags else title
@@ -390,14 +537,29 @@ def _stack_tags(result) -> list[str]:
     return tags[:8]
 
 
-def _stored_ledger(raw: dict | None) -> ScenarioLedger | None:
-    """A saved ledger, or None when the resume never had a valid one."""
-    if not raw:
-        return None
-    try:
-        return ScenarioLedger.model_validate(raw)
-    except ValidationError:
-        return None
+async def _prep_target(
+    session, generation: Generation, payload: dict
+) -> BaseResume | TailoredResume:
+    model = TailoredResume if payload.get("resume_kind") == "tailored" else BaseResume
+    row = await session.get(model, uuid.UUID(payload["resume_id"]))
+    if row is None or row.user_id != generation.user_id:
+        raise LLMError("RESUME_NOT_FOUND", "The resume no longer exists.")
+    return row
+
+
+def _origin(row: BaseResume | TailoredResume) -> str:
+    if isinstance(row, TailoredResume):
+        return "tailored for the job description below from the candidate's base resume"
+    if row.source is ResumeSource.UPLOAD:
+        return "the candidate's own resume, uploaded by them"
+    if row.mode == "constructed":
+        return "generated as a constructed scenario; the ledger records how"
+    return "generated from the candidate's own career history"
+
+
+def _stored_ledger(raw: dict | None) -> dict | None:
+    """A saved ledger in the scenario's shape, or None when the resume has none."""
+    return shape(SCENARIO_LEDGER, raw) if raw else None
 
 
 async def worker_loop(stop: asyncio.Event) -> None:

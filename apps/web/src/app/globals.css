@@ -2,6 +2,16 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* Alternative palettes, each selected by data-theme on <html>; see lib/palettes.ts. */
+@import "../styles/palettes/prussian.css";
+@import "../styles/palettes/blush.css";
+@import "../styles/palettes/orchid.css";
+@import "../styles/palettes/wisteria.css";
+@import "../styles/palettes/sky.css";
+@import "../styles/palettes/mint.css";
+@import "../styles/palettes/linen.css";
+@import "../styles/palettes/twitter.css";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -10,7 +20,7 @@
   --font-mono: var(--font-mono);
 
   /* One step above text-4xl, for the two pages that lead with a statement. */
-  --text-display: 2.75rem;
+  --text-display: 1.857rem;
   --text-display--line-height: 1.1;
   --text-display--letter-spacing: -0.02em;
 
@@ -64,7 +74,7 @@
 
   --shadow-card: var(--shadow-card);
 
-  /* 18px as "large": 9 / 12 / 18 / 24 / 30 / 36 / 42px up the scale. */
+  /* 8px as "large": 4 / 5.3 / 8 / 10.7 / 13 / 16 / 18.7px up the scale (rem at a 14px root). */
   --radius-sm: calc(var(--radius) * 0.5);
   --radius-md: calc(var(--radius) * 0.667);
   --radius-lg: var(--radius);
@@ -75,7 +85,8 @@
 }
 
 /*
- * One palette, two accents. Warm stone canvas, white cards, a soft charcoal
+ * The default palette ("Ember"), which needs no data-theme: one palette, two
+ * accents. Warm stone canvas, white cards, a soft charcoal
  * "ink" for pills and focus panels, and one vivid accent per portal: Remote is
  * ember orange (the logo's colour), Freelancing is teal, its complement.
  * Remote lives on bare :root and .dark; Freelancing layers on through
@@ -87,7 +98,7 @@
  */
 
 :root {
-  --radius: 1.125rem;
+  --radius: 0.5rem;
 
   /* Semantic hues: shared by both portals. */
   --destructive: #e5484d;
@@ -95,7 +106,7 @@
   --warning: #e8a21a;
   --info: #3b82f6;
 
-  --background: #edeae5;
+  --background: #f5f3ef;
   --foreground: #1f1d1b;
   --card: #ffffff;
   --card-foreground: #1f1d1b;
@@ -107,7 +118,7 @@
   --primary-foreground: #ffffff;
   --secondary: #ffffff;
   --secondary-foreground: #1f1d1b;
-  --muted: #f3f1ed;
+  --muted: #f1eee9;
   --muted-foreground: #6f6a63;
   /* Third text rank, below muted: timestamps, counters, units. */
   --subtle: #aaa49b;
@@ -115,8 +126,8 @@
   --accent: #ffe8de;
   --accent-foreground: #9a3510;
 
-  --border: #e8e4dd;
-  --input: #f1eeea;
+  --border: #e2ded7;
+  --input: #e2ded7;
   --ring: #ff6f3c;
 
   /* Ember: vivid fills that carry dark text. */
@@ -125,7 +136,7 @@
   --brand-soft: #ffe8de;
   --brand-ink: #9a3510;
 
-  --soft: #f6f4f0;
+  --soft: #f8f6f3;
   --soft-2: #ebe7e1;
 
   /* Focus panels: charcoal with raised steps inside. */
@@ -149,7 +160,9 @@
   --sidebar-border: #e8e4dd;
   --sidebar-ring: #ff6f3c;
 
-  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.8) inset, 0 14px 40px -18px rgb(40 25 10 / 0.16);
+  /* The tint of every soft shadow, as bare channels so a palette can retint them. */
+  --shadow-ink: 40 25 10;
+  --shadow-card: 0 0 0 1px var(--border);
 
   /* Brand gradient stops, kept for the few places that still draw one. */
   --gradient-brand: #ffa27d, #ff6f3c, #e8452b;
@@ -212,7 +225,7 @@
   --sidebar-border: #35302b;
   --sidebar-ring: #ff7f50;
 
-  --shadow-card: 0 14px 40px -18px rgb(0 0 0 / 0.5);
+  --shadow-card: 0 0 0 1px var(--border);
 
   --gradient-brand-strong: #ff9a72, #ff7f50, #f2603b;
   --gradient-brand-text: #ffa27d, #ff7f50, #f2777b;
@@ -338,6 +351,17 @@
   }
   html {
     @apply font-sans;
+    /* Every rem in the app (spacing, type, radii) scales off this: the whole
+       interface is one step denser than the browser default. */
+    font-size: 14px;
+  }
+  body {
+    font-size: 13px;
+    line-height: 1.45;
+    font-feature-settings: "cv11", "ss03";
+  }
+  table {
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -360,17 +384,15 @@
 }
 
 @utility page-enter {
-  animation: page-enter 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: page-enter 120ms ease-out both;
 }
 
 @keyframes page-enter {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 
@@ -390,73 +412,19 @@
 /* ───────── PhoeniX surface language ───────── */
 
 @layer components {
-/* Page titles: uppercase, light, with an accent disc behind the first letter. */
+/* Page titles: one plain line. */
 .page-title {
-  font-size: 2.875rem;
-  line-height: 1;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  text-transform: uppercase;
+  font-size: 1.286rem;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   white-space: nowrap;
 }
 .page-title-sm {
-  font-size: 2.125rem;
+  font-size: 1.286rem;
 }
 }
 
-.title-o {
-  position: relative;
-  display: inline-block;
-}
-.title-o::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 0.42em;
-  height: 0.42em;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: var(--brand);
-  z-index: -1;
-}
-
-/*
- * The corner notch: a cut-out in a card's top-right that holds its arrow
- * button. --notch is the colour of whatever the card sits on, so the cut reads
- * as empty space; set it on the card (style={{ "--notch": ... }}) when the card
- * is not directly on the page canvas.
- */
-.notch {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 2;
-  display: grid;
-  width: 70px;
-  height: 70px;
-  place-items: center;
-  padding: 0 0 6px 6px;
-  background: var(--notch, var(--background));
-  border-bottom-left-radius: 30px;
-}
-.notch::before,
-.notch::after {
-  content: "";
-  position: absolute;
-  width: 30px;
-  height: 30px;
-  background: radial-gradient(circle at 0 100%, transparent 29.5px, var(--notch, var(--background)) 30px);
-  pointer-events: none;
-}
-.notch::before {
-  top: 0;
-  left: -30px;
-}
-.notch::after {
-  top: 100%;
-  right: 0;
-}
 
 /* Hide scrollbars on the rail and chip rows without disabling scroll. */
 .no-scrollbar {
@@ -489,60 +457,4 @@
 .scroll-soft::-webkit-scrollbar-thumb:hover {
   background: color-mix(in oklab, var(--foreground) 38%, transparent);
   background-clip: content-box;
-}
-
-/*
- * The fan flip: a cell folds open from its left edge, like a blade of a folding
- * fan being turned. --fan-i is the cell's column and --fan-r its row, so a row
- * opens left to right and the rows follow one another.
- */
-@keyframes fan-flip {
-  from {
-    opacity: 0;
-    transform: perspective(560px) rotateY(-82deg);
-  }
-  60% {
-    opacity: 1;
-  }
-  to {
-    opacity: 1;
-    transform: perspective(560px) rotateY(0deg);
-  }
-}
-.fan-flip {
-  transform-origin: left center;
-  animation: fan-flip 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  animation-delay: calc(var(--fan-i, 0) * 65ms + var(--fan-r, 0) * 40ms);
-}
-@media (prefers-reduced-motion: reduce) {
-  .fan-flip {
-    animation: none;
-  }
-}
-
-/*
- * Pleated folds, for the fan of interview steps. Alternating shading and a
- * hairline crease on each side read as the folds of a paper fan; the colour
- * under it says what state the step is in.
- */
-.pleat {
-  background-image: linear-gradient(
-    90deg,
-    rgb(0 0 0 / 0.045) 0%,
-    rgb(255 255 255 / 0.2) 36%,
-    rgb(0 0 0 / 0.012) 66%,
-    rgb(0 0 0 / 0.05) 100%
-  );
-  box-shadow:
-    inset 1px 0 0 rgb(255 255 255 / 0.5),
-    inset -1px 0 0 rgb(0 0 0 / 0.035);
-}
-.pleat-alt {
-  background-image: linear-gradient(
-    270deg,
-    rgb(0 0 0 / 0.045) 0%,
-    rgb(255 255 255 / 0.2) 36%,
-    rgb(0 0 0 / 0.012) 66%,
-    rgb(0 0 0 / 0.05) 100%
-  );
 }

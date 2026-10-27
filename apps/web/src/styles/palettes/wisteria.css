@@ -1,0 +1,215 @@
+/*
+ * Wisteria: porcelain on deep indigo, with plum and sky blue
+ *
+ * Source colours:
+ * Plum #f7aef8, Bright Lavender #b388eb, Wisteria Blue #8093f1, Sky Blue
+ * #72ddf7, Porcelain #f4f4ed.
+ * The text, ink and dark-mode surfaces are derived from them so every text
+ * pair clears WCAG AA.
+ * Remote's accent is Plum; Freelancing's is Sky Blue.
+ *
+ * Selected by data-theme="wisteria" on <html> (see lib/palettes.ts). How the
+ * four blocks outrank the defaults, and why the portal blocks must set every
+ * accent token, is explained in prussian.css.
+ */
+
+:root[data-theme="wisteria"] {
+  --shadow-ink: 28 30 61;
+  --background: #f4f4ed;
+  --foreground: #1c1e3d;
+  --card: #ffffff;
+  --card-foreground: #1c1e3d;
+  --popover: #ffffff;
+  --popover-foreground: #1c1e3d;
+  --primary: #3a428a;
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff;
+  --secondary-foreground: #1c1e3d;
+  --muted: #fafaf7;
+  --muted-foreground: #6b6d81;
+  --subtle: #999aa8;
+  --accent: #fbdbfc;
+  --accent-foreground: #785a8b;
+  --border: #e1e1dd;
+  --input: #fafaf6;
+  --ring: #c78ecf;
+
+  --brand: #f7aef8;
+  --brand-foreground: #1c1e3d;
+  --brand-soft: #fbdbfc;
+  --brand-ink: #785a8b;
+
+  --soft: #fbfbf8;
+  --soft-2: #e5e5e1;
+
+  --panel: #3a428a;
+  --panel-foreground: #ffffff;
+  --panel-raised: #4e5596;
+  --panel-muted: #d0d1e3;
+
+  --chart-1: #f7aef8;
+  --chart-2: #3a428a;
+  --chart-3: #72ddf7;
+  --chart-4: #17a05e;
+  --chart-5: #e8a21a;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1c1e3d;
+  --sidebar-primary: #3a428a;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #fbdbfc;
+  --sidebar-accent-foreground: #785a8b;
+  --sidebar-border: #e1e1dd;
+  --sidebar-ring: #c78ecf;
+
+  --gradient-brand: #fbd6fc, #f7aef8, #cb91d3;
+  --gradient-brand-strong: #f9c6fa, #f7aef8, #d89ade;
+  --gradient-brand-text: #946da4, #785a8c, #5e4975;
+
+  --event-1: #f7aef8;
+  --event-1-foreground: #1c1e3d;
+  --event-1-ink: #785a8b;
+  --event-2: #e7e0ff;
+  --event-2-foreground: #3b2790;
+  --event-2-ink: #5a3fc4;
+  --event-3: #d4f2e3;
+  --event-3-foreground: #0b5f37;
+  --event-3-ink: #0c7a43;
+  --event-4: #dedfdb;
+  --event-4-foreground: #1c1e3d;
+  --event-4-ink: #55566e;
+  --event-5: #dfeaff;
+  --event-5-foreground: #1d4fb3;
+  --event-5-ink: #1d4fb3;
+  --event-6: #fbefcf;
+  --event-6-foreground: #6f4700;
+  --event-6-ink: #8a5a00;
+}
+
+:root[data-theme="wisteria"].dark {
+  --background: #0f1124;
+  --foreground: #f8f8f3;
+  --card: #171a37;
+  --card-foreground: #f8f8f3;
+  --popover: #171a37;
+  --popover-foreground: #f8f8f3;
+  --primary: #f4f4ed;
+  --primary-foreground: #0f1124;
+  --secondary: #1e2248;
+  --secondary-foreground: #f8f8f3;
+  --muted: #1e2248;
+  --muted-foreground: #9fa0a4;
+  --subtle: #71727b;
+  --accent: #473757;
+  --accent-foreground: #f9c6fa;
+  --border: #222650;
+  --input: #1e2248;
+  --ring: #f7aef8;
+
+  --brand: #f7aef8;
+  --brand-foreground: #0f1124;
+  --brand-soft: #473757;
+  --brand-ink: #f9c6fa;
+
+  --soft: #1c2042;
+  --soft-2: #262c5b;
+
+  --panel: #2a3063;
+  --panel-foreground: #f8f8f3;
+  --panel-raised: #464d91;
+  --panel-muted: #c4c7d4;
+
+  --chart-1: #f7aef8;
+  --chart-2: #72ddf7;
+  --chart-3: #9ca0c4;
+  --chart-4: #3ac787;
+  --chart-5: #f2b94b;
+
+  --sidebar: #171a37;
+  --sidebar-foreground: #f8f8f3;
+  --sidebar-primary: #f4f4ed;
+  --sidebar-primary-foreground: #0f1124;
+  --sidebar-accent: #473757;
+  --sidebar-accent-foreground: #f9c6fa;
+  --sidebar-border: #222650;
+  --sidebar-ring: #f7aef8;
+
+  --gradient-brand-strong: #f9c6fa, #f7aef8, #d496d5;
+  --gradient-brand-text: #facefb, #f7aef8, #d496d5;
+
+  --event-1: #83608e;
+  --event-1-foreground: #fdebfd;
+  --event-1-ink: #f9c6fa;
+  --event-2: #443a73;
+  --event-2-foreground: #e4dcff;
+  --event-2-ink: #c4b5fd;
+  --event-3: #1f4a38;
+  --event-3-foreground: #c9f1dc;
+  --event-3-ink: #6ee7b7;
+  --event-4: #2c3268;
+  --event-4-foreground: #f8f8f3;
+  --event-4-ink: #b2b3b5;
+  --event-5: #22407a;
+  --event-5-foreground: #d3e2ff;
+  --event-5-ink: #93c5fd;
+  --event-6: #5a4515;
+  --event-6-foreground: #fbe8b4;
+  --event-6-ink: #fcd34d;
+}
+
+:is(:root[data-theme="wisteria"][data-portal="freelancing"], :root[data-theme="wisteria"] [data-portal="freelancing"]) {
+  --ring: #5fb3ce;
+  --accent: #c0f0fb;
+  --accent-foreground: #3f6d89;
+
+  --brand: #72ddf7;
+  --brand-foreground: #1c1e3d;
+  --brand-soft: #c0f0fb;
+  --brand-ink: #3f6d89;
+
+  --chart-1: #72ddf7;
+  --chart-2: #3a428a;
+  --chart-3: #f7aef8;
+  --chart-4: #17a05e;
+  --chart-5: #e8a21a;
+
+  --sidebar-accent: #c0f0fb;
+  --sidebar-accent-foreground: #3f6d89;
+  --sidebar-ring: #5fb3ce;
+
+  --gradient-brand: #b8eefb, #72ddf7, #61b7d2;
+  --gradient-brand-strong: #9ce7f9, #72ddf7, #66c2dd;
+  --gradient-brand-text: #4b87a3, #406e8b, #365775;
+
+  --event-1: #72ddf7;
+  --event-1-foreground: #1c1e3d;
+  --event-1-ink: #3f6d89;
+}
+
+:is(:root[data-theme="wisteria"].dark[data-portal="freelancing"], :root[data-theme="wisteria"].dark [data-portal="freelancing"]) {
+  --ring: #72ddf7;
+  --accent: #274257;
+  --accent-foreground: #9ce7f9;
+
+  --brand: #72ddf7;
+  --brand-foreground: #0f1124;
+  --brand-soft: #274257;
+  --brand-ink: #9ce7f9;
+
+  --chart-1: #72ddf7;
+  --chart-2: #f7aef8;
+  --chart-3: #9ca0c4;
+  --chart-4: #3ac787;
+  --chart-5: #f2b94b;
+
+  --sidebar-accent: #274257;
+  --sidebar-accent-foreground: #9ce7f9;
+  --sidebar-ring: #72ddf7;
+
+  --gradient-brand-strong: #9ce7f9, #72ddf7, #62bed4;
+  --gradient-brand-text: #aaebfa, #72ddf7, #62bed4;
+
+  --event-1: #40778e;
+  --event-1-foreground: #dcf6fd;
+  --event-1-ink: #9ce7f9;
+}

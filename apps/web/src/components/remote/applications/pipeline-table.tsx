@@ -1,30 +1,39 @@
 "use client";
 
-import { ExternalLink } from "lucide-react";
+import { formatDistanceToNowStrict } from "date-fns";
+import { ExternalLink, MoreHorizontal, PanelRightOpen } from "lucide-react";
 import { useMemo } from "react";
 
 import { StageMenu } from "@/components/remote/applications/stage-menu";
-import { StatusSelect } from "@/components/remote/applications/status-select";
 import { CompanyMark, StepMark } from "@/components/remote/applications/step-mark";
+import { Panel } from "@/components/panel";
+import { StatusSelect } from "@/components/remote/applications/status-select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { Meeting } from "@/lib/calendar";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   CLOSED_STATUSES,
   stageColumns,
+  stageMeeting,
   stageStatus,
   type ApplicationRow,
   type Stage,
 } from "./shared";
-
-/** Rows past their end sit back; the open one fills with the accent. */
-function rowSurface(row: ApplicationRow, active: boolean) {
-  if (active) return "bg-brand text-brand-foreground";
-  if (CLOSED_STATUSES.has(row.status)) {
-    return "bg-[color-mix(in_oklab,var(--card)_60%,var(--background))]";
-  }
-  return "bg-card";
-}
 
 /** Steps that have not happened (and never will, or not yet) are not where an application stands. */
 const NOT_REACHED = new Set(["pending", "skipped", "cancelled"]);
@@ -43,17 +52,42 @@ function currentStageName(row: ApplicationRow, columns: string[]): string | unde
   return current ?? columns.find((name) => row.stages.some((stage) => stage.name === name));
 }
 
+/** "Today", "Tomorrow" or "Oct 12" in the display zone, with the time for a booked call. */
+function stepDay(iso: string, withTime: boolean) {
+  const day = formatDay(iso);
+  const label =
+    day === formatDay(new Date().toISOString())
+      ? "Today"
+      : day === formatDay(new Date(Date.now() + 86_400_000).toISOString())
+        ? "Tomorrow"
+        : formatDateTime(iso, "MMM d");
+  return withTime ? `${label}, ${formatDateTime(iso, "HH:mm")}` : label;
+}
+
 /**
- * The tracking table: one row per application, one column per interview step.
+ * The date a step talks about: when it was decided, else its call, else (for
+ * the first step) when you applied. A step still ahead only shows a call that
+ * is booked.
+ */
+function stepWhen(stage: Stage, row: ApplicationRow): string | null {
+  const booked = stage.meetings.find((meeting) => meeting.status === "scheduled");
+  if (NOT_REACHED.has(stage.status)) return booked ? stepDay(booked.starts_at, true) : null;
+  if (stage.decided_at) return stepDay(stage.decided_at, false);
+  if (booked) return stepDay(booked.starts_at, true);
+  const iso =
+    stageMeeting(stage)?.starts_at ??
+    stage.scheduled_for ??
+    (stage.kind === "applied" ? row.applied_at : null);
+  return iso ? stepDay(iso, stage.status === "scheduled") : null;
+}
+
+/**
+ * The tracking table: one row per application, the interview steps as a run of
+ * small marks in pipeline order (hover for the step, its status and date).
  *
- * A cell is that step's status. Clicking it opens the step's menu — schedule,
- * edit the booked call, or set the status — and clicking anywhere else on the
- * row opens the application.
- *
- * Each row's current step is drawn a little wider than the rest, a blade of
- * the fan standing proud of its neighbours. It borrows the spare padding of
- * the cells either side rather than widening its column, so the headers stay
- * where they are. When the rows change, the cells flip open left to right.
+ * Clicking a mark opens its menu - schedule, edit the booked call, or set the
+ * status - the "..." button holds the application's own actions, and clicking
+ * anywhere else on the row opens the application.
  */
 export function PipelineTable({
   rows,
@@ -67,7 +101,7 @@ export function PipelineTable({
 }: {
   rows: ApplicationRow[];
   pending: boolean;
-  /** The application open in the sheet, drawn in the accent. */
+  /** The application open in the sheet, outlined in the accent. */
   activeId?: string | null;
   onOpen: (row: ApplicationRow) => void;
   onStatus: (row: ApplicationRow, status: string) => void;
@@ -78,293 +112,179 @@ export function PipelineTable({
   const columns = useMemo(() => stageColumns(rows), [rows]);
 
   return (
-    <div className="space-y-4">
-      <div className="-mx-1 overflow-x-auto px-1 pb-1">
-        <table className="w-full border-separate border-spacing-x-0 border-spacing-y-2">
-          <thead>
-            <tr className="text-subtle text-[0.6875rem] font-bold tracking-[0.06em] uppercase">
-              <th scope="col" className="min-w-56 px-5 pb-1 text-left font-bold">
-                Application
-              </th>
-              <th scope="col" className="min-w-36 px-2 pb-1 text-left font-bold">
-                Status
-              </th>
-              {columns.map((name, index) => (
-                <th
-                  key={name}
-                  scope="col"
-                  className="w-[4.25rem] min-w-[4.25rem] px-1 pb-1 align-bottom text-[0.65rem] leading-tight font-semibold tracking-normal normal-case"
-                >
-                  <span className="text-subtle block text-[0.6875rem] font-bold">{index + 1}</span>
-                  <span className="text-muted-foreground block">{name}</span>
-                </th>
-              ))}
-              <th scope="col" className="px-5 pb-1 text-right font-bold">
-                Match
-              </th>
-            </tr>
-          </thead>
-          {/* Re-keyed by the set of rows shown, so the flip replays on load and on a
-              filter or search, but not when one row's status changes. */}
-          <tbody key={rows.map((row) => row.id).join(",")}>
-            {rows.map((row, rowIndex) => {
-              const current = currentStageName(row, columns);
-              const active = row.id === activeId;
-              const surface = rowSurface(row, active);
-              const byName = new Map(row.stages.map((stage) => [stage.name, stage]));
-              return (
-                <tr
-                  key={row.id}
-                  // One shadow for the whole row: a shadow on each cell leaves seams between them.
-                  className={cn(
-                    "cursor-pointer",
-                    !active && !CLOSED_STATUSES.has(row.status) && "drop-shadow-[0_12px_14px_rgb(40_25_10/0.07)]",
+    <Panel>
+      <Table aria-label="Applications by interview step">
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-[34%]">Application</TableHead>
+            <TableHead className="w-32">Status</TableHead>
+            <TableHead className="w-44">Steps</TableHead>
+            <TableHead>Current step</TableHead>
+            <TableHead className="w-28">Applied</TableHead>
+            <TableHead className="w-14 text-right">Match</TableHead>
+            <TableHead className="w-10">
+              <span className="sr-only">Actions</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => {
+            const currentName = currentStageName(row, columns);
+            const current = row.stages.find((stage) => stage.name === currentName);
+            const closed = CLOSED_STATUSES.has(row.status);
+            const byName = new Map(row.stages.map((stage) => [stage.name, stage]));
+            return (
+              <TableRow
+                key={row.id}
+                className={cn(
+                  "cursor-pointer",
+                  closed && "text-muted-foreground",
+                  row.id === activeId && "bg-accent/60",
+                )}
+                onClick={() => onOpen(row)}
+              >
+                <TableCell className="w-full max-w-0 min-w-56 py-1">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <CompanyMark name={row.company_name} />
+                    <button
+                      type="button"
+                      className="text-foreground max-w-[16rem] min-w-16 shrink-[2] truncate font-semibold outline-none focus-visible:underline"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onOpen(row);
+                      }}
+                    >
+                      {row.company_name}
+                    </button>
+                    <span className="text-muted-foreground min-w-0 truncate text-xs">
+                      {row.role_title}
+                    </span>
+                  </div>
+                </TableCell>
+
+                <TableCell className="py-1" onClick={(event) => event.stopPropagation()}>
+                  <StatusSelect
+                    value={row.status}
+                    onChange={(status) => onStatus(row, status)}
+                    disabled={pending}
+                    label={`Status for ${row.company_name}`}
+                  />
+                </TableCell>
+
+                <TableCell className="py-1" onClick={(event) => event.stopPropagation()}>
+                  <div className="flex items-center gap-1" role="group" aria-label="Interview steps">
+                    {columns.map((name) => {
+                      const stage = byName.get(name);
+                      if (!stage) {
+                        return (
+                          <span
+                            key={name}
+                            className="grid size-5 place-items-center"
+                            title={`${name}: not part of this application`}
+                          >
+                            <span className="bg-foreground/15 size-1.5 rounded-full" />
+                          </span>
+                        );
+                      }
+                      const { label } = stageStatus(stage.status);
+                      const when = stepWhen(stage, row);
+                      const text = `${stage.name}: ${label}${when ? `, ${when}` : ""}`;
+                      return (
+                        <StageMenu
+                          key={name}
+                          stage={stage}
+                          disabled={pending}
+                          onStatus={(status) => onStageStatus(row, stage, status)}
+                          onSchedule={() => onSchedule(row, stage)}
+                          onEditMeeting={(meeting) => onEditMeeting(row, stage, meeting)}
+                        >
+                          <button
+                            type="button"
+                            title={text}
+                            aria-label={text}
+                            aria-current={name === currentName ? "step" : undefined}
+                            className={cn(
+                              "focus-visible:ring-ring/40 rounded-full outline-none hover:scale-110 focus-visible:ring-2",
+                              name === currentName && "ring-foreground/40 ring-1 ring-offset-1 ring-offset-card",
+                            )}
+                          >
+                            <StepMark status={stage.status} />
+                          </button>
+                        </StageMenu>
+                      );
+                    })}
+                  </div>
+                </TableCell>
+
+                <TableCell className="w-44 max-w-44 py-1 text-xs">
+                  {current && (
+                    <span className="block truncate" title={current.name}>
+                      <span className="text-foreground">{current.name}</span>{" "}
+                      <span className="text-muted-foreground">
+                        {stageStatus(current.status).label.toLowerCase()}
+                      </span>
+                    </span>
                   )}
-                  onClick={() => onOpen(row)}
-                >
-                  <td
-                    className={cn(
-                      "sticky left-0 z-10 h-[7.25rem] rounded-l-3xl py-3 pr-2 pl-5 transition-colors",
-                      surface,
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <CompanyMark name={row.company_name} />
-                      <button
-                        type="button"
-                        className="min-w-0 flex-1 text-left outline-none focus-visible:underline"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onOpen(row);
-                        }}
-                      >
-                        <span className="block max-w-44 truncate text-[0.9375rem] leading-tight font-bold">
-                          {row.company_name}
-                        </span>
-                        <span
-                          className={cn(
-                            "mt-px block max-w-44 truncate text-[0.78rem] font-medium",
-                            active ? "text-brand-foreground/65" : "text-muted-foreground",
-                          )}
-                        >
-                          {row.role_title}
-                        </span>
-                      </button>
-                      {row.job_url && (
-                        <a
-                          href={row.job_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          aria-label={`Open the ${row.company_name} posting`}
-                          className="opacity-50 transition-opacity hover:opacity-100 focus-visible:opacity-100"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <ExternalLink className="size-3.5" />
-                        </a>
-                      )}
-                    </div>
-                  </td>
+                </TableCell>
 
-                  <td className={cn("px-2", surface)} onClick={(event) => event.stopPropagation()}>
-                    <div className="w-32">
-                      <StatusSelect
-                        value={row.status}
-                        disabled={pending}
-                        raised={active}
-                        label={`Status for ${row.company_name}`}
-                        onChange={(status) => onStatus(row, status)}
-                      />
-                    </div>
-                  </td>
-
-                  {columns.map((name, columnIndex) => {
-                    const stage = byName.get(name);
-                    const isCurrent = name === current;
-                    return (
-                      <td
-                        key={name}
-                        className={cn("relative px-0 pb-3 align-bottom text-center", isCurrent && "z-[2]", surface)}
-                        // Menu items render in a portal, but React still bubbles
-                        // their clicks through here; stop them opening the row.
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <div
-                          className={cn(
-                            "fan-flip",
-                            isCurrent && "relative -mx-2 w-[calc(100%+1rem)]",
-                          )}
-                          style={
-                            {
-                              "--fan-i": columnIndex,
-                              "--fan-r": Math.min(rowIndex, 8),
-                            } as React.CSSProperties
-                          }
-                        >
-                          {stage ? (
-                            <StageMenu
-                              stage={stage}
-                              disabled={pending}
-                              onStatus={(status) => onStageStatus(row, stage, status)}
-                              onSchedule={() => onSchedule(row, stage)}
-                              onEditMeeting={(meeting) => onEditMeeting(row, stage, meeting)}
-                            >
-                              <StageCell
-                                stage={stage}
-                                raised={active}
-                                current={isCurrent}
-                                index={columnIndex}
-                                total={columns.length}
-                              />
-                            </StageMenu>
-                          ) : (
-                            <span aria-hidden className="text-subtle block pb-9 text-sm">
-                              —
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    );
+                <TableCell className="text-muted-foreground py-1 text-xs">
+                  {formatDistanceToNowStrict(new Date(row.applied_at ?? row.created_at), {
+                    addSuffix: true,
                   })}
+                  {!row.applied_at && " (saved)"}
+                </TableCell>
 
-                  <td
-                    className={cn(
-                      "rounded-r-3xl pr-5 pl-2 text-right text-[0.84rem] font-bold tabular-nums",
-                      surface,
-                    )}
-                  >
-                    {row.must_have_coverage_percent != null ? (
-                      `${Math.round(row.must_have_coverage_percent)}%`
-                    ) : (
-                      <span className="text-subtle font-medium">—</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                <TableCell className="py-1 text-right font-medium tabular-nums">
+                  {row.must_have_coverage_percent != null
+                    ? `${Math.round(row.must_have_coverage_percent)}%`
+                    : <span className="text-subtle">-</span>}
+                </TableCell>
 
-      <StepLegend count={rows.length} />
-    </div>
+                <TableCell className="py-1 text-right" onClick={(event) => event.stopPropagation()}>
+                  <RowMenu row={row} onOpen={() => onOpen(row)} />
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+      <p className="text-muted-foreground border-t px-3 py-1.5 text-xs tabular-nums">
+        {rows.length} {rows.length === 1 ? "application" : "applications"}
+      </p>
+    </Panel>
   );
 }
 
-/** The colour under a fold, by the step's state, on a white row or on the accent row. */
-function foldTone(status: string, raised: boolean) {
-  switch (status) {
-    case "passed":
-      return raised ? "bg-white/60" : "bg-success/16";
-    case "scheduled":
-      return "bg-panel";
-    case "in_progress":
-      return raised ? "bg-white/60" : "bg-info/16";
-    case "waiting_feedback":
-    case "rescheduled":
-    case "no_show":
-      return raised ? "bg-white/60" : "bg-warning/22";
-    case "failed":
-      return raised ? "bg-white/60" : "bg-destructive/16";
-    case "skipped":
-    case "cancelled":
-      return raised ? "bg-white/15" : "bg-foreground/[0.035]";
-    default:
-      return raised ? "bg-white/28" : "bg-foreground/[0.06]";
-  }
-}
-
-/**
- * One step as a fold of the fan. The folds stand side by side with creased,
- * alternating shading; their tops follow an arc and each leans a little away
- * from the middle, so the row opens like a paper fan. The current step stands
- * taller and wider than its neighbours.
- */
-function StageCell({
-  stage,
-  raised,
-  current = false,
-  index,
-  total,
-  ...props
-}: {
-  stage: Stage;
-  raised: boolean;
-  current?: boolean;
-  index: number;
-  total: number;
-} & React.ComponentProps<"button">) {
-  const { label } = stageStatus(stage.status);
-  const booked =
-    stage.status === "scheduled" ? stage.meetings.find((m) => m.status === "scheduled") : null;
-  const when = booked?.starts_at ?? (stage.status === "scheduled" ? stage.scheduled_for : null);
-  const dark = stage.status === "scheduled";
-
-  // Where this fold sits across the fan, -1 (first) to 1 (last).
-  const across = total > 1 ? (2 * index) / (total - 1) - 1 : 0;
-  const height = Math.round(66 + 22 * (1 - across * across)) + (current ? 8 : 0);
-  // A steady lean per fold, so a long row fans out as far as a short one.
-  const tilt = (index - (total - 1) / 2) * Math.min(1.9, 14 / Math.max(total - 1, 1));
-
+/** Open the application or its posting. */
+function RowMenu({ row, onOpen }: { row: ApplicationRow; onOpen: () => void }) {
   return (
-    <button
-      type="button"
-      aria-label={`${stage.name}: ${label}${when ? `, ${formatDateTime(when, "d MMM, HH:mm")}` : ""}`}
-      aria-current={current ? "step" : undefined}
-      className={cn(
-        "group/fold focus-visible:ring-ring/40 relative flex h-[6.5rem] w-full flex-col items-center justify-end gap-[3px] px-0.5 pb-2.5 text-[0.65rem] leading-tight font-semibold outline-none focus-visible:ring-3",
-        dark
-          ? "text-panel-foreground"
-          : raised
-            ? "text-brand-foreground/75"
-            : "text-muted-foreground",
-        stage.status === "passed" && !raised && "text-foreground/70",
-        (stage.status === "skipped" || stage.status === "cancelled") && "text-subtle",
-        current && !dark && "text-foreground",
-      )}
-      {...props}
-    >
-      <span
-        aria-hidden
-        className={cn(
-          "pleat absolute inset-x-[-1px] bottom-0 origin-bottom rounded-t-[24px] rounded-b-[10px] transition-transform duration-200",
-          index % 2 === 1 && "pleat-alt",
-          foldTone(stage.status, raised),
-          "[transform:rotate(var(--tilt))] group-hover/fold:[transform:translateY(-5px)_rotate(var(--tilt))] group-aria-expanded/fold:[transform:translateY(-5px)_rotate(var(--tilt))]",
-          current && "shadow-[0_10px_20px_-10px_rgb(40_25_10/0.55)]",
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Actions for ${row.company_name}`}
+          className="text-muted-foreground hover:bg-muted hover:text-foreground aria-expanded:bg-muted focus-visible:ring-ring/40 grid size-6 place-items-center rounded outline-none focus-visible:ring-2"
+        >
+          <MoreHorizontal className="size-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem onSelect={onOpen}>
+          <PanelRightOpen />
+          Open application
+        </DropdownMenuItem>
+        {row.job_url && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <a href={row.job_url} target="_blank" rel="noreferrer">
+                <ExternalLink />
+                Open posting
+              </a>
+            </DropdownMenuItem>
+          </>
         )}
-        style={{ height, "--tilt": `${tilt}deg` } as React.CSSProperties}
-      />
-      <span className="relative flex flex-col items-center gap-[3px]">
-        <StepMark status={stage.status} raised={raised} onDark={dark} />
-        <span className="max-w-[4.4rem] text-center leading-[1.15] text-balance">{label}</span>
-        {when && (
-          <span className="text-[0.6rem] font-medium whitespace-nowrap tabular-nums opacity-75">
-            {formatDateTime(when, "d MMM, HH:mm")}
-          </span>
-        )}
-      </span>
-    </button>
-  );
-}
-
-const LEGEND = ["passed", "scheduled", "in_progress", "pending", "failed", "skipped"];
-
-/** The key to the marks, with the number of rows shown. */
-function StepLegend({ count }: { count: number }) {
-  return (
-    <div className="text-muted-foreground flex flex-wrap items-center gap-x-3.5 gap-y-2 px-2 text-[0.8125rem] font-semibold">
-      <span className="text-subtle text-[0.6875rem] font-bold tracking-[0.06em] uppercase">
-        Step status
-      </span>
-      {LEGEND.map((status) => (
-        <span key={status} className="flex items-center gap-1.5">
-          <StepMark status={status} size="sm" />
-          {stageStatus(status).label}
-        </span>
-      ))}
-      <span className="ml-auto tabular-nums">
-        {count} {count === 1 ? "application" : "applications"}
-      </span>
-    </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

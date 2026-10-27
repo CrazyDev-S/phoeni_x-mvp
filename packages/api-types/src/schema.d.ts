@@ -242,6 +242,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/resume-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Resume Profile */
+        get: operations["get_resume_profile_api_v1_settings_resume_profile_get"];
+        /**
+         * Put Resume Profile
+         * @description Replace the profile generating a resume reads as CANDIDATE_PROFILE.
+         *
+         *     The text the generator reads is written here, from the fields, so every
+         *     generation path picks it up without knowing the fields exist.
+         */
+        put: operations["put_resume_profile_api_v1_settings_resume_profile_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/generations/{generation_id}": {
         parameters: {
             query?: never;
@@ -268,7 +292,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Cancel Generation */
+        /**
+         * Cancel Generation
+         * @description Stop a generation. The worker drops it mid-call and saves nothing.
+         */
         post: operations["cancel_generation_api_v1_generations__generation_id__cancel_post"];
         delete?: never;
         options?: never;
@@ -343,6 +370,31 @@ export interface paths {
          *     be exported, so it is rejected at the boundary rather than at download time.
          */
         post: operations["upload_resume_api_v1_remote_resumes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remote/resumes/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Resume
+         * @description Take in a resume from any document, and restyle it into the house format.
+         *
+         *     A PDF, Word, OpenDocument, RTF, HTML, Markdown or plain-text file - or
+         *     pasted text - is read, then restructured and checked by a background job
+         *     that streams its progress like any other generation. A file that already is
+         *     Resume Markdown skips the model and is saved straight away.
+         */
+        post: operations["import_resume_api_v1_remote_resumes_import_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -550,6 +602,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/remote/resumes/{resume_id}/prep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prep Base Resume
+         * @description Analyse a base resume and write its interview prep. The resume is not changed.
+         */
+        post: operations["prep_base_resume_api_v1_remote_resumes__resume_id__prep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remote/tailored-resumes/{resume_id}/prep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prep Tailored Resume
+         * @description Analyse a tailored resume against its job and write its interview prep.
+         */
+        post: operations["prep_tailored_resume_api_v1_remote_tailored_resumes__resume_id__prep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/remote/tailored-resumes/{resume_id}/upgrade": {
         parameters: {
             query?: never;
@@ -566,6 +658,29 @@ export interface paths {
          *     In place, so the application it was sent with stays linked to it.
          */
         post: operations["upgrade_tailored_resume_api_v1_remote_tailored_resumes__resume_id__upgrade_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remote/applications/{application_id}/upgrade-resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upgrade Application Resume
+         * @description Tailor the application's resume to its job, in place - whichever kind it is.
+         *
+         *     No new resume: the application keeps the one it has, rewritten for this
+         *     posting. A base resume is rewritten for every job it is linked to.
+         */
+        post: operations["upgrade_application_resume_api_v1_remote_applications__application_id__upgrade_resume_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -612,6 +727,28 @@ export interface paths {
          *     that point nothing has been saved, by design.
          */
         post: operations["export_docx_api_v1_remote_export_docx_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remote/export/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Pdf
+         * @description The same document as ``/docx``, as a PDF.
+         *
+         *     It IS the .docx, converted by LibreOffice, so the two can never differ.
+         */
+        post: operations["export_pdf_api_v1_remote_export_pdf_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -752,6 +889,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/remote/extension/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension Generate
+         * @description Generate a new base resume, as the portal does - for the tab it was made on.
+         *
+         *     Given the tab, the new resume becomes its posting's resume when it lands,
+         *     the way a tailored one does, and so does the application tracking it.
+         */
+        post: operations["extension_generate_api_v1_remote_extension_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/remote/extension/job-links/lookup": {
         parameters: {
             query?: never;
@@ -787,9 +947,35 @@ export interface paths {
         /**
          * Link Job
          * @description Use a resume for a posting as it is, without tailoring - or unlink it.
+         *
+         *     An application tracking the posting follows: it is the same job.
          */
         put: operations["link_job_api_v1_remote_extension_job_links_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remote/extension/job-links/upgrade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upgrade Job Resume
+         * @description Tailor the posting's resume to it in place, rather than adding another.
+         *
+         *     The posting - and any application tracking it - keeps the same resume, so
+         *     nothing is linked again. The run is linked to the posting, so its progress
+         *     survives the panel closing like a tailoring run's.
+         */
+        post: operations["upgrade_job_resume_api_v1_remote_extension_job_links_upgrade_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -850,7 +1036,7 @@ export interface paths {
         put?: never;
         /**
          * Extension Save Application
-         * @description Promote a tailoring session into a tracked application.
+         * @description Promote a posting into a tracked application, with its resume of either kind.
          */
         post: operations["extension_save_application_api_v1_remote_extension_save_application_post"];
         delete?: never;
@@ -1759,6 +1945,7 @@ export interface components {
             salary_max?: number | null;
             /** Salary Currency */
             salary_currency?: string | null;
+            resume?: components["schemas"]["ResumeRef"] | null;
             /** Tailored Resume Id */
             tailored_resume_id?: string | null;
             /** @default applied */
@@ -1808,6 +1995,8 @@ export interface components {
             notes_markdown: string | null;
             /** Tailored Resume Id */
             tailored_resume_id: string | null;
+            /** Base Resume Id */
+            base_resume_id?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -1817,8 +2006,8 @@ export interface components {
             job_description_text: string | null;
             /** Stages */
             stages?: components["schemas"]["StageOut"][];
-            tailored_resume?: components["schemas"]["TailoredResumeBrief"] | null;
-            suggested_tailored_resume?: components["schemas"]["TailoredResumeOption"] | null;
+            resume?: components["schemas"]["ResumeBrief"] | null;
+            suggested_resume?: components["schemas"]["ResumeOption"] | null;
         };
         /** ApplicationPatch */
         ApplicationPatch: {
@@ -1848,6 +2037,7 @@ export interface components {
             next_action_at?: string | null;
             /** Applied At */
             applied_at?: string | null;
+            resume?: components["schemas"]["ResumeRef"] | null;
             /** Tailored Resume Id */
             tailored_resume_id?: string | null;
         };
@@ -1889,6 +2079,8 @@ export interface components {
             notes_markdown: string | null;
             /** Tailored Resume Id */
             tailored_resume_id: string | null;
+            /** Base Resume Id */
+            base_resume_id?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -2033,6 +2225,17 @@ export interface components {
             resume?: components["schemas"]["LinkedResume"] | null;
             facts?: components["schemas"]["ResumeFacts"] | null;
         };
+        /** Body_import_resume_api_v1_remote_resumes_import_post */
+        Body_import_resume_api_v1_remote_resumes_import_post: {
+            /** File */
+            file?: string | null;
+            /** Text */
+            text?: string | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Target Title */
+            target_title?: string | null;
+        };
         /**
          * CalendarMeetingOut
          * @description A meeting with its owner named, so a calendar block can say who it is with.
@@ -2166,6 +2369,20 @@ export interface components {
             page: string;
             /** Filename */
             filename?: string | null;
+        };
+        /** ExtensionGenerateRequest */
+        ExtensionGenerateRequest: {
+            /** Target Title */
+            target_title: string;
+            /** Job Description */
+            job_description?: string | null;
+            /** Skill Count */
+            skill_count?: number | null;
+            /** Extra Instructions */
+            extra_instructions?: string | null;
+            /** Job Url */
+            job_url?: string | null;
+            job?: components["schemas"]["ScrapedJob"] | null;
         };
         /** ExtensionTailorRequest */
         ExtensionTailorRequest: {
@@ -2479,7 +2696,7 @@ export interface components {
          * GenerationKind
          * @enum {string}
          */
-        GenerationKind: "resume_story" | "resume_job" | "tailor_job" | "tailor_instruction" | "resume_repair" | "form_answer" | "jd_parse" | "proposal";
+        GenerationKind: "resume_story" | "resume_job" | "tailor_job" | "tailor_instruction" | "resume_repair" | "resume_import" | "resume_prep" | "form_answer" | "jd_parse" | "proposal";
         /** GenerationOut */
         GenerationOut: {
             /**
@@ -2526,6 +2743,43 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * ImportAccepted
+         * @description An uploaded resume, taken in.
+         *
+         *     Either queued for restructuring (``direct`` false: follow the generation) or,
+         *     when the file was already in the house format, saved on the spot
+         *     (``direct`` true: ``result_id`` is the resume).
+         */
+        ImportAccepted: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["GenerationStatus"];
+            kind: components["schemas"]["GenerationKind"];
+            /**
+             * Reused
+             * @default false
+             */
+            reused: boolean;
+            /** Result Kind */
+            result_kind?: string | null;
+            /** Result Id */
+            result_id?: string | null;
+            /**
+             * Direct
+             * @default false
+             */
+            direct: boolean;
+            /** Source Kind */
+            source_kind: string;
+            /** Characters */
+            characters: number;
+            /** Warnings */
+            warnings?: string[];
+        };
         /** InterviewAssistStatus */
         InterviewAssistStatus: {
             /**
@@ -2562,6 +2816,10 @@ export interface components {
             published_at?: string | null;
             /** Focused At */
             focused_at?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Skills */
+            skills?: string[];
         };
         /** JobCard */
         JobCard: {
@@ -2834,6 +3092,24 @@ export interface components {
             base_resume_id?: string | null;
             resume?: components["schemas"]["LinkedResume"] | null;
             generation?: components["schemas"]["LinkGeneration"] | null;
+            /** Application Id */
+            application_id?: string | null;
+        };
+        /**
+         * JobLinkUpgrade
+         * @description Tailor the posting's resume to it in place, rather than adding another.
+         */
+        JobLinkUpgrade: {
+            /** Url */
+            url: string;
+            resume: components["schemas"]["ResumeRef"];
+            /**
+             * Strategy
+             * @default existing
+             * @enum {string}
+             */
+            strategy: "existing" | "full";
+            job?: components["schemas"]["ScrapedJob"] | null;
         };
         /** JobSearchPage */
         JobSearchPage: {
@@ -3072,6 +3348,21 @@ export interface components {
             /** Error Detail */
             error_detail?: string | null;
         };
+        /**
+         * LinkedJobOut
+         * @description A job a resume is linked to; ``application_id`` is None for a posting
+         *     the side panel linked without saving it as an application.
+         */
+        LinkedJobOut: {
+            /** Application Id */
+            application_id: string | null;
+            /** Company Name */
+            company_name: string | null;
+            /** Job Title */
+            job_title: string | null;
+            /** Job Url */
+            job_url: string | null;
+        };
         /** LinkedResume */
         LinkedResume: {
             /**
@@ -3129,6 +3420,8 @@ export interface components {
             job_application_id?: string | null;
             /** Freelance Track Id */
             freelance_track_id?: string | null;
+            /** Category */
+            category?: ("remote" | "freelancing") | null;
             /** Onboarding Notes */
             onboarding_notes?: string | null;
         };
@@ -3143,6 +3436,11 @@ export interface components {
             job_application_id?: string | null;
             /** Freelance Track Id */
             freelance_track_id?: string | null;
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "remote" | "freelancing";
             /** Employer Name */
             employer_name: string;
             /** Role Title */
@@ -3354,10 +3652,10 @@ export interface components {
             /** Offset */
             offset: number;
         };
-        /** Page[ResumeSummaryOut] */
-        Page_ResumeSummaryOut_: {
+        /** Page[ResumeRow] */
+        Page_ResumeRow_: {
             /** Items */
-            items: components["schemas"]["ResumeSummaryOut"][];
+            items: components["schemas"]["ResumeRow"][];
             /** Total */
             total: number;
             /** Limit */
@@ -3365,10 +3663,10 @@ export interface components {
             /** Offset */
             offset: number;
         };
-        /** Page[TailoredResumeSummary] */
-        Page_TailoredResumeSummary_: {
+        /** Page[TailoredResumeRow] */
+        Page_TailoredResumeRow_: {
             /** Items */
-            items: components["schemas"]["TailoredResumeSummary"][];
+            items: components["schemas"]["TailoredResumeRow"][];
             /** Total */
             total: number;
             /** Limit */
@@ -3672,6 +3970,73 @@ export interface components {
             /** Display Name */
             display_name?: string | null;
         };
+        /**
+         * ResumeBrief
+         * @description The resume an application was sent with, and how well it covered the posting.
+         *
+         *     Tailored for it, or a base resume used as it is. A base resume's figures
+         *     are only filled in once it has been tailored to this job's description.
+         */
+        ResumeBrief: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "base" | "tailored";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Base Resume Id
+             * Format: uuid
+             */
+            base_resume_id: string;
+            /** Base Resume Name */
+            base_resume_name?: string | null;
+            /** Status */
+            status: string;
+            /** Job Url */
+            job_url?: string | null;
+            /** Job Source */
+            job_source?: string | null;
+            /** Must Have Covered */
+            must_have_covered?: number | null;
+            /** Must Have Total */
+            must_have_total?: number | null;
+            /** Must Have Coverage Percent */
+            must_have_coverage_percent?: number | null;
+            /** Nice To Have Coverage Percent */
+            nice_to_have_coverage_percent?: number | null;
+            /** Years Required */
+            years_required?: number | null;
+            /** Years Shown */
+            years_shown?: number | null;
+            /** Content Markdown */
+            content_markdown: string;
+            /** Flags */
+            flags?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Shared With
+             * @default 0
+             */
+            shared_with: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** ResumeCreated */
         ResumeCreated: {
             /**
@@ -3724,6 +4089,8 @@ export interface components {
             validation?: {
                 [key: string]: unknown;
             } | null;
+            /** Job Description Text */
+            job_description_text?: string | null;
             /** Findings */
             findings?: components["schemas"]["ValidationFinding"][];
         };
@@ -3786,6 +4153,38 @@ export interface components {
          * @enum {string}
          */
         ResumeMode: "grounded" | "constructed";
+        /** ResumeOption */
+        ResumeOption: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "base" | "tailored";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Base Resume Id
+             * Format: uuid
+             */
+            base_resume_id: string;
+            /** Must Have Coverage Percent */
+            must_have_coverage_percent?: number | null;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "panel" | "tailored";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** ResumeOut */
         ResumeOut: {
             /**
@@ -3838,6 +4237,8 @@ export interface components {
             validation?: {
                 [key: string]: unknown;
             } | null;
+            /** Job Description Text */
+            job_description_text?: string | null;
         };
         /** ResumePatch */
         ResumePatch: {
@@ -3854,6 +4255,58 @@ export interface components {
             /** Is Archived */
             is_archived?: boolean | null;
         };
+        /**
+         * ResumeProfileIn
+         * @description Who a generated resume is for. Every field is optional.
+         */
+        ResumeProfileIn: {
+            /** Full Name */
+            full_name?: string | null;
+            /** Headline */
+            headline?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Location */
+            location?: string | null;
+            /** Links */
+            links?: string[];
+            /** Education */
+            education?: string[];
+            /** Summary */
+            summary?: string | null;
+        };
+        /** ResumeProfileOut */
+        ResumeProfileOut: {
+            /** Full Name */
+            full_name?: string | null;
+            /** Headline */
+            headline?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Location */
+            location?: string | null;
+            /** Links */
+            links?: string[];
+            /** Education */
+            education?: string[];
+            /** Summary */
+            summary?: string | null;
+            /**
+             * Mode
+             * @default constructed
+             * @enum {string}
+             */
+            mode: "grounded" | "constructed";
+            /**
+             * Configured
+             * @default false
+             */
+            configured: boolean;
+        };
         /** ResumeRef */
         ResumeRef: {
             /**
@@ -3868,17 +4321,10 @@ export interface components {
             id: string;
         };
         /**
-         * ResumeSource
-         * @enum {string}
+         * ResumeRow
+         * @description The library card: the summary, plus the jobs the resume is linked to.
          */
-        ResumeSource: "upload" | "generated_story" | "generated_job" | "tailored_job" | "tailored_instruction";
-        /**
-         * ResumeStatus
-         * @enum {string}
-         */
-        ResumeStatus: "draft" | "needs_review" | "final";
-        /** ResumeSummaryOut */
-        ResumeSummaryOut: {
+        ResumeRow: {
             /**
              * Id
              * Format: uuid
@@ -3907,7 +4353,19 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Linked Jobs */
+            linked_jobs?: components["schemas"]["LinkedJobOut"][];
         };
+        /**
+         * ResumeSource
+         * @enum {string}
+         */
+        ResumeSource: "upload" | "generated_story" | "generated_job" | "tailored_job" | "tailored_instruction";
+        /**
+         * ResumeStatus
+         * @enum {string}
+         */
+        ResumeStatus: "draft" | "needs_review" | "final";
         /** ResumeUpload */
         ResumeUpload: {
             /** Display Name */
@@ -3923,6 +4381,7 @@ export interface components {
         };
         /** SaveApplicationRequest */
         SaveApplicationRequest: {
+            resume?: components["schemas"]["ResumeRef"] | null;
             /** Tailored Resume Id */
             tailored_resume_id?: string | null;
             /** Company Name */
@@ -4237,77 +4696,6 @@ export interface components {
             /** Application Id */
             application_id?: string | null;
         };
-        /**
-         * TailoredResumeBrief
-         * @description The resume an application was sent with, and how well it covered the posting.
-         */
-        TailoredResumeBrief: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Display Name */
-            display_name: string;
-            /**
-             * Base Resume Id
-             * Format: uuid
-             */
-            base_resume_id: string;
-            /** Base Resume Name */
-            base_resume_name?: string | null;
-            /** Status */
-            status: string;
-            /** Job Url */
-            job_url: string | null;
-            /** Job Source */
-            job_source: string;
-            /** Must Have Covered */
-            must_have_covered: number | null;
-            /** Must Have Total */
-            must_have_total: number | null;
-            /** Must Have Coverage Percent */
-            must_have_coverage_percent: number | null;
-            /** Nice To Have Coverage Percent */
-            nice_to_have_coverage_percent: number | null;
-            /** Years Required */
-            years_required: number | null;
-            /** Years Shown */
-            years_shown: number | null;
-            /** Content Markdown */
-            content_markdown: string;
-            /** Flags */
-            flags?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-        };
-        /** TailoredResumeOption */
-        TailoredResumeOption: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Display Name */
-            display_name: string;
-            /**
-             * Base Resume Id
-             * Format: uuid
-             */
-            base_resume_id: string;
-            /** Must Have Coverage Percent */
-            must_have_coverage_percent?: number | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-        };
         /** TailoredResumeOut */
         TailoredResumeOut: {
             /**
@@ -4392,8 +4780,8 @@ export interface components {
             content_markdown?: string | null;
             status?: components["schemas"]["ResumeStatus"] | null;
         };
-        /** TailoredResumeSummary */
-        TailoredResumeSummary: {
+        /** TailoredResumeRow */
+        TailoredResumeRow: {
             /**
              * Id
              * Format: uuid
@@ -4427,6 +4815,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Linked Jobs */
+            linked_jobs?: components["schemas"]["LinkedJobOut"][];
         };
         /** TokenPair */
         TokenPair: {
@@ -4671,8 +5061,8 @@ export interface components {
             /** Starts In Minutes */
             starts_in_minutes: number;
         };
-        /** UpgradeTailored */
-        UpgradeTailored: {
+        /** UpgradeResume */
+        UpgradeResume: {
             /**
              * Strategy
              * @default existing
@@ -5274,6 +5664,59 @@ export interface operations {
             };
         };
     };
+    get_resume_profile_api_v1_settings_resume_profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeProfileOut"];
+                };
+            };
+        };
+    };
+    put_resume_profile_api_v1_settings_resume_profile_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumeProfileIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_generation_api_v1_generations__generation_id__get: {
         parameters: {
             query?: never;
@@ -5423,7 +5866,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_ResumeSummaryOut_"];
+                    "application/json": components["schemas"]["Page_ResumeRow_"];
                 };
             };
             /** @description Validation Error */
@@ -5457,6 +5900,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResumeCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_resume_api_v1_remote_resumes_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_resume_api_v1_remote_resumes_import_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportAccepted"];
                 };
             };
             /** @description Validation Error */
@@ -5651,7 +6127,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_TailoredResumeSummary_"];
+                    "application/json": components["schemas"]["Page_TailoredResumeRow_"];
                 };
             };
             /** @description Validation Error */
@@ -5923,6 +6399,68 @@ export interface operations {
             };
         };
     };
+    prep_base_resume_api_v1_remote_resumes__resume_id__prep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prep_tailored_resume_api_v1_remote_tailored_resumes__resume_id__prep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     upgrade_tailored_resume_api_v1_remote_tailored_resumes__resume_id__upgrade_post: {
         parameters: {
             query?: never;
@@ -5934,7 +6472,42 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpgradeTailored"];
+                "application/json": components["schemas"]["UpgradeResume"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upgrade_application_resume_api_v1_remote_applications__application_id__upgrade_resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpgradeResume"];
             };
         };
         responses: {
@@ -6014,6 +6587,40 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_pdf_api_v1_remote_export_pdf_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description The PDF file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "application/pdf": unknown;
                 };
             };
             /** @description Validation Error */
@@ -6324,6 +6931,39 @@ export interface operations {
             };
         };
     };
+    extension_generate_api_v1_remote_extension_generate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtensionGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     lookup_job_links_api_v1_remote_extension_job_links_lookup_post: {
         parameters: {
             query?: never;
@@ -6377,6 +7017,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobLinkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upgrade_job_resume_api_v1_remote_extension_job_links_upgrade_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobLinkUpgrade"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAccepted"];
                 };
             };
             /** @description Validation Error */
@@ -7716,6 +8389,7 @@ export interface operations {
             query: {
                 from: string;
                 to: string;
+                category?: ("remote" | "freelancing") | null;
             };
             header?: never;
             path?: never;
@@ -7780,6 +8454,7 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
+                category?: ("remote" | "freelancing") | null;
             };
             header?: never;
             path?: never;
@@ -7809,7 +8484,9 @@ export interface operations {
     };
     next_meeting_api_v1_shared_meetings_next_get: {
         parameters: {
-            query?: never;
+            query?: {
+                category?: ("remote" | "freelancing") | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7823,6 +8500,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UpcomingOut"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -7893,7 +8579,9 @@ export interface operations {
     };
     list_maintained_jobs_api_v1_shared_maintained_jobs_get: {
         parameters: {
-            query?: never;
+            query?: {
+                category?: ("remote" | "freelancing") | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7907,6 +8595,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MaintainedJobOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

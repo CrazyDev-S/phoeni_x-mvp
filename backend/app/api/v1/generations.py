@@ -21,6 +21,7 @@ from app.db.session import SessionLocal
 from app.models.enums import GenerationStatus
 from app.models.generation import Generation, GenerationEvent
 from app.schemas.generation import GenerationEventOut, GenerationOut
+from app.services.generation import cancel
 
 router = APIRouter(prefix="/generations", tags=["generations"])
 
@@ -55,12 +56,13 @@ async def get_generation(
 async def cancel_generation(
     generation_id: uuid.UUID, user: CurrentUser, session: Session
 ) -> Generation:
+    """Stop a generation. The worker drops it mid-call and saves nothing."""
     row = await _owned(session, user, generation_id)
-    if row.status in TERMINAL:
+    if not await cancel(session, row.id):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Already finished"
         )
-    row.status = GenerationStatus.CANCELLED
+    await session.refresh(row)
     return row
 
 
@@ -129,7 +131,7 @@ async def stream_events(
                         "event": event.type,
                         "data": json.dumps(event.payload),
                     }
-                if events and events[-1].type in ("complete", "error"):
+                if events and events[-1].type in ("complete", "error", "cancelled"):
                     return
 
                 generation = await s.get(Generation, generation_id)
@@ -141,7 +143,10 @@ async def stream_events(
                     # the outcome costs one frame and always ends the wait.
                     yield {
                         "id": str(seq + 1),
-                        "event": "error" if generation.status is GenerationStatus.FAILED else "complete",
+                        "event": {
+                            GenerationStatus.FAILED: "error",
+                            GenerationStatus.CANCELLED: "cancelled",
+                        }.get(generation.status, "complete"),
                         "data": json.dumps(
                             {
                                 "replayed": True,

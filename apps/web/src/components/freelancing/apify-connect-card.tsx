@@ -8,7 +8,7 @@ import { SOURCE_QUERY } from "@/components/freelancing/job-source";
 import { ErrorAlert } from "@/components/error-alert";
 import { FormField } from "@/components/form-field";
 import { StatusBadge, type Tone } from "@/components/status-badge";
-import { Hint, Row, Rule } from "@/components/settings/section";
+import { Row, Rule } from "@/components/settings/section";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -105,9 +105,9 @@ export function ApifyConnect() {
 
   if (isLoading || !data) {
     return (
-      <div className="bg-soft space-y-3 rounded-[30px] p-7">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-20 w-full" />
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-16 w-full" />
       </div>
     );
   }
@@ -118,35 +118,34 @@ export function ApifyConnect() {
   const error = (save.error ?? remove.error) as Error | null;
 
   return (
-    <div className="bg-soft space-y-5 rounded-[30px] p-5 sm:p-7">
+    <div className="space-y-3">
       <div>
-        <div className="mb-2 flex flex-wrap items-center gap-3">
-          <h3 className="text-[1.4rem] font-medium tracking-tight">Apify</h3>
+        <div className="mb-1 flex flex-wrap items-center gap-2">
+          <h3 className="text-sm font-semibold">Apify</h3>
           <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
           {data.token_source === "environment" && (
             <StatusBadge tone="neutral">Token from the server</StatusBadge>
           )}
         </div>
-        <p className="text-muted-foreground max-w-[700px] text-[0.8rem] leading-snug font-medium">
-          Job search runs the{" "}
+        <p className="text-muted-foreground text-xs">
+          Runs{" "}
           <a
             href={`https://apify.com/${data.actor_id.replace("~", "/")}`}
             target="_blank"
             rel="noreferrer"
-            className="text-foreground border-foreground inline-flex items-center gap-1 border-b-[1.5px] font-bold"
+            className="text-foreground inline-flex items-center gap-1 font-medium underline underline-offset-2"
           >
             {data.actor_id.replace("~", "/")}
             <ExternalLink className="size-3" />
-          </a>{" "}
-          actor on Apify. No Upwork account or API key is needed. Paste an API
-          token from{" "}
+          </a>
+          . Token from{" "}
           <a
             href="https://console.apify.com/settings/integrations"
             target="_blank"
             rel="noreferrer"
-            className="text-foreground border-foreground inline-flex items-center gap-1 border-b-[1.5px] font-bold"
+            className="text-foreground inline-flex items-center gap-1 font-medium underline underline-offset-2"
           >
-            Apify Console → Settings → Integrations
+            Apify Console
             <ExternalLink className="size-3" />
           </a>
           .
@@ -183,7 +182,7 @@ export function ApifyConnect() {
           </Button>
         </Row>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {data.token_source === "environment" && (
             <Row icon={KeyRound} tone="white">
               <span className="text-muted-foreground min-w-0 flex-1 truncate font-mono text-[13px]">
@@ -200,7 +199,7 @@ export function ApifyConnect() {
               </Button>
             </Row>
           )}
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-wrap items-end gap-2">
             <FormField
               label={
                 data.token_source === "environment"
@@ -220,7 +219,6 @@ export function ApifyConnect() {
               )}
             </FormField>
             <Button
-              className="h-12"
               disabled={token.trim().length < 10 || save.isPending}
               onClick={() => save.mutate()}
             >
@@ -274,12 +272,7 @@ export function ApifyConnect() {
           </dd>
         </div>
       </dl>
-      <Hint quiet className="leading-relaxed">
-        Each search starts one actor run on this Apify account. {data.cost_note}{" "}
-        Test shows the current price per job. Loading more results reads what a
-        run already returned before starting another, and repeating a search
-        within half an hour reuses its run.
-      </Hint>
+      {data.cost_note && <p className="text-muted-foreground text-xs">{data.cost_note}</p>}
     </div>
   );
 }

@@ -90,7 +90,7 @@ export function AutofillProfile() {
     return (
       <div className="space-y-3">
         {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-12 w-full" />
+          <Skeleton key={i} className="h-8 w-full" />
         ))}
       </div>
     );
@@ -105,9 +105,9 @@ export function AutofillProfile() {
     setRows(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {filled === 0 && (
-        <div className="bg-warning/12 text-warning flex items-start gap-2.5 rounded-[22px] p-4 text-sm font-medium">
+        <div className="bg-warning/12 text-warning flex items-start gap-2 rounded-md px-3 py-2 text-[13px]">
           <Wand2 className="mt-0.5 size-4 shrink-0" />
           <p className="leading-relaxed">
             Nothing stored yet — that is why autofill reports “not present in
@@ -116,18 +116,18 @@ export function AutofillProfile() {
         </div>
       )}
 
-      <ul className="space-y-2.5">
+      <ul className="space-y-1.5">
         {rows.map((row, index) => (
           <li
             key={index}
-            className="grid grid-cols-[minmax(0,1fr)_44px] items-center gap-2.5 sm:grid-cols-[minmax(0,250px)_minmax(0,1fr)_44px]"
+            className="grid grid-cols-[minmax(0,1fr)_32px] items-center gap-1.5 sm:grid-cols-[minmax(0,250px)_minmax(0,1fr)_32px]"
           >
             <Input
               aria-label={`Question ${index + 1}`}
               value={row.key}
               placeholder="Question"
               onChange={(e) => update(index, { key: e.target.value })}
-              className="bg-soft font-semibold"
+              className="bg-muted/50 font-medium"
             />
             <Input
               aria-label={`Answer for ${row.key || `question ${index + 1}`}`}
@@ -139,7 +139,7 @@ export function AutofillProfile() {
             <Button
               variant="ghost"
               size="icon"
-              className="text-muted-foreground size-11 max-sm:col-start-2 max-sm:row-span-2 max-sm:row-start-1"
+              className="text-muted-foreground max-sm:col-start-2 max-sm:row-span-2 max-sm:row-start-1"
               aria-label={`Remove ${row.key || `question ${index + 1}`}`}
               onClick={() => setRows(rows.filter((_, i) => i !== index))}
             >
@@ -149,9 +149,10 @@ export function AutofillProfile() {
         ))}
       </ul>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1.5">
         <Button
           variant="outline"
+          size="sm"
           onClick={() => setRows([...rows, { key: "", value: "" }])}
         >
           <Plus />
@@ -169,10 +170,7 @@ export function AutofillProfile() {
         ))}
       </div>
 
-      <FormField
-        label="Anything else the filler should know"
-        hint="Free text, used only as context — it is never pasted into a field verbatim."
-      >
+      <FormField label="Anything else the filler should know">
         {(control) => (
           <Textarea
             {...control}
@@ -180,14 +178,13 @@ export function AutofillProfile() {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Open to remote US-hours roles. Happy to relocate for the right team."
-            className="field-sizing-fixed min-h-24 resize-none"
+            className="field-sizing-fixed min-h-16 resize-none"
           />
         )}
       </FormField>
 
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-wrap items-center gap-3">
         <Button
-          size="lg"
           disabled={save.isPending}
           onClick={() =>
             save.mutate({
@@ -204,12 +201,12 @@ export function AutofillProfile() {
           Save profile
         </Button>
         {saved && (
-          <span className="text-success flex items-center gap-2 text-sm font-semibold">
+          <span className="text-success flex items-center gap-1.5 text-xs font-medium">
             <Check className="size-4 stroke-[2.4]" />
             Saved
           </span>
         )}
-        <Hint quiet className="ml-auto text-[0.8125rem] tabular-nums">
+        <Hint quiet className="ml-auto text-xs tabular-nums">
           {filled} answer{filled === 1 ? "" : "s"} stored
         </Hint>
       </div>

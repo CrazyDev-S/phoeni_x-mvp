@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-/** A section's title, an underlined count, and whatever filters or actions sit at the far end. */
+/** A section's title, its count, and whatever filters or actions sit at the far end. */
 export function SectionHead({
   title,
   count,
@@ -15,14 +15,14 @@ export function SectionHead({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-wrap items-center gap-x-3.5 gap-y-3", className)}>
-      <h2 className="text-2xl font-medium tracking-tight">{title}</h2>
+    <div className={cn("flex min-h-7 flex-wrap items-center gap-x-2 gap-y-1.5", className)}>
+      <h2 className="text-[13px] font-semibold">{title}</h2>
       {count != null && (
-        <span className="text-muted-foreground border-foreground border-b-[1.5px] pb-px text-[13px] font-semibold">
+        <span className="text-muted-foreground bg-muted rounded px-1.5 text-[11px] font-semibold tabular-nums">
           {count}
         </span>
       )}
-      {children && <div className="ml-auto flex flex-wrap items-center gap-2">{children}</div>}
+      {children && <div className="ml-auto flex flex-wrap items-center gap-1.5">{children}</div>}
     </div>
   );
 }

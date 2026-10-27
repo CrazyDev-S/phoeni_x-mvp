@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
+from app.api.v1.remote.tailoring import generate_from_job, generate_from_story
 from app.core.deps import CurrentUser, Session
 from app.core.timezone import utc_now
 from app.llm.factory import get_provider
@@ -45,15 +46,24 @@ from app.remote.services.job_links import (
     tailored_for_keys,
     upsert_link,
 )
-from app.remote.services.links import link_resume
+from app.remote.services.links import (
+    link_application_posting,
+    link_posting_applications,
+    link_resume,
+    tracked_postings,
+)
+from app.remote.services.upgrades import enqueue_upgrade
+from app.remote.validation.posting import posting_problem, require_posting
 from app.schemas.extension import (
     AutofillRequest,
     AutofillResponse,
+    ExtensionGenerateRequest,
     ExtensionTailorRequest,
     JobLinkIn,
     JobLinkLookup,
     JobLinkLookupOut,
     JobLinkOut,
+    JobLinkUpgrade,
     LinkedResume,
     LinkGeneration,
     ResumeFactsOut,
@@ -62,6 +72,7 @@ from app.schemas.extension import (
     ScrapedJob,
 )
 from app.schemas.generation import GenerationAccepted
+from app.schemas.tailoring import GenerateFromJob, GenerateFromStory
 from app.schemas.tracking import ApplicationDetail
 from app.services.generation import enqueue, idempotency_key, job_description_hash
 
@@ -83,6 +94,9 @@ async def extension_tailor(
     linked to the run, though, so the panel can find the result again from any
     tab showing that posting.
     """
+    # Before the link is written, so a captcha's text is never remembered as
+    # the posting's.
+    require_posting(body.job.description_text)
     base = await session.scalar(
         select(BaseResume).where(
             BaseResume.id == body.base_resume_id, BaseResume.user_id == user.id
@@ -123,6 +137,7 @@ async def extension_tailor(
         if link is not None:
             link.resume_kind = "tailored"
             link.tailored_resume_id = cached.id
+            await link_posting_applications(session, link)
         return GenerationAccepted(
             id=cached.generation_id or cached.id,
             status="succeeded",
@@ -161,7 +176,58 @@ async def extension_tailor(
             if finished:
                 link.resume_kind = "tailored"
                 link.tailored_resume_id = finished.id
+                await link_posting_applications(session, link)
     return GenerationAccepted(id=gen.id, status=gen.status, kind=gen.kind)
+
+
+@router.post(
+    "/generate", response_model=GenerationAccepted, status_code=status.HTTP_202_ACCEPTED
+)
+async def extension_generate(
+    body: ExtensionGenerateRequest, user: CurrentUser, session: Session
+) -> GenerationAccepted:
+    """Generate a new base resume, as the portal does - for the tab it was made on.
+
+    Given the tab, the new resume becomes its posting's resume when it lands,
+    the way a tailored one does, and so does the application tracking it.
+    """
+    if body.job_description:
+        accepted = await generate_from_job(
+            GenerateFromJob(
+                target_title=body.target_title,
+                job_description=body.job_description,
+                extra_instructions=body.extra_instructions,
+            ),
+            user,
+            session,
+        )
+    else:
+        accepted = await generate_from_story(
+            GenerateFromStory(
+                target_title=body.target_title,
+                skill_count=body.skill_count,
+                extra_instructions=body.extra_instructions,
+            ),
+            user,
+            session,
+        )
+    if body.job_url:
+        link = await upsert_link(session, user.id, body.job_url)
+        _remember_posting(link, body.job)
+        link.generation_id = accepted.id
+        gen = await session.get(Generation, accepted.id)
+        if gen is not None and gen.status in (
+            GenerationStatus.SUCCEEDED,
+            GenerationStatus.NEEDS_REVIEW,
+        ):
+            # An identical run that already finished, so the worker will not
+            # attach it to this posting.
+            finished = gen.result_id and await session.get(BaseResume, gen.result_id)
+            if finished:
+                link.resume_kind = "base"
+                link.base_resume_id = finished.id
+                await link_posting_applications(session, link)
+    return accepted
 
 
 @router.post("/job-links/lookup", response_model=JobLinkLookupOut)
@@ -187,9 +253,17 @@ async def lookup_job_links(
         key for key in keys.values() if key not in links or links[key].resume_kind is None
     }
     found = await tailored_for_keys(session, user.id, without_resume)
+    tracked = await tracked_postings(session, user.id, set(keys.values()))
     return JobLinkLookupOut(
         items=[
-            await _link_out(session, url, key, links.get(key), found.get(key))
+            await _link_out(
+                session,
+                url,
+                key,
+                links.get(key),
+                found.get(key),
+                application_id=next(iter(tracked.get(key, [])), None),
+            )
             for url, key in keys.items()
         ]
     )
@@ -197,32 +271,53 @@ async def lookup_job_links(
 
 @router.put("/job-links", response_model=JobLinkOut)
 async def link_job(body: JobLinkIn, user: CurrentUser, session: Session) -> JobLinkOut:
-    """Use a resume for a posting as it is, without tailoring - or unlink it."""
+    """Use a resume for a posting as it is, without tailoring - or unlink it.
+
+    An application tracking the posting follows: it is the same job.
+    """
     resume = await _owned_resume(session, user, body.resume) if body.resume else None
     link = await upsert_link(session, user.id, body.url)
-    if body.job is not None:
-        # Only what is missing. Linking from the application form reads the
-        # form's page, which must not replace a posting read when tailoring.
-        read = {
-            "company_name": body.job.company,
-            "job_title": body.job.title,
-            "ats": body.job.ats,
-            "job_description_text": body.job.description_text,
-        }
-        for name, value in read.items():
-            if value and not getattr(link, name):
-                setattr(link, name, value)
-    if resume is None:
-        link.resume_kind = None
-    elif isinstance(resume, TailoredResume):
-        link.resume_kind = "tailored"
-        link.tailored_resume_id = resume.id
-        link.base_resume_id = resume.base_resume_id
-    else:
-        link.resume_kind = "base"
-        link.base_resume_id = resume.id
+    _remember_posting(link, body.job)
+    _point(link, resume)
+    await link_posting_applications(session, link)
     await session.flush()
-    return await _link_out(session, body.url, link.job_key, link)
+    return await _link_out(
+        session, body.url, link.job_key, link, application_id=await _tracking(session, link)
+    )
+
+
+@router.post(
+    "/job-links/upgrade",
+    response_model=GenerationAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def upgrade_job_resume(
+    body: JobLinkUpgrade, user: CurrentUser, session: Session
+) -> GenerationAccepted:
+    """Tailor the posting's resume to it in place, rather than adding another.
+
+    The posting - and any application tracking it - keeps the same resume, so
+    nothing is linked again. The run is linked to the posting, so its progress
+    survives the panel closing like a tailoring run's.
+    """
+    resume = await _owned_resume(session, user, body.resume)
+    link = await upsert_link(session, user.id, body.url)
+    _remember_posting(link, body.job)
+    gen = await enqueue_upgrade(
+        session,
+        resume,
+        strategy=body.strategy,
+        # The posting as read when it was tailored or linked, before this tab
+        # may have moved on to the application form.
+        job_description=link.job_description_text,
+        job_url=link.job_url,
+        company_name=link.company_name,
+        job_title=link.job_title,
+    )
+    _point(link, resume)
+    link.generation_id = gen.id
+    await link_posting_applications(session, link)
+    return GenerationAccepted(id=gen.id, status=gen.status, kind=gen.kind)
 
 
 @router.get("/resume-facts", response_model=ResumeFactsOut)
@@ -251,8 +346,13 @@ async def extension_autofill(
     link = await find_link(session, user.id, page_url) if page_url else None
     resume = await _form_resume(session, user, body, link)
 
-    job = body.job
-    if link is not None and link.job_description_text:
+    # A captcha's script read off the page is no context at all.
+    job = body.job if body.job and posting_problem(body.job.description_text) is None else None
+    if (
+        link is not None
+        and link.job_description_text
+        and posting_problem(link.job_description_text) is None
+    ):
         # The posting as read when it was tailored or linked. An application
         # form's own page is mostly the form: poor context for "why us".
         job = ScrapedJob(
@@ -331,29 +431,25 @@ async def extension_autofill(
 async def extension_save_application(
     body: SaveApplicationRequest, user: CurrentUser, session: Session
 ) -> JobApplication:
-    """Promote a tailoring session into a tracked application."""
-    if body.tailored_resume_id:
-        owns = await session.scalar(
-            select(TailoredResume.id).where(
-                TailoredResume.id == body.tailored_resume_id,
-                TailoredResume.user_id == user.id,
-            )
-        )
-        if owns is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Tailored resume not found"
-            )
+    """Promote a posting into a tracked application, with its resume of either kind."""
+    ref = body.resume or (
+        ResumeRef(kind="tailored", id=body.tailored_resume_id) if body.tailored_resume_id else None
+    )
+    link = await find_link(session, user.id, body.job_url) if body.job_url else None
+    resume = (
+        await _owned_resume(session, user, ref)
+        if ref
+        else (await linked_resume(session, link) if link else None)
+    )
 
     description = body.job_description_text
-    if not description and body.job_url:
+    if not description and link is not None:
         # Saved from the application form, whose page holds no description;
         # the posting's was kept when it was tailored or linked.
-        link = await find_link(session, user.id, body.job_url)
-        description = link.job_description_text if link else None
+        description = link.job_description_text
 
     row = JobApplication(
         user_id=user.id,
-        tailored_resume_id=body.tailored_resume_id,
         company_name=body.company_name,
         role_title=body.role_title,
         job_url=body.job_url,
@@ -366,8 +462,12 @@ async def extension_save_application(
     )
     session.add(row)
     await session.flush()
-    if row.tailored_resume_id:
-        await link_resume(session, row, row.tailored_resume_id)
+    if isinstance(resume, TailoredResume):
+        await link_resume(session, row, tailored_id=resume.id)
+    elif resume is not None:
+        await link_resume(session, row, base_id=resume.id)
+    if ref:
+        await link_application_posting(session, row)
 
     template = await session.scalar(
         select(StageTemplate).where(
@@ -391,6 +491,46 @@ async def extension_save_application(
     await session.flush()
     await session.refresh(row, ["stages"])
     return row
+
+
+def _remember_posting(link: JobLink, job: ScrapedJob | None) -> None:
+    """Keep what was read off the posting - only what the link is missing.
+
+    Linking from the application form reads the form's page, which must not
+    replace a posting read when tailoring. A read of a captcha is never kept,
+    and one kept before this check is replaced by the next real read - it is
+    how a Lever posting came to be called "hCaptcha" for good.
+    """
+    if job is None or posting_problem(job.description_text):
+        return
+    stale = bool(link.job_description_text) and posting_problem(link.job_description_text) is not None
+    read = {
+        "company_name": job.company,
+        "job_title": job.title,
+        "ats": job.ats,
+        "job_description_text": job.description_text,
+    }
+    for name, value in read.items():
+        if value and (stale or not getattr(link, name)):
+            setattr(link, name, value)
+
+
+def _point(link: JobLink, resume: AnyResume | None) -> None:
+    """Make ``resume`` the posting's resume, or unlink it with None."""
+    if resume is None:
+        link.resume_kind = None
+    elif isinstance(resume, TailoredResume):
+        link.resume_kind = "tailored"
+        link.tailored_resume_id = resume.id
+        link.base_resume_id = resume.base_resume_id
+    else:
+        link.resume_kind = "base"
+        link.base_resume_id = resume.id
+
+
+async def _tracking(session: Session, link: JobLink) -> uuid.UUID | None:
+    tracked = await tracked_postings(session, link.user_id, {link.job_key})
+    return next(iter(tracked.get(link.job_key, [])), None)
 
 
 async def _owned_resume(session: Session, user: CurrentUser, ref: ResumeRef) -> AnyResume:
@@ -469,6 +609,8 @@ async def _link_out(
     key: str,
     link: JobLink | None,
     found: TailoredResume | None = None,
+    *,
+    application_id: uuid.UUID | None = None,
 ) -> JobLinkOut:
     resume = (await linked_resume(session, link) if link else None) or found
     generation = (
@@ -492,4 +634,5 @@ async def _link_out(
         )
         if generation
         else None,
+        application_id=application_id,
     )

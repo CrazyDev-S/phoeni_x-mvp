@@ -117,7 +117,7 @@ export function MeetingDialog({
 }) {
   return (
     <Dialog open={state !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-lg">
         {state && (
           <MeetingForm
             key={state.mode === "edit" ? state.meeting.id : JSON.stringify(state.draft)}
@@ -315,7 +315,7 @@ function MeetingForm({
 
   return (
     <form
-      className="space-y-5"
+      className="space-y-3"
       onSubmit={(event) => {
         event.preventDefault();
         if (!invalid) save.mutate();
@@ -330,7 +330,7 @@ function MeetingForm({
       </DialogHeader>
 
       {nothingToBook ? (
-        <p className="text-muted-foreground text-sm">
+        <p className="text-muted-foreground text-[13px]">
           {portal === "freelancing"
             ? "Meetings belong to a freelancing bid or a current contract. "
             : "Meetings belong to an application or a current job. "}
@@ -343,7 +343,7 @@ function MeetingForm({
           first.
         </p>
       ) : (
-        <FieldGroup className="gap-4">
+        <FieldGroup className="gap-3">
           {!editing && (
             <div className="grid gap-3 sm:grid-cols-2">
               <FormField label="For">
@@ -411,7 +411,7 @@ function MeetingForm({
             )}
           </FormField>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <FormField label="Date">
                 {(control) => (
@@ -541,7 +541,7 @@ function MeetingForm({
               <Textarea
                 {...control}
                 rows={2}
-                placeholder="Who you are meeting and what they want to cover"
+                placeholder="Agenda"
                 value={agenda}
                 onChange={(event) => setAgenda(event.target.value)}
               />
@@ -551,8 +551,8 @@ function MeetingForm({
             {(control) => (
               <Textarea
                 {...control}
-                rows={3}
-                placeholder="Stories to tell, questions to ask, things to look up"
+                rows={2}
+                placeholder="Stories, questions, things to look up"
                 value={prep}
                 onChange={(event) => setPrep(event.target.value)}
               />
@@ -574,7 +574,7 @@ function MeetingForm({
         </FieldGroup>
       )}
 
-      {error && <p className="text-destructive text-sm">{error.message}</p>}
+      {error && <p className="text-destructive text-[13px]">{error.message}</p>}
 
       <DialogFooter className="gap-2 sm:justify-between">
         {editing ? (

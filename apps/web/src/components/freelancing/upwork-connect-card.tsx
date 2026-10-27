@@ -11,14 +11,13 @@ import {
   RefreshCw,
   Unplug,
 } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
 
 import { ErrorAlert } from "@/components/error-alert";
 import { FormField } from "@/components/form-field";
 import { StatusBadge } from "@/components/status-badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Hint, Row, Rule } from "@/components/settings/section";
+import { Row, Rule } from "@/components/settings/section";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -59,15 +58,8 @@ export function useUpworkConnection() {
 }
 
 /** One numbered step of the connection. */
-function Step({ n, children }: { n: number; children: React.ReactNode }) {
-  return (
-    <div className="mb-3 flex items-center gap-3 text-[0.96rem] font-semibold">
-      <span className="bg-primary text-brand grid size-7 place-items-center rounded-full text-[13px] font-bold">
-        {n}
-      </span>
-      {children}
-    </div>
-  );
+function Step({ children }: { children: React.ReactNode }) {
+  return <p className="text-muted-foreground mb-1.5 text-xs font-medium">{children}</p>;
 }
 
 /**
@@ -165,9 +157,9 @@ export function UpworkConnect({
 
   if (isLoading || !data) {
     return (
-      <div className="bg-soft space-y-3 rounded-[30px] p-7">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-24 w-full" />
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-20 w-full" />
       </div>
     );
   }
@@ -181,12 +173,9 @@ export function UpworkConnect({
 
   return (
     <>
-      <div className="bg-soft space-y-0 rounded-[30px] p-5 sm:p-7">
-        <div className="mb-2 flex flex-wrap items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-[13px] bg-[#14a800] text-sm font-extrabold text-white">
-            Up
-          </span>
-          <h3 className="text-[1.4rem] font-medium tracking-tight">Upwork</h3>
+      <div>
+        <div className="mb-1 flex flex-wrap items-center gap-2">
+          <h3 className="text-sm font-semibold">Upwork</h3>
           <StatusBadge tone={status.tone}>
             {data.connected && <Check />}
             {status.label}
@@ -195,23 +184,21 @@ export function UpworkConnect({
             <StatusBadge tone="neutral">Key pair from the server</StatusBadge>
           )}
         </div>
-        <p className="text-muted-foreground mb-6 max-w-[700px] text-[0.8rem] leading-snug font-medium">
-          Job search runs against Upwork&rsquo;s API on your behalf. Create an
-          API key at{" "}
+        <p className="text-muted-foreground mb-3 text-xs">
+          API key from{" "}
           <a
             href="https://www.upwork.com/developer/keys"
             target="_blank"
             rel="noreferrer"
-            className="text-foreground border-foreground inline-flex items-center gap-1 border-b-[1.5px] font-bold"
+            className="text-foreground inline-flex items-center gap-1 font-medium underline underline-offset-2"
           >
             upwork.com/developer/keys
             <ExternalLink className="size-3" />
           </a>{" "}
-          with the &ldquo;Read marketplace Job Postings&rdquo; permission, then
-          authorize it here.
+          with the &ldquo;Read marketplace Job Postings&rdquo; permission.
         </p>
 
-        <div className="space-y-4">
+        <div className="space-y-2">
           {notice?.kind === "connected" && (
             <Alert>
               <Check />
@@ -233,18 +220,17 @@ export function UpworkConnect({
         <div
           className={
             notice || (data.last_error && data.status !== "connected")
-              ? "mt-6"
+              ? "mt-3"
               : undefined
           }
         >
-          <Step n={1}>Register the redirect URI on the key</Step>
-          <div className="flex items-center gap-2.5">
-            <code className="bg-card text-muted-foreground flex min-h-[52px] min-w-0 flex-1 items-center truncate rounded-[18px] px-[18px] font-mono text-[13px]">
+          <Step>Register the redirect URI on the key</Step>
+          <div className="flex items-center gap-2">
+            <code className="bg-card text-muted-foreground flex min-h-8 min-w-0 flex-1 items-center truncate rounded-md border px-2.5 font-mono text-xs">
               <span className="truncate">{data.redirect_uri}</span>
             </code>
             <Button
               variant="outline"
-              className="h-[52px]"
               onClick={() => {
                 void navigator.clipboard.writeText(data.redirect_uri);
                 setCopied(true);
@@ -255,16 +241,12 @@ export function UpworkConnect({
               {copied ? "Copied" : "Copy"}
             </Button>
           </div>
-          <Hint quiet className="mt-2.5">
-            It must match exactly. Set API_PUBLIC_URL on the backend if this is
-            not the address your browser reaches it at.
-          </Hint>
         </div>
 
-        <Rule className="my-[26px]" />
+        <Rule className="my-3" />
 
         <div>
-          <Step n={2}>API key pair</Step>
+          <Step>API key pair</Step>
           {data.configured && data.credentials_source === "user" ? (
             <Row icon={KeyRound} tone="white">
               <span className="text-muted-foreground min-w-0 flex-1 truncate font-mono text-[13px]">
@@ -286,7 +268,7 @@ export function UpworkConnect({
             </p>
           ) : null}
           {(!data.configured || data.credentials_source !== "user") && (
-            <div className="mt-3 flex flex-wrap items-end gap-3">
+            <div className="mt-2 flex flex-wrap items-end gap-2">
               <FormField label="Client ID" className="min-w-48 flex-1">
                 {(control) => (
                   <Input
@@ -307,7 +289,6 @@ export function UpworkConnect({
                 )}
               </FormField>
               <Button
-                className="h-12"
                 disabled={
                   clientId.trim().length < 8 ||
                   clientSecret.trim().length < 8 ||
@@ -322,15 +303,15 @@ export function UpworkConnect({
           )}
         </div>
 
-        <Rule className="my-[26px]" />
+        <Rule className="my-3" />
 
         {/* Step 3: authorize, or the connected account. */}
         <div>
-          <Step n={3}>Authorize</Step>
+          <Step>Authorize</Step>
           {data.connected ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               <Row icon={Link2} tone="white" iconTone="success">
-                <span className="min-w-0 flex-1 text-[0.94rem]">
+                <span className="min-w-0 flex-1 text-[13px]">
                   Connected as{" "}
                   <strong>
                     {data.upwork_user_name ?? "your Upwork account"}
@@ -374,11 +355,7 @@ export function UpworkConnect({
                 </p>
               )}
               {organizations.length > 1 && (
-                <FormField
-                  className="pt-2"
-                  label="Organization"
-                  hint="Which Upwork organization the API acts for. Usually your freelancer profile."
-                >
+                <FormField className="pt-1" label="Organization">
                   {(control) => (
                     <Select
                       value={data.tenant_id ?? ""}
@@ -405,17 +382,11 @@ export function UpworkConnect({
                   )}
                 </FormField>
               )}
-              <Hint quiet className="pt-2">
-                Access tokens last 24 hours and are refreshed automatically. A
-                session unused for two weeks expires and has to be authorized
-                again.
-              </Hint>
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-3">
               <Button
                 variant="brand"
-                size="lg"
                 disabled={!data.configured || authorize.isPending}
                 onClick={() => authorize.mutate()}
               >
@@ -432,23 +403,12 @@ export function UpworkConnect({
         </div>
 
         {error && (
-          <div className="mt-5">
+          <div className="mt-3">
             <ErrorAlert>{error.message}</ErrorAlert>
           </div>
         )}
       </div>
 
-      <Hint className="mt-5 max-w-[760px]">
-        Upwork&rsquo;s terms allow a posting to be cached for 24 hours. Search
-        results you have not focused are dropped after a day; focused jobs stay
-        because they are your own list.{" "}
-        <Link
-          href="/freelancing/jobs"
-          className="text-foreground border-foreground border-b-[1.5px] font-bold"
-        >
-          Go to jobs
-        </Link>
-      </Hint>
     </>
   );
 }

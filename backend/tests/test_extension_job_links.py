@@ -6,7 +6,7 @@ import uuid
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import update
+from sqlalchemy import func, select, update
 
 from app.db.session import SessionLocal
 from app.main import app
@@ -15,7 +15,7 @@ from app.models.generation import Generation
 from app.models.resume import BaseResume, TailoredResume
 from app.services.generation import job_description_hash
 from app.worker.runner import run_once
-from tests.test_pipeline import ANALYSIS_JSON, StubProvider
+from tests.test_pipeline import CRITERIA_JSON, FLAGS_JSON, LEDGER_JSON, StubProvider
 from tests.test_resume_repair import StreamingStub, use_provider
 
 POSTING = "https://jobs.ashbyhq.com/acme/5b1e"
@@ -128,7 +128,7 @@ async def test_tailoring_from_a_tab_links_the_result_to_its_posting(
             .values(status=GenerationStatus.CANCELLED)
         )
         await session.commit()
-    use_provider(monkeypatch, StreamingStub([ANALYSIS_JSON, aran_markdown]))
+    use_provider(monkeypatch, StreamingStub([CRITERIA_JSON, aran_markdown]))
     assert await run_once() is True
 
     # Found from the application form as well, with no panel left to wait for it.
@@ -260,3 +260,122 @@ async def test_a_resume_tailored_in_the_panel_is_listed_once_it_is_saved(
     assert await listed() == {from_panel, from_portal}
     (tab,) = await lookup(client, auth, POSTING)
     assert tab["resume"]["application_id"] == res.json()["id"]
+
+
+async def run_only(generation_id: str) -> None:
+    """Run one queued generation: run_once takes the oldest anywhere."""
+    async with SessionLocal() as session:
+        await session.execute(
+            update(Generation)
+            .where(
+                Generation.status == GenerationStatus.QUEUED,
+                Generation.id != uuid.UUID(generation_id),
+            )
+            .values(status=GenerationStatus.CANCELLED)
+        )
+        await session.commit()
+    assert await run_once() is True
+    async with SessionLocal() as session:
+        generation = await session.get(Generation, uuid.UUID(generation_id))
+        assert generation.status is not GenerationStatus.FAILED, generation.error_detail
+
+
+async def save(client, auth, **extra) -> dict:
+    res = await client.post(
+        "/api/v1/remote/extension/save-application",
+        headers=auth,
+        json={"company_name": "Acme", "role_title": "Senior AI Engineer",
+              "job_url": POSTING + "/application", **extra},
+    )
+    assert res.status_code == 201, res.text
+    return res.json()
+
+
+async def application(client, auth, application_id: str) -> dict:
+    res = await client.get(f"/api/v1/remote/applications/{application_id}", headers=auth)
+    assert res.status_code == 200, res.text
+    return res.json()
+
+
+async def test_save_and_track_keeps_a_base_resume(client, auth, aran_markdown) -> None:
+    """Regression: only a tailored resume was ever sent with the application."""
+    base_id = await upload_base(client, auth, aran_markdown)
+    await client.put(
+        "/api/v1/remote/extension/job-links",
+        headers=auth,
+        json={"url": POSTING, "resume": {"kind": "base", "id": base_id},
+              "job": {"url": POSTING, "company": "Acme", "description_text": JD}},
+    )
+    # An older panel names no resume; the posting's own is used.
+    saved = await save(client, auth)
+    assert (saved["base_resume_id"], saved["tailored_resume_id"]) == (base_id, None)
+    assert saved["job_description_text"] == JD
+
+    (tab,) = await lookup(client, auth, POSTING)
+    assert tab["application_id"] == saved["id"]
+
+    named = await save(client, auth, resume={"kind": "base", "id": base_id})
+    assert (await application(client, auth, named["id"]))["resume"]["kind"] == "base"
+
+
+async def test_a_resume_generated_for_a_tab_becomes_its_postings_resume(
+    client, auth, aran_markdown, monkeypatch
+) -> None:
+    tracked = await save(client, auth)
+    assert tracked["base_resume_id"] is None
+
+    res = await client.post(
+        "/api/v1/remote/extension/generate",
+        headers=auth,
+        json={"target_title": "Senior AI Engineer", "job_description": JD,
+              "job_url": POSTING,
+              "job": {"url": POSTING, "company": "Acme", "description_text": JD}},
+    )
+    assert res.status_code == 202, res.text
+    (queued,) = await lookup(client, auth, POSTING)
+    assert queued["generation"]["id"] == res.json()["id"]
+
+    use_provider(monkeypatch, StreamingStub([LEDGER_JSON, aran_markdown, FLAGS_JSON]))
+    await run_only(res.json()["id"])
+
+    (done,) = await lookup(client, auth, POSTING + "/application")
+    assert done["resume"]["kind"] == "base"
+    assert done["linked"] is True
+    # The application tracking the posting has it too.
+    linked = (await application(client, auth, tracked["id"]))["resume"]
+    assert (linked["kind"], linked["id"]) == ("base", done["resume"]["id"])
+
+
+async def test_tailoring_a_tabs_linked_resume_upgrades_it_in_place(
+    client, auth, aran_markdown, monkeypatch
+) -> None:
+    base_id = await upload_base(client, auth, aran_markdown)
+    await client.put(
+        "/api/v1/remote/extension/job-links",
+        headers=auth,
+        json={"url": POSTING, "resume": {"kind": "base", "id": base_id},
+              "job": {"url": POSTING, "company": "Acme", "description_text": JD}},
+    )
+    res = await client.post(
+        "/api/v1/remote/extension/job-links/upgrade",
+        headers=auth,
+        json={"url": POSTING + "/application", "resume": {"kind": "base", "id": base_id}},
+    )
+    assert res.status_code == 202, res.text
+    async with SessionLocal() as session:
+        generation = await session.get(Generation, uuid.UUID(res.json()["id"]))
+        # The posting's description, not the application form's page.
+        assert generation.input["job_description"] == JD
+        assert generation.input["base_in_place"] is True
+
+    use_provider(monkeypatch, StreamingStub([CRITERIA_JSON, aran_markdown]))
+    await run_only(res.json()["id"])
+
+    (tab,) = await lookup(client, auth, POSTING)
+    assert (tab["resume"]["kind"], tab["resume"]["id"]) == ("base", base_id)
+    async with SessionLocal() as session:
+        added = await session.scalar(
+            select(func.count()).where(TailoredResume.base_resume_id == uuid.UUID(base_id))
+        )
+        assert added == 0, "tailoring a linked resume must not add another"
+        assert (await session.get(BaseResume, uuid.UUID(base_id))).ats_report["must_have_total"] == 2

@@ -122,14 +122,49 @@ export async function extractJob(tabId: number): Promise<JobExtract | null> {
     func: () =>
       (window as unknown as { __raScan: { extractJob(): JobExtract } }).__raScan.extractJob(),
   });
-  // The main frame is always first; prefer whichever frame has the most text.
+  // A frame carrying the posting's own JobPosting data is the posting, however
+  // much text the page around it has. Otherwise, the frame with the most text -
+  // as long as it is prose. A captcha's or a feedback widget's script outweighs
+  // any posting: a Lever posting was read as 40KB of hCaptcha code titled
+  // "hCaptcha", and tailoring it failed.
   const candidates = results
     .map((r) => r.result as JobExtract | undefined)
-    .filter((r): r is JobExtract => Boolean(r?.description_text));
+    .filter(
+      (r): r is JobExtract =>
+        Boolean(r?.description_text) && (Boolean(r!.json_ld) || readsAsProse(r!.description_text)),
+    );
   if (!candidates.length) return null;
   return candidates.sort(
-    (a, b) => b.description_text.length - a.description_text.length,
+    (a, b) =>
+      Number(Boolean(b.json_ld)) - Number(Boolean(a.json_ld)) ||
+      b.description_text.length - a.description_text.length,
   )[0];
+}
+
+/**
+ * Whether text reads as prose rather than code or encoded data: at least half
+ * its characters in plain words. The backend's own test for a posting
+ * (app/remote/validation/posting.py), so the panel never picks a frame the
+ * backend will turn away.
+ */
+function readsAsProse(text: string): boolean {
+  const tokens = text.replace(/<[^>]{0,400}>/g, " ").split(/\s+/).filter(Boolean);
+  const chars = tokens.reduce((sum, t) => sum + t.length, 0);
+  const words = tokens.filter(isWord).reduce((sum, t) => sum + t.length, 0);
+  return chars > 0 && words / chars >= 0.5;
+}
+
+function isWord(token: string): boolean {
+  const core = token.replace(/^[^\p{L}\p{N}_]+|[^\p{L}\p{N}_]+$/gu, "");
+  if (!core) return false;
+  // An English word, or an acronym. camelCase and digits read as code.
+  if (/^[\x00-\x7f]+$/.test(core)) {
+    return /^(?:[A-Za-z][a-z]+(?:['-][A-Za-z]+)*|[A-Z]{2,6}s?)$/.test(core);
+  }
+  // Any other script. Thai and Chinese put no spaces between words, so a token
+  // can be a whole phrase; it is still prose when it is made of letters.
+  const chars = [...core];
+  return chars.filter((c) => /[\p{L}\p{M}]/u.test(c)).length >= 0.8 * chars.length;
 }
 
 export interface ScanSummary {

@@ -1,0 +1,215 @@
+/*
+ * Linen: neutral greys on carbon, with alabaster and a cool grey
+ *
+ * Source colours:
+ * Carbon Black #1c1c1c, Alabaster Grey #daddd8, Soft Linen #ecebe4,
+ * Platinum #eef0f2, Ghost White #fafaff.
+ * The text, ink and dark-mode surfaces are derived from them so every text
+ * pair clears WCAG AA.
+ * Remote's accent is Alabaster Grey; Freelancing's is a cooler grey derived from Platinum.
+ *
+ * Selected by data-theme="linen" on <html> (see lib/palettes.ts). How the
+ * four blocks outrank the defaults, and why the portal blocks must set every
+ * accent token, is explained in prussian.css.
+ */
+
+:root[data-theme="linen"] {
+  --shadow-ink: 28 28 28;
+  --background: #ecebe4;
+  --foreground: #1c1c1c;
+  --card: #ffffff;
+  --card-foreground: #1c1c1c;
+  --popover: #ffffff;
+  --popover-foreground: #1c1c1c;
+  --primary: #1c1c1c;
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff;
+  --secondary-foreground: #1c1c1c;
+  --muted: #f6f6f3;
+  --muted-foreground: #696969;
+  --subtle: #999999;
+  --accent: #eef0ed;
+  --accent-foreground: #6c6d6b;
+  --border: #d9d8d2;
+  --input: #f6f5f2;
+  --ring: #b0b3af;
+
+  --brand: #daddd8;
+  --brand-foreground: #1c1c1c;
+  --brand-soft: #eef0ed;
+  --brand-ink: #6c6d6b;
+
+  --soft: #f7f7f4;
+  --soft-2: #ddddd6;
+
+  --panel: #1c1c1c;
+  --panel-foreground: #ffffff;
+  --panel-raised: #333333;
+  --panel-muted: #bbbbbb;
+
+  --chart-1: #daddd8;
+  --chart-2: #1c1c1c;
+  --chart-3: #c3c9d3;
+  --chart-4: #17a05e;
+  --chart-5: #e8a21a;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1c1c1c;
+  --sidebar-primary: #1c1c1c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef0ed;
+  --sidebar-accent-foreground: #6c6d6b;
+  --sidebar-border: #d9d8d2;
+  --sidebar-ring: #b0b3af;
+
+  --gradient-brand: #eceeec, #daddd8, #b4b6b2;
+  --gradient-brand-strong: #e5e7e4, #daddd8, #bfc2be;
+  --gradient-brand-text: #848683, #6c6d6b, #555654;
+
+  --event-1: #daddd8;
+  --event-1-foreground: #1c1c1c;
+  --event-1-ink: #6c6d6b;
+  --event-2: #e7e0ff;
+  --event-2-foreground: #3b2790;
+  --event-2-ink: #5a3fc4;
+  --event-3: #d4f2e3;
+  --event-3-foreground: #0b5f37;
+  --event-3-ink: #0c7a43;
+  --event-4: #d7d6d0;
+  --event-4-foreground: #1c1c1c;
+  --event-4-ink: #555555;
+  --event-5: #dfeaff;
+  --event-5-foreground: #1d4fb3;
+  --event-5-ink: #1d4fb3;
+  --event-6: #fbefcf;
+  --event-6-foreground: #6f4700;
+  --event-6-ink: #8a5a00;
+}
+
+:root[data-theme="linen"].dark {
+  --background: #0f0f0f;
+  --foreground: #f3f2ed;
+  --card: #171717;
+  --card-foreground: #f3f2ed;
+  --popover: #171717;
+  --popover-foreground: #f3f2ed;
+  --primary: #ecebe4;
+  --primary-foreground: #0f0f0f;
+  --secondary: #1e1e1e;
+  --secondary-foreground: #f3f2ed;
+  --muted: #1e1e1e;
+  --muted-foreground: #9c9c99;
+  --subtle: #6f6e6c;
+  --accent: #40403f;
+  --accent-foreground: #e5e7e4;
+  --border: #222222;
+  --input: #1e1e1e;
+  --ring: #daddd8;
+
+  --brand: #daddd8;
+  --brand-foreground: #0f0f0f;
+  --brand-soft: #40403f;
+  --brand-ink: #e5e7e4;
+
+  --soft: #1c1c1c;
+  --soft-2: #262626;
+
+  --panel: #2a2a2a;
+  --panel-foreground: #f3f2ed;
+  --panel-raised: #464646;
+  --panel-muted: #b4b4b4;
+
+  --chart-1: #daddd8;
+  --chart-2: #c3c9d3;
+  --chart-3: #8e8e8e;
+  --chart-4: #3ac787;
+  --chart-5: #f2b94b;
+
+  --sidebar: #171717;
+  --sidebar-foreground: #f3f2ed;
+  --sidebar-primary: #ecebe4;
+  --sidebar-primary-foreground: #0f0f0f;
+  --sidebar-accent: #40403f;
+  --sidebar-accent-foreground: #e5e7e4;
+  --sidebar-border: #222222;
+  --sidebar-ring: #daddd8;
+
+  --gradient-brand-strong: #e5e7e4, #daddd8, #bbbeba;
+  --gradient-brand-text: #e9ebe8, #daddd8, #bbbeba;
+
+  --event-1: #747674;
+  --event-1-foreground: #f6f6f5;
+  --event-1-ink: #e5e7e4;
+  --event-2: #443a73;
+  --event-2-foreground: #e4dcff;
+  --event-2-ink: #c4b5fd;
+  --event-3: #1f4a38;
+  --event-3-foreground: #c9f1dc;
+  --event-3-ink: #6ee7b7;
+  --event-4: #151515;
+  --event-4-foreground: #f3f2ed;
+  --event-4-ink: #afaeaa;
+  --event-5: #22407a;
+  --event-5-foreground: #d3e2ff;
+  --event-5-ink: #93c5fd;
+  --event-6: #5a4515;
+  --event-6-foreground: #fbe8b4;
+  --event-6-ink: #fcd34d;
+}
+
+:is(:root[data-theme="linen"][data-portal="freelancing"], :root[data-theme="linen"] [data-portal="freelancing"]) {
+  --ring: #9ea3ab;
+  --accent: #e4e7eb;
+  --accent-foreground: #64666b;
+
+  --brand: #c3c9d3;
+  --brand-foreground: #1c1c1c;
+  --brand-soft: #e4e7eb;
+  --brand-ink: #64666b;
+
+  --chart-1: #c3c9d3;
+  --chart-2: #1c1c1c;
+  --chart-3: #daddd8;
+  --chart-4: #17a05e;
+  --chart-5: #e8a21a;
+
+  --sidebar-accent: #e4e7eb;
+  --sidebar-accent-foreground: #64666b;
+  --sidebar-ring: #9ea3ab;
+
+  --gradient-brand: #e1e4e9, #c3c9d3, #a2a6ae;
+  --gradient-brand-strong: #d5d9e0, #c3c9d3, #acb1b9;
+  --gradient-brand-text: #787b81, #626569, #4e5053;
+
+  --event-1: #c3c9d3;
+  --event-1-foreground: #1c1c1c;
+  --event-1-ink: #64666b;
+}
+
+:is(:root[data-theme="linen"].dark[data-portal="freelancing"], :root[data-theme="linen"].dark [data-portal="freelancing"]) {
+  --ring: #c3c9d3;
+  --accent: #3a3c3e;
+  --accent-foreground: #d5d9e0;
+
+  --brand: #c3c9d3;
+  --brand-foreground: #0f0f0f;
+  --brand-soft: #3a3c3e;
+  --brand-ink: #d5d9e0;
+
+  --chart-1: #c3c9d3;
+  --chart-2: #daddd8;
+  --chart-3: #8e8e8e;
+  --chart-4: #3ac787;
+  --chart-5: #f2b94b;
+
+  --sidebar-accent: #3a3c3e;
+  --sidebar-accent-foreground: #d5d9e0;
+  --sidebar-ring: #c3c9d3;
+
+  --gradient-brand-strong: #d5d9e0, #c3c9d3, #a8adb5;
+  --gradient-brand-text: #dbdfe5, #c3c9d3, #a8adb5;
+
+  --event-1: #696c71;
+  --event-1-foreground: #f0f2f4;
+  --event-1-ink: #d5d9e0;
+}

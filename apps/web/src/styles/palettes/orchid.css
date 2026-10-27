@@ -1,0 +1,215 @@
+/*
+ * Orchid: pale pink on velvet purple, with pastel pink and orchid
+ *
+ * Source colours:
+ * Velvet Purple #643a71, Lavender Purple #8b5fbf, Orchid Mist #d183c9,
+ * Petal Rouge #e3879e, Pastel Pink #fec0ce.
+ * The text, ink and dark-mode surfaces are derived from them so every text
+ * pair clears WCAG AA.
+ * Remote's accent is Pastel Pink; Freelancing's is Orchid Mist.
+ *
+ * Selected by data-theme="orchid" on <html> (see lib/palettes.ts). How the
+ * four blocks outrank the defaults, and why the portal blocks must set every
+ * accent token, is explained in prussian.css.
+ */
+
+:root[data-theme="orchid"] {
+  --shadow-ink: 43 22 54;
+  --background: #fff0f4;
+  --foreground: #2b1636;
+  --card: #ffffff;
+  --card-foreground: #2b1636;
+  --popover: #ffffff;
+  --popover-foreground: #2b1636;
+  --primary: #643a71;
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff;
+  --secondary-foreground: #2b1636;
+  --muted: #fff8fa;
+  --muted-foreground: #75687c;
+  --subtle: #a096a5;
+  --accent: #ffe3e9;
+  --accent-foreground: #835d76;
+  --border: #ecdce3;
+  --input: #fff8fa;
+  --ring: #d09bad;
+
+  --brand: #fec0ce;
+  --brand-foreground: #2b1636;
+  --brand-soft: #ffe3e9;
+  --brand-ink: #835d76;
+
+  --soft: #fff9fb;
+  --soft-2: #f0e1e7;
+
+  --panel: #643a71;
+  --panel-foreground: #ffffff;
+  --panel-raised: #744e7f;
+  --panel-muted: #dad1dd;
+
+  --chart-1: #fec0ce;
+  --chart-2: #643a71;
+  --chart-3: #d183c9;
+  --chart-4: #17a05e;
+  --chart-5: #e8a21a;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #2b1636;
+  --sidebar-primary: #643a71;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ffe3e9;
+  --sidebar-accent-foreground: #835d76;
+  --sidebar-border: #ecdce3;
+  --sidebar-ring: #d09bad;
+
+  --gradient-brand: #fee0e6, #fec0ce, #d49eb0;
+  --gradient-brand-strong: #fed3dd, #fec0ce, #e0a8b9;
+  --gradient-brand-text: #9f748a, #845d76, #6a4964;
+
+  --event-1: #fec0ce;
+  --event-1-foreground: #2b1636;
+  --event-1-ink: #835d76;
+  --event-2: #e7e0ff;
+  --event-2-foreground: #3b2790;
+  --event-2-ink: #5a3fc4;
+  --event-3: #d4f2e3;
+  --event-3-foreground: #0b5f37;
+  --event-3-ink: #0c7a43;
+  --event-4: #eadae1;
+  --event-4-foreground: #2b1636;
+  --event-4-ink: #605068;
+  --event-5: #dfeaff;
+  --event-5-foreground: #1d4fb3;
+  --event-5-ink: #1d4fb3;
+  --event-6: #fbefcf;
+  --event-6-foreground: #6f4700;
+  --event-6-ink: #8a5a00;
+}
+
+:root[data-theme="orchid"].dark {
+  --background: #1a0f1d;
+  --foreground: #fff5f8;
+  --card: #28172d;
+  --card-foreground: #fff5f8;
+  --popover: #28172d;
+  --popover-foreground: #fff5f8;
+  --primary: #fff0f4;
+  --primary-foreground: #1a0f1d;
+  --secondary: #341e3b;
+  --secondary-foreground: #fff5f8;
+  --muted: #341e3b;
+  --muted-foreground: #a89ea5;
+  --subtle: #7a7079;
+  --accent: #513947;
+  --accent-foreground: #fed3dd;
+  --border: #3a2242;
+  --input: #341e3b;
+  --ring: #fec0ce;
+
+  --brand: #fec0ce;
+  --brand-foreground: #1a0f1d;
+  --brand-soft: #513947;
+  --brand-ink: #fed3dd;
+
+  --soft: #301c36;
+  --soft-2: #42264b;
+
+  --panel: #482a51;
+  --panel-foreground: #fff5f8;
+  --panel-raised: #6d467a;
+  --panel-muted: #d0c7d2;
+
+  --chart-1: #fec0ce;
+  --chart-2: #d183c9;
+  --chart-3: #b29cb8;
+  --chart-4: #3ac787;
+  --chart-5: #f2b94b;
+
+  --sidebar: #28172d;
+  --sidebar-foreground: #fff5f8;
+  --sidebar-primary: #fff0f4;
+  --sidebar-primary-foreground: #1a0f1d;
+  --sidebar-accent: #513947;
+  --sidebar-accent-foreground: #fed3dd;
+  --sidebar-border: #3a2242;
+  --sidebar-ring: #fec0ce;
+
+  --gradient-brand-strong: #fed3dd, #fec0ce, #daa5b1;
+  --gradient-brand-text: #fed9e2, #fec0ce, #daa5b1;
+
+  --event-1: #8c6876;
+  --event-1-foreground: #ffeff3;
+  --event-1-ink: #fed3dd;
+  --event-2: #443a73;
+  --event-2-foreground: #e4dcff;
+  --event-2-ink: #c4b5fd;
+  --event-3: #1f4a38;
+  --event-3-foreground: #c9f1dc;
+  --event-3-ink: #6ee7b7;
+  --event-4: #4b2c55;
+  --event-4-foreground: #fff5f8;
+  --event-4-ink: #bab0b6;
+  --event-5: #22407a;
+  --event-5-foreground: #d3e2ff;
+  --event-5-ink: #93c5fd;
+  --event-6: #5a4515;
+  --event-6-foreground: #fbe8b4;
+  --event-6-ink: #fcd34d;
+}
+
+:is(:root[data-theme="orchid"][data-portal="freelancing"], :root[data-theme="orchid"] [data-portal="freelancing"]) {
+  --ring: #ac6ba9;
+  --accent: #eac7e7;
+  --accent-foreground: #79497c;
+
+  --brand: #d183c9;
+  --brand-foreground: #2b1636;
+  --brand-soft: #eac7e7;
+  --brand-ink: #79497c;
+
+  --chart-1: #d183c9;
+  --chart-2: #643a71;
+  --chart-3: #fec0ce;
+  --chart-4: #17a05e;
+  --chart-5: #e8a21a;
+
+  --sidebar-accent: #eac7e7;
+  --sidebar-accent-foreground: #79497c;
+  --sidebar-ring: #ac6ba9;
+
+  --gradient-brand: #e8c1e4, #d183c9, #b06dac;
+  --gradient-brand-strong: #dfa8d9, #d183c9, #ba74b4;
+  --gradient-brand-text: #865287, #714474, #5d3762;
+
+  --event-1: #d183c9;
+  --event-1-foreground: #2b1636;
+  --event-1-ink: #79497c;
+}
+
+:is(:root[data-theme="orchid"].dark[data-portal="freelancing"], :root[data-theme="orchid"].dark [data-portal="freelancing"]) {
+  --ring: #d183c9;
+  --accent: #462b46;
+  --accent-foreground: #dfa8d9;
+
+  --brand: #d183c9;
+  --brand-foreground: #1a0f1d;
+  --brand-soft: #462b46;
+  --brand-ink: #dfa8d9;
+
+  --chart-1: #d183c9;
+  --chart-2: #fec0ce;
+  --chart-3: #b29cb8;
+  --chart-4: #3ac787;
+  --chart-5: #f2b94b;
+
+  --sidebar-accent: #462b46;
+  --sidebar-accent-foreground: #dfa8d9;
+  --sidebar-ring: #d183c9;
+
+  --gradient-brand-strong: #dfa8d9, #d183c9, #b471ad;
+  --gradient-brand-text: #e3b5df, #d183c9, #b471ad;
+
+  --event-1: #764973;
+  --event-1-foreground: #f4e0f2;
+  --event-1-ink: #dfa8d9;
+}

@@ -49,6 +49,22 @@ class ResumeSummaryOut(ORMModel):
     updated_at: datetime
 
 
+class LinkedJobOut(ORMModel):
+    """A job a resume is linked to; ``application_id`` is None for a posting
+    the side panel linked without saving it as an application."""
+
+    application_id: uuid.UUID | None
+    company_name: str | None
+    job_title: str | None
+    job_url: str | None
+
+
+class ResumeRow(ResumeSummaryOut):
+    """The library card: the summary, plus the jobs the resume is linked to."""
+
+    linked_jobs: list[LinkedJobOut] = Field(default_factory=list)
+
+
 class ResumeOut(ResumeSummaryOut):
     content_markdown: str
     content_text: str
@@ -57,6 +73,8 @@ class ResumeOut(ResumeSummaryOut):
     ats_report: dict | None = None
     flags: dict | None = None
     validation: dict | None = None
+    # Set when the resume was generated from, or rewritten for, a posting.
+    job_description_text: str | None = None
 
 
 class ResumeCreated(ResumeOut):
@@ -152,6 +170,10 @@ class TailoredResumeSummary(ORMModel):
     must_have_coverage_percent: float | None
     created_at: datetime
     updated_at: datetime
+
+
+class TailoredResumeRow(TailoredResumeSummary):
+    linked_jobs: list[LinkedJobOut] = Field(default_factory=list)
 
 
 class TailoredResumeOut(TailoredResumeSummary):

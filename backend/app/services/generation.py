@@ -18,6 +18,7 @@ from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.timezone import utc_now
@@ -96,6 +97,45 @@ async def emit(
     session.add(event)
     await session.flush()
     return event
+
+
+async def cancel(session: AsyncSession, generation_id: uuid.UUID) -> bool:
+    """Stop a queued or running job. False when it had already finished.
+
+    One conditional UPDATE rather than read-then-write: a job that finishes in
+    the same instant must not be relabelled cancelled after its result was
+    saved. If the worker holds the row, this waits for its commit and then
+    matches nothing.
+    """
+    stopped = await session.execute(
+        update(Generation)
+        .where(
+            Generation.id == generation_id,
+            Generation.status.in_([GenerationStatus.QUEUED, GenerationStatus.RUNNING]),
+        )
+        .values(status=GenerationStatus.CANCELLED, finished_at=utc_now())
+        .returning(Generation.id)
+    )
+    if stopped.first() is None:
+        return False
+    # The worker may append a progress event at the same moment; the loser of
+    # the (generation, seq) race just takes the next number.
+    for _ in range(3):
+        try:
+            async with session.begin_nested():
+                await emit(session, generation_id, "cancelled", {"detail": "Stopped"})
+            break
+        except IntegrityError:
+            continue
+    return True
+
+
+async def is_cancelled(generation_id: uuid.UUID) -> bool:
+    async with SessionLocal() as session:
+        status = await session.scalar(
+            select(Generation.status).where(Generation.id == generation_id)
+        )
+    return status is GenerationStatus.CANCELLED
 
 
 async def emit_now(generation_id: uuid.UUID, type_: str, payload: dict) -> None:

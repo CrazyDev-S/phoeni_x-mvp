@@ -1,16 +1,33 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { api, docxName, downloadDocx, waitForGeneration } from "@/lib/api";
+import {
+  api,
+  docxName,
+  downloadDocx,
+  stopGeneration,
+  waitForGeneration,
+  wasStopped,
+} from "@/lib/api";
 import { extractJob, isInjectable, windowTabs, type TargetTab } from "@/lib/page";
 import type { JobLink, ResumeRef } from "@/lib/types";
 
-export type Strategy = "existing" | "full";
+/**
+ * How Apply makes a posting's resume.
+ *
+ * generate: a new resume from the posting and the resume profile - the
+ * portal's "From a job". tailor: the base resume reframed for the posting.
+ */
+export type Mode = "generate" | "tailor";
 
-/** A tailoring run, as this panel sees it. */
+/** A generating or tailoring run, as this panel sees it. */
 export interface Run {
   label: string;
   percent: number;
   running: boolean;
+  /** Stop was pressed and the run has not wound down yet. */
+  stopping: boolean;
+  /** The last run was stopped; nothing was saved. */
+  stopped: boolean;
   error: string | null;
 }
 
@@ -27,7 +44,14 @@ interface Accepted {
   result_id?: string | null;
 }
 
-const NO_RUN: Run = { label: "", percent: 0, running: false, error: null };
+const NO_RUN: Run = {
+  label: "",
+  percent: 0,
+  running: false,
+  stopping: false,
+  stopped: false,
+  error: null,
+};
 const IN_FLIGHT = new Set(["queued", "running"]);
 const LOOKUP_BATCH = 60;
 // A page load fires several tab events; one refresh per burst.
@@ -53,6 +77,10 @@ export function useJobBoard(portalUrl: string) {
   const tabsRef = useRef<TargetTab[]>([]);
   // Generations already being polled, so no refresh polls one twice.
   const following = useRef(new Set<string>());
+  // The generation behind each posting's run, so Stop can name it.
+  const generations = useRef(new Map<string, string>());
+  // Postings whose Stop was pressed before their run existed.
+  const stopRequested = useRef(new Set<string>());
 
   const setRun = useCallback((key: string, patch: Partial<Run>) => {
     setRuns((all) => ({ ...all, [key]: { ...(all[key] ?? NO_RUN), ...patch } }));
@@ -85,13 +113,48 @@ export function useJobBoard(portalUrl: string) {
   const follow = useCallback(
     async (key: string, generationId: string) => {
       following.current.add(generationId);
+      generations.current.set(key, generationId);
       setRun(key, { running: true, error: null, label: "Queued", percent: 2 });
+      // Stop was pressed while the page was still being read and sent.
+      if (stopRequested.current.delete(key)) await stopGeneration(generationId).catch(() => {});
       try {
         return await waitForGeneration(generationId, (label, percent) =>
-          setRun(key, { label: label || "Tailoring", percent: Math.max(percent, 2) }),
+          setRun(key, { label: label || "Working", percent: Math.max(percent, 2) }),
         );
       } finally {
         following.current.delete(generationId);
+        generations.current.delete(key);
+      }
+    },
+    [setRun],
+  );
+
+  /** What a run's failure means to the row: a Stop is not an error. */
+  const settle = useCallback(
+    (key: string, e: unknown) =>
+      setRun(
+        key,
+        wasStopped(e)
+          ? { running: false, stopping: false, stopped: true, error: null, label: "Stopped" }
+          : { running: false, stopping: false, error: (e as Error).message },
+      ),
+    [setRun],
+  );
+
+  /** Stop one posting's run. Many can be running; each stops on its own. */
+  const stop = useCallback(
+    async (key: string) => {
+      setRun(key, { stopping: true });
+      const id = generations.current.get(key);
+      if (!id) {
+        // Not on the backend yet: stopped as soon as it is.
+        stopRequested.current.add(key);
+        return;
+      }
+      try {
+        await stopGeneration(id);
+      } catch (e) {
+        setRun(key, { stopping: false, error: (e as Error).message });
       }
     },
     [setRun],
@@ -106,11 +169,11 @@ export function useJobBoard(portalUrl: string) {
       if (!generation || !IN_FLIGHT.has(generation.status)) continue;
       if (following.current.has(generation.id)) continue;
       void follow(link.job_key, generation.id)
-        .then(() => setRun(link.job_key, { running: false, label: "Tailored", percent: 100 }))
-        .catch((e: Error) => setRun(link.job_key, { running: false, error: e.message }))
+        .then(() => setRun(link.job_key, { running: false, label: "Finished", percent: 100 }))
+        .catch((e: Error) => settle(link.job_key, e))
         .finally(() => void lookupAll());
     }
-  }, [follow, lookupAll, setRun]);
+  }, [follow, lookupAll, settle, setRun]);
 
   const refresh = useCallback(async () => {
     if (windowId.current === null) return;
@@ -158,49 +221,145 @@ export function useJobBoard(portalUrl: string) {
     };
   }, [refresh]);
 
-  /** Tailor one tab's posting and download the result. Many can run at once. */
-  const tailor = useCallback(
-    async (tab: TargetTab, baseResumeId: string, strategy: Strategy) => {
+  /** Wait out a run, refuse a resume that must not be sent, and name its result. */
+  const finish = useCallback(
+    async (key: string, accepted: Accepted): Promise<string> => {
+      let resultId = accepted.result_id ?? null;
+      if (!accepted.reused) {
+        // Claimed before the refresh below can see the run and poll it too.
+        following.current.add(accepted.id);
+        void refreshLinks();
+        const done = await follow(key, accepted.id);
+        resultId = (done.result_id as string | null | undefined) ?? null;
+        const findings =
+          (done.findings as { rule_id: string; severity: string }[] | undefined) ?? [];
+        const blocking = findings.find(
+          (f) => f.severity === "error" && BLOCKING_RULES.has(f.rule_id),
+        );
+        if (blocking) {
+          throw new Error(
+            `Held back: ${blocking.rule_id.toLowerCase().replace("_", " ")}. Fix it in the portal before sending.`,
+          );
+        }
+      }
+      if (!resultId) throw new Error("The run finished without a resume.");
+      return resultId;
+    },
+    [follow, refreshLinks],
+  );
+
+  /**
+   * Generate a new resume from one tab's posting - the portal's "From a job" -
+   * and download it. Many can run at once.
+   *
+   * It is a new base resume, built from the posting and the resume profile,
+   * and it becomes the posting's resume (and its application's) in place of
+   * any linked before: generating is the explicit way to get a new one.
+   */
+  const generate = useCallback(
+    async (tab: TargetTab) => {
       let key = tab.url;
       try {
         const [link] = await lookup([tab.url]);
         key = link?.job_key ?? tab.url;
-        setRun(key, { running: true, error: null, label: "Reading the page", percent: 1 });
-        const job = await extractJob(tab.tabId);
+        stopRequested.current.delete(key);
+        setRun(key, {
+          running: true,
+          stopping: false,
+          stopped: false,
+          error: null,
+          label: "Reading the page",
+          percent: 1,
+        });
+        const job = await extractJob(tab.tabId).catch(() => null);
         if (!job || job.description_text.length < 120) {
+          throw new Error("No job description on this page. Open the posting itself.");
+        }
+        const title = (job.title || link?.job_title || tab.title || "").trim().slice(0, 160);
+        if (title.length < 2) throw new Error("No job title on this page to generate for.");
+
+        setRun(key, { label: "Sending to your backend", percent: 2 });
+        const accepted = await api<Accepted>("/api/v1/remote/extension/generate", {
+          method: "POST",
+          body: JSON.stringify({
+            target_title: title,
+            job_description: job.description_text.slice(0, 60_000),
+            // Links the new resume to this posting, and to its application.
+            job_url: tab.url,
+            job,
+          }),
+        });
+        const resultId = await finish(key, accepted);
+
+        setRun(key, { label: "Downloading", percent: 98 });
+        await downloadDocx(
+          { resume_id: resultId, kind: "base", profile: "designed" },
+          docxName(job.company ?? link?.company_name ?? null, title),
+        );
+        setRun(key, { running: false, percent: 100, label: "Generated · downloaded" });
+      } catch (e) {
+        settle(key, e);
+      } finally {
+        void lookupAll();
+      }
+    },
+    [finish, lookup, lookupAll, settle, setRun],
+  );
+
+  /**
+   * Tailor one tab's posting and download the result. Many can run at once.
+   *
+   * A posting that already has a resume gets that resume rewritten in place,
+   * not a new one - whatever links to it still does. Otherwise a new resume is
+   * tailored from the chosen base resume.
+   */
+  const tailor = useCallback(
+    async (tab: TargetTab, baseResumeId: string) => {
+      let key = tab.url;
+      try {
+        const [link] = await lookup([tab.url]);
+        key = link?.job_key ?? tab.url;
+        const linked = link?.resume ?? null;
+        stopRequested.current.delete(key);
+        setRun(key, {
+          running: true,
+          stopping: false,
+          stopped: false,
+          error: null,
+          label: "Reading the page",
+          percent: 1,
+        });
+        const job = await extractJob(tab.tabId).catch(() => null);
+        const readable = Boolean(job && job.description_text.length >= 120);
+        // A linked resume can fall back on the posting read when it was linked.
+        if (!readable && !linked) {
           throw new Error("No job description on this page. Open the posting itself.");
         }
 
         setRun(key, { label: "Sending to your backend", percent: 2 });
-        const accepted = await api<Accepted>("/api/v1/remote/extension/tailor", {
-          method: "POST",
-          body: JSON.stringify({ base_resume_id: baseResumeId, job, strategy }),
-        });
+        const accepted = linked
+          ? await api<Accepted>("/api/v1/remote/extension/job-links/upgrade", {
+              method: "POST",
+              body: JSON.stringify({
+                url: tab.url,
+                resume: { kind: linked.kind, id: linked.id },
+                job: readable ? job : null,
+              }),
+            })
+          : await api<Accepted>("/api/v1/remote/extension/tailor", {
+              method: "POST",
+              body: JSON.stringify({ base_resume_id: baseResumeId, job }),
+            });
 
-        let resultId = accepted.result_id ?? null;
-        if (!accepted.reused) {
-          // Claimed before the refresh below can see the run and poll it too.
-          following.current.add(accepted.id);
-          void refreshLinks();
-          const done = await follow(key, accepted.id);
-          resultId = (done.result_id as string | null | undefined) ?? null;
-          const findings =
-            (done.findings as { rule_id: string; severity: string }[] | undefined) ?? [];
-          const blocking = findings.find(
-            (f) => f.severity === "error" && BLOCKING_RULES.has(f.rule_id),
-          );
-          if (blocking) {
-            throw new Error(
-              `Held back: ${blocking.rule_id.toLowerCase().replace("_", " ")}. Fix it in the portal before sending.`,
-            );
-          }
-        }
-        if (!resultId) throw new Error("The run finished without a resume.");
+        const resultId = await finish(key, accepted);
 
         setRun(key, { label: "Downloading", percent: 98 });
         await downloadDocx(
-          { resume_id: resultId, kind: "tailored", profile: "designed" },
-          docxName(job.company, job.title),
+          { resume_id: resultId, kind: linked?.kind ?? "tailored", profile: "designed" },
+          docxName(
+            job?.company ?? link?.company_name ?? null,
+            job?.title ?? link?.job_title ?? linked?.display_name ?? null,
+          ),
         );
         setRun(key, {
           running: false,
@@ -208,12 +367,12 @@ export function useJobBoard(portalUrl: string) {
           label: accepted.reused ? "Reused a recent run · downloaded" : "Downloaded",
         });
       } catch (e) {
-        setRun(key, { running: false, error: (e as Error).message });
+        settle(key, e);
       } finally {
         void lookupAll();
       }
     },
-    [follow, lookup, lookupAll, refreshLinks, setRun],
+    [finish, lookup, lookupAll, settle, setRun],
   );
 
   /** Use a resume for a tab's posting as it is, or unlink it with null. */
@@ -266,5 +425,5 @@ export function useJobBoard(portalUrl: string) {
     );
   }, [active, rows, links]);
 
-  return { rows, activeRow, tailor, linkResume, download, refresh: refreshLinks };
+  return { rows, activeRow, generate, tailor, stop, linkResume, download, refresh: refreshLinks };
 }

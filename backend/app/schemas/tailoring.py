@@ -49,7 +49,7 @@ class TailorApplication(BaseModel):
     strategy: Strategy = "existing"
 
 
-class UpgradeTailored(BaseModel):
+class UpgradeResume(BaseModel):
     strategy: Strategy = "existing"
 
 

@@ -1,0 +1,216 @@
+/*
+ * Prussian: a cool navy palette from five colours - Prussian Blue #001b2e
+ * (text, the dark canvas), Charcoal Blue #294c60 (the ink: pills, focus panels,
+ * the top bar), Pale Slate #adb6c4, Papaya Whip #ffefd3 (the canvas) and Peach
+ * Glow #ffc49b. Remote's accent is peach; Freelancing's is slate, pushed a
+ * little bluer than Pale Slate (#9fb4d2) in light mode, where the raw grey
+ * reads as disabled.
+ *
+ * Selected by data-theme="prussian" on <html> (see lib/palettes.ts). Every
+ * selector outranks the defaults in globals.css whatever the mode or portal, so
+ * the light and dark blocks only need the tokens that differ. The portal blocks
+ * must set every token the default portal blocks set: a nested [data-portal]
+ * element (the hub's cards) declares them itself and would otherwise show the
+ * default accent.
+ *
+ *   light          :root[data-theme]
+ *   dark           :root[data-theme].dark
+ *   portal         [data-portal] on <html> or on any element below it
+ *   portal, dark   the same under .dark, one class higher
+ */
+
+:root[data-theme="prussian"] {
+  --shadow-ink: 0 27 46;
+  /* Semantic hues: shared by both portals. */
+  --destructive: #e5484d;
+  --success: #17a05e;
+  --warning: #e8a21a;
+  --info: #3b82f6;
+  --background: #ffefd3;
+  --foreground: #001b2e;
+  --card: #ffffff;
+  --card-foreground: #001b2e;
+  --popover: #ffffff;
+  --popover-foreground: #001b2e;
+  /* Charcoal blue: default buttons, active chips and tabs, the top bar. */
+  --primary: #294c60;
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff;
+  --secondary-foreground: #001b2e;
+  --muted: #fbf5eb;
+  --muted-foreground: #5a6b7b;
+  /* Third text rank, below muted: timestamps, counters, units. */
+  --subtle: #8e99a8;
+  /* The accent's pale wash: icon tiles, hover and selected rows. */
+  --accent: #ffe3cf;
+  --accent-foreground: #8f4216;
+  --border: #ede4d5;
+  --input: #f7f0e4;
+  --ring: #f4a36d;
+  /* Peach: vivid fills that carry dark text. */
+  --brand: #ffc49b;
+  --brand-foreground: #001b2e;
+  --brand-soft: #ffe3cf;
+  --brand-ink: #8f4216;
+  --soft: #fff7ea;
+  --soft-2: #f6e6cc;
+  /* Focus panels: charcoal blue with raised steps inside. */
+  --panel: #294c60;
+  --panel-foreground: #ffffff;
+  --panel-raised: #36596c;
+  --panel-muted: #b9c2ce;
+  --chart-1: #ffc49b;
+  --chart-2: #294c60;
+  --chart-3: #adb6c4;
+  --chart-4: #17a05e;
+  --chart-5: #e8a21a;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #001b2e;
+  --sidebar-primary: #294c60;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ffe3cf;
+  --sidebar-accent-foreground: #8f4216;
+  --sidebar-border: #ede4d5;
+  --sidebar-ring: #f4a36d;
+  /* Brand gradient stops, kept for the few places that still draw one. */
+  --gradient-brand: #ffe3cf, #ffc49b, #f4a36d;
+  --gradient-brand-strong: #ffd3b3, #ffc49b, #f6ac7a;
+  --gradient-brand-text: #c4652c, #a8521f, #8f4216;
+
+  --event-1: #ffc49b;
+  --event-1-foreground: #001b2e;
+  --event-1-ink: #8f4216;
+  --event-2: #e7e0ff;
+  --event-2-foreground: #3b2790;
+  --event-2-ink: #5a3fc4;
+  --event-3: #d4f2e3;
+  --event-3-foreground: #0b5f37;
+  --event-3-ink: #0c7a43;
+  --event-4: #ebebed;
+  --event-4-foreground: #383b41;
+  --event-4-ink: #55595f;
+  --event-5: #dfeaff;
+  --event-5-foreground: #1d4fb3;
+  --event-5-ink: #1d4fb3;
+  --event-6: #fbefcf;
+  --event-6-foreground: #6f4700;
+  --event-6-ink: #8a5a00;
+}
+
+:root[data-theme="prussian"].dark {
+  --destructive: #f2777b;
+  --success: #3ac787;
+  --warning: #f2b94b;
+  --info: #60a5fa;
+  --background: #001b2e;
+  --foreground: #f5ede0;
+  --card: #0b2a3f;
+  --card-foreground: #f5ede0;
+  --popover: #0b2a3f;
+  --popover-foreground: #f5ede0;
+  --primary: #ffefd3;
+  --primary-foreground: #001b2e;
+  --secondary: #133449;
+  --secondary-foreground: #f5ede0;
+  --muted: #133449;
+  --muted-foreground: #adb6c4;
+  --subtle: #7a8b9d;
+  --accent: #45332b;
+  --accent-foreground: #ffd3b3;
+  --border: #1d3d52;
+  --input: #133449;
+  --ring: #ffc49b;
+  --brand: #ffc49b;
+  --brand-foreground: #001b2e;
+  --brand-soft: #45332b;
+  --brand-ink: #ffd3b3;
+  --soft: #0f3045;
+  --soft-2: #1a3d53;
+  --panel: #1e4156;
+  --panel-foreground: #f5ede0;
+  --panel-raised: #2b5268;
+  --panel-muted: #adb6c4;
+  --chart-1: #ffc49b;
+  --chart-2: #adb6c4;
+  --chart-3: #6f93ab;
+  --chart-4: #3ac787;
+  --chart-5: #f2b94b;
+  --sidebar: #0b2a3f;
+  --sidebar-foreground: #f5ede0;
+  --sidebar-primary: #ffefd3;
+  --sidebar-primary-foreground: #001b2e;
+  --sidebar-accent: #45332b;
+  --sidebar-accent-foreground: #ffd3b3;
+  --sidebar-border: #1d3d52;
+  --sidebar-ring: #ffc49b;
+  --gradient-brand-strong: #ffd3b3, #ffc49b, #f6ac7a;
+  --gradient-brand-text: #ffe3cf, #ffc49b, #f6ac7a;
+
+  --event-1: #9a5f42;
+  --event-1-foreground: #fff1e6;
+  --event-1-ink: #ffd3b3;
+  --event-2: #443a73;
+  --event-2-foreground: #e4dcff;
+  --event-2-ink: #c4b5fd;
+  --event-3: #1f4a38;
+  --event-3-foreground: #c9f1dc;
+  --event-3-ink: #6ee7b7;
+  --event-4: #2c4053;
+  --event-4-foreground: #dde3ea;
+  --event-4-ink: #9aa7b6;
+  --event-5: #22407a;
+  --event-5-foreground: #d3e2ff;
+  --event-5-ink: #93c5fd;
+  --event-6: #5a4515;
+  --event-6-foreground: #fbe8b4;
+  --event-6-ink: #fcd34d;
+}
+
+:is(:root[data-theme="prussian"][data-portal="freelancing"], :root[data-theme="prussian"] [data-portal="freelancing"]) {
+  --ring: #7f97ba;
+  --accent: #e3eaf4;
+  --accent-foreground: #294c60;
+  --brand: #9fb4d2;
+  --brand-foreground: #001b2e;
+  --brand-soft: #e3eaf4;
+  --brand-ink: #294c60;
+  --chart-1: #9fb4d2;
+  --chart-2: #294c60;
+  --chart-3: #ffc49b;
+  --chart-4: #17a05e;
+  --chart-5: #e8a21a;
+  --sidebar-accent: #e3eaf4;
+  --sidebar-accent-foreground: #294c60;
+  --sidebar-ring: #7f97ba;
+  --gradient-brand: #e3eaf4, #9fb4d2, #7f97ba;
+  --gradient-brand-strong: #c3d1e4, #9fb4d2, #8aa1c2;
+  --gradient-brand-text: #3e6379, #294c60, #001b2e;
+
+  --event-1: #c6d3e6;
+  --event-1-foreground: #001b2e;
+  --event-1-ink: #294c60;
+}
+
+:is(:root[data-theme="prussian"].dark[data-portal="freelancing"], :root[data-theme="prussian"].dark [data-portal="freelancing"]) {
+  --ring: #adb6c4;
+  --accent: #213a4e;
+  --accent-foreground: #cdd4de;
+  --brand: #adb6c4;
+  --brand-foreground: #001b2e;
+  --brand-soft: #213a4e;
+  --brand-ink: #cdd4de;
+  --chart-1: #adb6c4;
+  --chart-2: #ffc49b;
+  --chart-3: #6f93ab;
+  --chart-4: #3ac787;
+  --chart-5: #f2b94b;
+  --sidebar-accent: #213a4e;
+  --sidebar-accent-foreground: #cdd4de;
+  --sidebar-ring: #adb6c4;
+  --gradient-brand-strong: #cdd4de, #adb6c4, #95a1b3;
+  --gradient-brand-text: #e6e9ee, #adb6c4, #95a1b3;
+
+  --event-1: #3e5568;
+  --event-1-foreground: #e6ebf2;
+  --event-1-ink: #cdd4de;
+}

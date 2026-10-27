@@ -35,6 +35,9 @@ class Settings(BaseSettings):
 
     display_timezone: str = "America/New_York"
 
+    # PDF export converts the .docx with LibreOffice. Empty finds soffice on PATH.
+    soffice_path: str = ""
+
     # Where the two surfaces live, as the BROWSER reaches them. The Upwork
     # OAuth callback lands on the API and then sends the browser back to the
     # portal, so both have to be public URLs, not 127.0.0.1 on a remote box.

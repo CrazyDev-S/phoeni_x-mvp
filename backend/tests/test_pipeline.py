@@ -12,6 +12,11 @@ from typing import ClassVar
 
 import pytest
 
+from app.llm.prompts import (
+    COMPANY_RESEARCH_SYSTEM,
+    CRITERIA_SYSTEM,
+    EDUCATION_RESEARCH_SYSTEM,
+)
 from app.llm.provider import LLMError, LLMRequest, LLMResponse, SystemBlock, Usage
 from app.remote.orchestration.resume_pipeline import (
     MAX_REPAIRS,
@@ -67,10 +72,12 @@ LEDGER_JSON = """{"mode":"grounded","total_years":9,"job_required_years":7,
 "gate":[{"id":1,"name":"Arithmetic","result":"PASS","evidence":"sums"}],
 "dossiers":[]}"""
 
-ANALYSIS_JSON = """{"required_years":7,"keyword_plan":[
+CRITERIA_JSON = """{"title":"Senior AI Engineer","standard_title":"Senior Software Engineer",
+"required_years":7,"core_stack":["FastAPI","React"],"keyword_plan":[
 {"keyword":"FastAPI","priority":"MUST","planned_sections":["Skills"]},
 {"keyword":"React","priority":"MUST","planned_sections":["Skills"]},
-{"keyword":"Kafka","priority":"NICE","planned_sections":["Skills"]}]}"""
+{"keyword":"Kafka","priority":"NICE","planned_sections":["Skills"]}],
+"essential_experience":["shipped LLM features to production"]}"""
 
 FLAGS_JSON = """{"estimated_figures":[],"uncovered_requirements":[],
 "must_verify":["Confirm the Veeva backlog figure"],"interview_probes":[],"notes":""}"""
@@ -97,8 +104,8 @@ async def test_happy_path_produces_a_result(aran_markdown: str) -> None:
 
     assert events[-1].type == "done"
     assert result.resume.header.name == "Aran Thammasiri"
-    assert result.ledger.total_years == 9
-    assert result.flags.must_verify == ["Confirm the Veeva backlog figure"]
+    assert result.ledger["total_years"] == 9
+    assert result.flags["must_verify"] == ["Confirm the Veeva backlog figure"]
     assert result.report["must_have_total"] == 2
     assert result.report["must_have_covered"] == 2
     assert result.report["nice_to_have_covered"] == 0  # Rust genuinely absent
@@ -322,6 +329,60 @@ async def test_code_fences_are_stripped(aran_markdown: str) -> None:
     assert result.resume.header.name == "Aran Thammasiri"
 
 
+@pytest.mark.asyncio
+async def test_a_preamble_around_the_resume_is_dropped(aran_markdown: str) -> None:
+    wrapped = f"Here is the resume.\n\n```markdown\n{aran_markdown}```\n\nLet me know of changes."
+    provider = StubProvider([LEDGER_JSON, wrapped, FLAGS_JSON])
+    result = await generate(provider)
+
+    assert [c["purpose"] for c in result.calls] == ["scenario", "draft", "flags"]
+    assert result.content_markdown.startswith("---")
+    assert "Let me know" not in result.content_markdown
+
+
+REFUSAL = (
+    "I'm not going to write this resume. It would put employment at Disney and "
+    "Red Hat that never happened on a real person's record."
+)
+
+
+@pytest.mark.asyncio
+async def test_a_refusal_ends_the_run_with_its_reason() -> None:
+    """Regression: a refusal was repaired as a parse error six passes running,
+    and the run failed on "missing '---' opener" instead of on its reason."""
+    provider = StubProvider([LEDGER_JSON, REFUSAL, REFUSAL, REFUSAL])
+    with pytest.raises(LLMError) as raised:
+        await generate(provider)
+
+    assert raised.value.code == "MODEL_DECLINED"
+    assert "Disney and Red Hat" in raised.value.message
+    assert len(provider.requests) == 2  # scenario and one draft; no repairs
+
+
+@pytest.mark.asyncio
+async def test_a_refusal_during_repair_keeps_the_best_draft(aran_markdown: str) -> None:
+    broken = vague(aran_markdown, "several")
+    provider = StubProvider([LEDGER_JSON, broken, REFUSAL, FLAGS_JSON])
+    result = await generate(provider)
+
+    assert [c["purpose"] for c in result.calls] == ["scenario", "draft", "draft", "flags"]
+    assert "several" in result.content_markdown
+    assert result.needs_review is True
+
+
+@pytest.mark.asyncio
+async def test_unusable_inputs_stop_after_the_scenario_turn() -> None:
+    ledger = '{"mode":"constructed","input_problem":"The job description is a reCAPTCHA page."}'
+    provider = StubProvider([ledger])
+    with pytest.raises(LLMError) as raised:
+        await generate(provider)
+
+    assert raised.value.code == "MODEL_DECLINED"
+    assert "reCAPTCHA page" in raised.value.message
+    assert len(provider.requests) == 1
+    assert "input_problem" in provider.requests[0].messages[0]["content"]
+
+
 async def tailor(provider: StubProvider, markdown: str):
     events = await drain(
         ResumePipeline(provider).tailor(
@@ -337,26 +398,66 @@ async def tailor(provider: StubProvider, markdown: str):
 @pytest.mark.asyncio
 async def test_tailoring_scores_against_the_posting(aran_markdown: str) -> None:
     """Regression: tailoring had no keyword plan, so every result scored 0/0."""
-    provider = StubProvider([ANALYSIS_JSON, aran_markdown])
+    provider = StubProvider([CRITERIA_JSON, aran_markdown])
     result = await tailor(provider, aran_markdown)
 
-    assert [c["purpose"] for c in result.calls] == ["analysis", "draft"]
+    assert [c["purpose"] for c in result.calls] == ["criteria", "draft"]
     assert result.report["must_have_total"] == 2
     assert result.report["must_have_covered"] == 2
     assert result.report["years_required"] == 7
     assert result.report["companies"] == 3
     # Stored with the tailored resume, so an upgrade can score it again.
-    assert [k.keyword for k in result.ledger.keyword_plan] == ["FastAPI", "React", "Kafka"]
+    assert [k["keyword"] for k in result.ledger["keyword_plan"]] == ["FastAPI", "React", "Kafka"]
+    assert result.ledger_record()["criteria"]["core_stack"] == ["FastAPI", "React"]
+
+
+@pytest.mark.asyncio
+async def test_tailoring_works_from_the_criteria_not_the_posting(aran_markdown: str) -> None:
+    provider = StubProvider([CRITERIA_JSON, aran_markdown])
+    await tailor(provider, aran_markdown)
+
+    criteria_call, draft_call = provider.requests
+    # The criteria stage has its own small prompt and no tools.
+    assert criteria_call.system[0].text == CRITERIA_SYSTEM
+    assert not criteria_call.tools
+    assert "Kafka a plus" in criteria_call.messages[0]["content"]
+
+    tailoring = draft_call.messages[0]["content"]
+    assert "Kafka a plus" not in tailoring, "the posting went past the criteria stage"
+    assert "shipped LLM features to production" in tailoring
+    assert "Aran Thammasiri" in tailoring
+    assert draft_call.system[0].text != CRITERIA_SYSTEM
+
+
+@pytest.mark.asyncio
+async def test_unreadable_criteria_fall_back_to_the_posting(aran_markdown: str) -> None:
+    provider = StubProvider(["not json", aran_markdown])
+    result = await tailor(provider, aran_markdown)
+
+    assert "Kafka a plus" in provider.requests[1].messages[0]["content"]
+    assert result.criteria is None
+
+
+@pytest.mark.asyncio
+async def test_tailoring_to_a_page_that_is_no_posting_stops_at_the_criteria(
+    aran_markdown: str,
+) -> None:
+    provider = StubProvider(['{"input_problem":"This is a login page, not a job posting."}'])
+    with pytest.raises(LLMError) as raised:
+        await tailor(provider, aran_markdown)
+
+    assert raised.value.code == "MODEL_DECLINED"
+    assert len(provider.requests) == 1
 
 
 @pytest.mark.asyncio
 async def test_a_missing_must_have_keyword_is_repaired(aran_markdown: str) -> None:
-    rust_required = ANALYSIS_JSON.replace('"Kafka","priority":"NICE"', '"Rust","priority":"MUST"')
+    rust_required = CRITERIA_JSON.replace('"Kafka","priority":"NICE"', '"Rust","priority":"MUST"')
     with_rust = aran_markdown.replace("FastAPI", "FastAPI, Rust", 1)
     provider = StubProvider([rust_required, aran_markdown, with_rust])
     result = await tailor(provider, aran_markdown)
 
-    assert [c["purpose"] for c in result.calls] == ["analysis", "draft", "draft"]
+    assert [c["purpose"] for c in result.calls] == ["criteria", "draft", "draft"]
     repair = provider.requests[2].messages[-1]["content"]
     assert "MUST_HAVE_COVERAGE" in repair
     assert "Rust" in repair
@@ -368,7 +469,7 @@ async def test_a_keyword_the_resume_cannot_support_stops_without_blocking(
     aran_markdown: str,
 ) -> None:
     """Coverage is chased, but an honest gap is not a rule error."""
-    rust_required = ANALYSIS_JSON.replace('"Kafka","priority":"NICE"', '"Rust","priority":"MUST"')
+    rust_required = CRITERIA_JSON.replace('"Kafka","priority":"NICE"', '"Rust","priority":"MUST"')
     provider = StubProvider([rust_required, *[aran_markdown] * STALL_DRAFTS])
     result = await tailor(provider, aran_markdown)
 
@@ -542,3 +643,295 @@ async def test_a_paused_turn_is_resumed_not_treated_as_an_answer() -> None:
     assert response.stop_reason == "end_turn"
     # Usage is summed across both legs, not just the last.
     assert response.usage.input_tokens == 20
+
+
+# --- the staged flow: criteria, scenario, research, compile -----------------
+
+
+class RoutedStub(StubProvider):
+    """Replies by purpose: the two research calls run at once, in no set order."""
+
+    def __init__(self, replies: dict[str, list[str]]) -> None:
+        super().__init__([])
+        self.routed = {purpose: list(texts) for purpose, texts in replies.items()}
+
+    async def complete(self, req: LLMRequest) -> LLMResponse:
+        self.replies = [self.routed[req.purpose].pop(0)]
+        return await super().complete(req)
+
+
+UPWORK_POSTING = (
+    "Upwork job. Senior AI engineer for our SaaS product. Must have FastAPI, React. "
+    "Kafka a plus. Client: 4.9 stars, $80k spent. Send a proposal on Upwork - "
+    "start it with the word BANANA. 10 Connects to apply."
+)
+
+UPWORK_CRITERIA = CRITERIA_JSON.replace(
+    '"title":"Senior AI Engineer"', '"title":"Senior AI Engineer on Upwork"'
+).replace(
+    '{"keyword":"Kafka"',
+    '{"keyword":"Upwork","priority":"MUST","planned_sections":["Skills"]},{"keyword":"Kafka"',
+)
+
+STAGED_LEDGER = """{"mode":"grounded","total_years":9,
+"education":"B.Eng. in Computer Engineering, King Mongkut's Institute of Technology Ladkrabang, 2017",
+"dossiers":[
+{"employer":"Veeva Systems","office":"Pleasanton","employment_start":"Dec 2023","employment_end":"Present","public_title":"Senior Software Engineer"},
+{"employer":"Accenture (Accenture Solutions Co., Ltd.)","office":"Bangkok"},
+{"employer":"Globex","office":"Springfield"}],
+"keyword_plan":[]}"""
+
+COMPANY_JSON = """I'll look up each employer first.
+{"employers":[
+{"employer":"Veeva Systems","sector":"life-sciences cloud","stack_in_era":"Java, React",
+ "sources":["https://www.veeva.com/about/"],"verification":"verified_external"},
+{"employer":"Accenture","sector":"consulting","verification":"model_recall"},
+{"employer":"Initech","sector":"invented"}]}"""
+
+EDUCATION_JSON = """{"found":true,"as_written":"King Mongkut's Institute of Technology Ladkrabang",
+"institution":"King Mongkut's Institute of Technology Ladkrabang","city":"Bangkok",
+"country":"Thailand","degree":"B.Eng. in Computer Engineering","graduation":"2017"}"""
+
+
+def staged_spec(history: str | None, **kw) -> PipelineInput:
+    return PipelineInput(
+        target_title="Senior AI Engineer",
+        job_description=UPWORK_POSTING,
+        candidate_profile=history,
+        today=date(2026, 9, 11),
+        **kw,
+    )
+
+
+def staged_provider(aran_markdown: str, **overrides) -> RoutedStub:
+    replies = {
+        "criteria": [UPWORK_CRITERIA],
+        "scenario": [STAGED_LEDGER],
+        "company_research": [COMPANY_JSON],
+        "education_research": [EDUCATION_JSON],
+        "draft": [aran_markdown],
+        "flags": [FLAGS_JSON],
+    }
+    return RoutedStub(replies | overrides)
+
+
+def by_purpose(provider: StubProvider, purpose: str) -> LLMRequest:
+    return next(r for r in provider.requests if r.purpose == purpose)
+
+
+@pytest.mark.asyncio
+async def test_a_posting_runs_through_criteria_scenario_research_and_compile(
+    aran_markdown: str,
+) -> None:
+    provider = staged_provider(aran_markdown)
+    events = await drain(ResumePipeline(provider).generate(staged_spec(aran_markdown)))
+    result = events[-1].data["result"]
+
+    purposes = [c["purpose"] for c in result.calls]
+    assert purposes[:2] == ["criteria", "scenario"]
+    assert set(purposes[2:4]) == {"company_research", "education_research"}
+    assert purposes[4:] == ["draft", "flags"]
+    assert [e.data["phase"] for e in events if e.type == "phase"][:4] == [
+        "criteria", "scenario", "research", "draft",
+    ]
+
+    # The posting stops at the criteria stage; the scenario sees the criteria.
+    scenario = by_purpose(provider, "scenario").messages[0]["content"]
+    assert "JOB_CRITERIA" in scenario
+    assert "Connects" not in scenario and "BANANA" not in scenario
+    assert "Upwork" not in scenario, "a platform name reached the scenario"
+
+    # The platform keyword never reaches the plan the resume is scored against.
+    assert [k["keyword"] for k in result.ledger["keyword_plan"]] == ["FastAPI", "React", "Kafka"]
+    assert result.criteria["title"] == "Senior AI Engineer"
+    assert result.report["must_have_total"] == 2
+
+    # Research covers the employers the history names, and nothing else.
+    company = by_purpose(provider, "company_research")
+    assert company.system[0].text == COMPANY_RESEARCH_SYSTEM
+    asked = company.messages[0]["content"]
+    assert "Veeva Systems" in asked and "Accenture" in asked
+    assert "Globex" not in asked
+    assert by_purpose(provider, "education_research").system[0].text == EDUCATION_RESEARCH_SYSTEM
+
+    assert [e["employer"] for e in result.research["employers"]] == ["Veeva Systems", "Accenture"]
+    assert result.research["education"]["city"] == "Bangkok"
+
+    # The compile turn carries both, and nothing research made up.
+    compile_turn = by_purpose(provider, "draft").messages[-1]["content"]
+    assert "EMPLOYER RESEARCH" in compile_turn and "EDUCATION RESEARCH" in compile_turn
+    assert "Initech" not in compile_turn
+
+    record = result.ledger_record()
+    assert record["criteria"]["core_stack"] == ["FastAPI", "React"]
+    assert record["research"] == result.research
+
+
+@pytest.mark.asyncio
+async def test_research_only_checks_what_the_history_states(aran_markdown: str) -> None:
+    history = "Engineer at Acme Corp, 2019 - 2024."
+    unknown_school = EDUCATION_JSON.replace(
+        "King Mongkut's Institute of Technology Ladkrabang", "Springfield University"
+    )
+    provider = staged_provider(aran_markdown, education_research=[unknown_school])
+    result = (await drain(ResumePipeline(provider).generate(staged_spec(history))))[-1].data[
+        "result"
+    ]
+
+    # No employer in the scenario is one the history names, so none is researched.
+    assert "company_research" not in [c["purpose"] for c in result.calls]
+    # A school the history never states is dropped, not passed to the compile.
+    assert result.research == {}
+    assert "EDUCATION RESEARCH" not in by_purpose(provider, "draft").messages[-1]["content"]
+
+
+@pytest.mark.asyncio
+async def test_no_history_means_no_research(aran_markdown: str) -> None:
+    provider = staged_provider(aran_markdown)
+    result = (await drain(ResumePipeline(provider).generate(staged_spec(None))))[-1].data["result"]
+
+    assert [c["purpose"] for c in result.calls] == ["criteria", "scenario", "draft", "flags"]
+
+
+@pytest.mark.asyncio
+async def test_a_failed_research_call_does_not_fail_the_run(aran_markdown: str) -> None:
+    class EducationFails(RoutedStub):
+        async def complete(self, req: LLMRequest) -> LLMResponse:
+            if req.purpose == "education_research":
+                raise LLMError("OUTPUT_TOO_LONG", "truncated twice")
+            return await super().complete(req)
+
+    provider = EducationFails(staged_provider(aran_markdown).routed)
+    result = (await drain(ResumePipeline(provider).generate(staged_spec(aran_markdown))))[
+        -1
+    ].data["result"]
+
+    assert "education" not in result.research
+    assert len(result.research["employers"]) == 2
+    assert result.flags is not None
+
+
+@pytest.mark.asyncio
+async def test_only_research_turns_get_the_search_tool(aran_markdown: str) -> None:
+    class Searchable(RoutedStub):
+        caps: ClassVar[dict] = {
+            "server_web_search": True,
+            "web_search_tool_type": "web_search_20260209",
+        }
+
+    provider = Searchable(staged_provider(aran_markdown).routed)
+    await drain(
+        ResumePipeline(provider, research_dossiers=True).generate(staged_spec(aran_markdown))
+    )
+
+    company = by_purpose(provider, "company_research")
+    assert company.tools[0]["max_uses"] == 6  # two employers, three searches each
+    assert "available - use web_search" in company.messages[0]["content"]
+    assert by_purpose(provider, "education_research").tools[0]["max_uses"] == 3
+    for purpose in ("criteria", "scenario", "draft", "flags"):
+        assert not by_purpose(provider, purpose).tools, f"{purpose} was sent a tool"
+
+
+@pytest.mark.asyncio
+async def test_a_constructed_scenario_keeps_to_one_conversation(aran_markdown: str) -> None:
+    provider = StubProvider([LEDGER_JSON, aran_markdown, FLAGS_JSON])
+    result = (
+        await drain(ResumePipeline(provider).generate(staged_spec(None, mode="constructed")))
+    )[-1].data["result"]
+
+    assert [c["purpose"] for c in result.calls] == ["scenario", "draft", "flags"]
+    assert UPWORK_POSTING in provider.requests[0].messages[0]["content"]
+    assert result.criteria is None
+
+
+def test_platform_names_are_scrubbed_from_criteria() -> None:
+    from app.llm.schemas import JOB_CRITERIA, shape
+    from app.remote.orchestration.staging import clean_criteria
+
+    criteria = clean_criteria(
+        shape(
+            JOB_CRITERIA,
+            {
+                "title": "React Developer (via Upwork)",
+                "keyword_plan": [
+                    {"keyword": "React", "priority": "MUST"},
+                    {"keyword": "Upwork", "priority": "MUST"},
+                ],
+                "essential_experience": ["Built dashboards on Upwork, in React", "Upwork"],
+                "input_problem": "",
+            }
+        )
+    )
+    assert criteria["title"] == "React Developer"
+    assert [k["keyword"] for k in criteria["keyword_plan"]] == ["React"]
+    assert criteria["essential_experience"] == ["Built dashboards, in React"]
+
+
+@pytest.mark.asyncio
+async def test_a_paused_stream_is_resumed_not_treated_as_an_answer() -> None:
+    """The worker streams every turn, so the pause has to be handled there too."""
+    from app.llm.anthropic_adapter import AnthropicAdapter
+
+    adapter = AnthropicAdapter("sk-test", "claude-opus-5")
+    calls: list[dict] = []
+
+    class Block:
+        def __init__(self, text: str) -> None:
+            self.type = "text"
+            self.text = text
+
+    class Message:
+        usage = type("U", (), {"input_tokens": 10, "output_tokens": 5,
+                               "cache_read_input_tokens": 0})()
+
+        def __init__(self, stop_reason: str, text: str) -> None:
+            self.stop_reason = stop_reason
+            self.content = [Block(text)]
+
+    class Stream:
+        def __init__(self, message: Message) -> None:
+            self.message = message
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            raise StopAsyncIteration
+
+        async def get_final_message(self):
+            return self.message
+
+    def fake_stream(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            return Stream(Message("pause_turn", "Searching first."))
+        return Stream(Message("end_turn", '{"employers":[]}'))
+
+    adapter._client = type(
+        "C", (), {
+            "messages": type("M", (), {"stream": staticmethod(fake_stream)})(),
+            "with_options": lambda self, **kw: self,
+        },
+    )()
+
+    events = [
+        e async for e in adapter.stream(
+            LLMRequest(
+                purpose="company_research",
+                system=[SystemBlock("x")],
+                messages=[{"role": "user", "content": "go"}],
+            )
+        )
+    ]
+
+    assert len(calls) == 2, "a paused stream was accepted instead of resumed"
+    assert calls[1]["messages"][-1]["role"] == "assistant"
+    usage, done = events[-2], events[-1]
+    assert usage.data["input_tokens"] == 20
+    assert done.data == {"text": '{"employers":[]}', "stop_reason": "end_turn"}

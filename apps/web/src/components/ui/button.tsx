@@ -4,19 +4,19 @@ import { cn } from "cn";
 import { Slot } from "radix-ui";
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-all outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/40 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-md border border-transparent bg-clip-padding text-[13px] font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        // The soft-charcoal pill: the default action.
+        // The soft-charcoal fill: the default action.
         default: "bg-primary text-primary-foreground hover:bg-primary/85",
         // The portal's vivid accent: the lead action on a screen. One per screen.
         brand: "bg-brand text-brand-foreground hover:brightness-95",
         outline:
-          "border-foreground/20 border-[1.5px] bg-transparent text-foreground hover:bg-foreground/5 aria-expanded:bg-foreground/5",
-        // A white pill that lifts off the canvas.
+          "border-border bg-card text-foreground hover:bg-muted aria-expanded:bg-muted",
+        // A bordered white button, the same weight as outline.
         secondary:
-          "bg-card text-card-foreground shadow-card hover:bg-card/80 aria-expanded:bg-card",
+          "border-border bg-card text-card-foreground hover:bg-muted aria-expanded:bg-muted",
         ghost: "hover:bg-foreground/6 hover:text-foreground aria-expanded:bg-foreground/6",
         destructive:
           "bg-destructive/12 text-destructive hover:bg-destructive/20 focus-visible:ring-destructive/25",
@@ -24,14 +24,14 @@ const buttonVariants = cva(
       },
       size: {
         default:
-          "h-10 gap-2 px-5 has-data-[icon=inline-end]:pr-4 has-data-[icon=inline-start]:pl-4",
-        xs: "h-8 gap-1.5 px-3 text-xs has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5 [&_svg:not([class*='size-'])]:size-3.5",
-        sm: "h-9 gap-1.5 px-4 text-[0.8125rem] has-data-[icon=inline-end]:pr-3.5 has-data-[icon=inline-start]:pl-3.5 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: "h-12 gap-2.5 px-7 text-[0.9375rem] has-data-[icon=inline-end]:pr-5 has-data-[icon=inline-start]:pl-5 [&_svg:not([class*='size-'])]:size-[18px]",
-        icon: "size-10",
-        "icon-xs": "size-7 [&_svg:not([class*='size-'])]:size-3.5",
-        "icon-sm": "size-9",
-        "icon-lg": "size-12 [&_svg:not([class*='size-'])]:size-5",
+          "h-8 gap-1.5 px-3 has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5",
+        xs: "h-6 gap-1 rounded px-2 text-xs has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-7 gap-1.5 px-2.5 text-xs has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-3.5",
+        lg: "h-9 gap-2 px-4 text-sm has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3 [&_svg:not([class*='size-'])]:size-4",
+        icon: "size-8",
+        "icon-xs": "size-6 rounded [&_svg:not([class*='size-'])]:size-3.5",
+        "icon-sm": "size-7",
+        "icon-lg": "size-9",
       },
     },
     defaultVariants: {

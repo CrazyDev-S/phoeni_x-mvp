@@ -26,7 +26,7 @@ export function StageSelect({
 }) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as TrackStage)} disabled={disabled}>
-      <SelectTrigger className={cn("h-8 w-full text-xs", className)} aria-label={label}>
+      <SelectTrigger className={cn("h-7 w-full text-xs", className)} aria-label={label}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

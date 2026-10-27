@@ -9,24 +9,13 @@ export interface HeadStat {
   label: string;
 }
 
-/** The accent disc sits behind the first letter, so only plain-text titles get it. */
-function accentFirst(title: ReactNode) {
-  if (typeof title !== "string" || !title) return title;
-  return (
-    <>
-      <span className="title-o">{title[0]}</span>
-      {title.slice(1)}
-    </>
-  );
-}
-
 /**
- * The top of every page.
+ * The top of every page: one line.
  *
- * One shape: an optional round back button, an uppercase title with an accent
- * disc behind its first letter, the page's headline numbers inline beside it,
- * and whatever acts on the whole page at the far end. A line of orientation
- * sits underneath when the page needs one.
+ * An optional back arrow, the title, the page's headline counts inline beside
+ * it, and whatever acts on the whole page at the far end. `description` is kept
+ * for older call sites and rendered as one muted line beside the title; new
+ * pages leave it out.
  */
 export function PageHero({
   title,
@@ -35,65 +24,48 @@ export function PageHero({
   actions,
   back,
   badge,
-  size = "display",
   className,
 }: {
   title: ReactNode;
   description?: ReactNode;
-  /** Headline numbers, shown big beside the title. */
+  /** Headline counts, shown inline after the title. */
   stats?: HeadStat[];
   actions?: ReactNode;
-  /** A route to go back to; renders a round back button. */
+  /** A route to go back to; renders a small back button. */
   back?: string;
-  /** A small pill after the title, for a state like "Coming soon". */
+  /** A small badge after the title, for a state like "Coming soon". */
   badge?: ReactNode;
-  /** "page" for a record's own name, which is content rather than a headline. */
-  size?: "display" | "page";
   className?: string;
-  /** Accepted for older call sites; the new header has no eyebrow. */
+  /** Accepted for older call sites. */
+  size?: "display" | "page";
   eyebrow?: string;
   eyebrowIcon?: ComponentType<{ className?: string }>;
 }) {
   return (
-    <header className={cn("space-y-3", className)}>
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
-        {back && (
-          <Link
-            href={back}
-            aria-label="Back"
-            className="bg-card shadow-card focus-visible:ring-ring/40 grid size-14 shrink-0 place-items-center rounded-full outline-none focus-visible:ring-3"
-          >
-            <ArrowLeft className="size-5" />
-          </Link>
-        )}
-        <h1
-          className={cn(
-            "page-title isolate text-balance",
-            size === "page" ? "page-title-sm whitespace-normal" : "max-md:text-4xl",
-          )}
+    <header className={cn("flex min-h-8 flex-wrap items-center gap-x-4 gap-y-2", className)}>
+      {back && (
+        <Link
+          href={back}
+          aria-label="Back"
+          className="hover:bg-muted focus-visible:ring-ring/40 -ml-1 grid size-7 shrink-0 place-items-center rounded-md outline-none focus-visible:ring-2"
         >
-          {accentFirst(title)}
-        </h1>
-        {badge}
-        {stats && stats.length > 0 && (
-          <dl className="flex flex-wrap items-baseline gap-x-8 gap-y-2 md:ml-2">
-            {stats.map(({ value, label }) => (
-              <div key={label} className="flex items-baseline gap-2.5">
-                <dd className="text-[2.625rem] leading-none font-medium tracking-tight tabular-nums order-first">
-                  {value}
-                </dd>
-                <dt className="text-muted-foreground text-[1.0625rem] font-medium">{label}</dt>
-              </div>
-            ))}
-          </dl>
-        )}
-        {actions && <div className="ml-auto flex flex-wrap items-center gap-3">{actions}</div>}
-      </div>
-      {description && (
-        <p className="text-muted-foreground max-w-2xl text-[0.9375rem] font-medium text-pretty">
-          {description}
-        </p>
+          <ArrowLeft className="size-4" />
+        </Link>
       )}
+      <h1 className="page-title min-w-0 truncate">{title}</h1>
+      {badge}
+      {stats && stats.length > 0 && (
+        <dl className="text-muted-foreground flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs">
+          {stats.map(({ value, label }) => (
+            <div key={label} className="flex items-baseline gap-1">
+              <dd className="text-foreground order-first text-[13px] font-semibold tabular-nums">{value}</dd>
+              <dt>{label}</dt>
+            </div>
+          ))}
+        </dl>
+      )}
+      {description && <p className="text-muted-foreground min-w-0 truncate text-xs">{description}</p>}
+      {actions && <div className="ml-auto flex flex-wrap items-center gap-2">{actions}</div>}
     </header>
   );
 }

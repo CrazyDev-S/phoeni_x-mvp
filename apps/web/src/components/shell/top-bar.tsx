@@ -1,15 +1,12 @@
 "use client";
 
-import { Calendar, Globe, BriefcaseBusiness } from "lucide-react";
+import { BriefcaseBusiness, Globe } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { formatInTimeZone } from "date-fns-tz";
 
 import { Brand } from "@/components/brand";
 import { ScheduleStrip } from "@/components/shell/schedule-strip";
 import { NotificationsMenu } from "@/components/shared/notifications-menu";
 import { UserMenu } from "@/components/user-menu";
-import { DISPLAY_TIME_ZONE } from "@/lib/format";
 import { PORTALS, type PortalId } from "@/lib/portals";
 import { cn } from "@/lib/utils";
 
@@ -19,60 +16,42 @@ const SWITCH: { id: PortalId; Icon: typeof Globe }[] = [
 ];
 
 /**
- * The charcoal pill across the top: the wordmark, the portal switch, today's
- * schedule on an accent strip, the bell and the account.
+ * The 44px bar across the top: the portal switch, the next call as one line,
+ * the bell and the account. The wordmark joins it on a phone, where the
+ * sidebar is not on screen.
  */
 export function TopBar({ portal }: { portal: PortalId | null }) {
-  const [today, setToday] = useState("");
-  useEffect(() => {
-    setToday(formatInTimeZone(new Date(), DISPLAY_TIME_ZONE, "d MMMM"));
-  }, []);
-
   return (
-    <header className="bg-panel text-panel-foreground flex h-[68px] items-center gap-3 rounded-full py-2 pr-2 pl-5 md:gap-3.5 md:pl-6">
+    <header className="bg-card sticky top-0 z-20 flex h-11 shrink-0 items-center gap-3 border-b px-3 md:px-4">
       <Link
         href={portal ? PORTALS[portal].path : "/"}
         aria-label="PhoeniX home"
-        className="focus-visible:ring-ring/50 flex shrink-0 rounded-lg outline-none focus-visible:ring-3"
+        className="flex shrink-0 rounded outline-none md:hidden"
       >
-        <Brand size="bar" />
+        <Brand size="sm" />
       </Link>
 
-      <nav
-        aria-label="Portals"
-        className="bg-panel-raised/60 hidden shrink-0 gap-0.5 rounded-full p-1 sm:flex"
-      >
+      <nav aria-label="Portals" className="bg-muted flex shrink-0 gap-0.5 rounded-md p-0.5">
         {SWITCH.map(({ id, Icon }) => (
           <Link
             key={id}
             href={PORTALS[id].path}
             aria-current={portal === id ? "page" : undefined}
             className={cn(
-              "flex h-9 items-center gap-2 rounded-full px-4 text-sm font-semibold transition-colors",
+              "flex h-6 items-center gap-1.5 rounded-[5px] px-2.5 text-xs font-medium transition-colors",
               portal === id
                 ? "bg-brand text-brand-foreground"
-                : "text-panel-muted hover:text-panel-foreground",
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <Icon className="size-[15px]" />
-            {PORTALS[id].name}
+            <Icon className="size-3.5" />
+            <span className="max-sm:sr-only">{PORTALS[id].name}</span>
           </Link>
         ))}
       </nav>
 
-      <span className="hidden shrink-0 pl-1.5 text-[15px] font-semibold xl:block">Your Schedule</span>
-      <span className="bg-panel-raised/60 hidden h-12 shrink-0 items-center gap-2.5 rounded-full pr-4 pl-2 text-sm font-semibold xl:flex">
-        <span className="bg-panel-raised grid size-8 place-items-center rounded-full">
-          <Calendar className="size-[15px]" />
-        </span>
-        {today || " "}
-      </span>
-
-      <div className="hidden min-w-0 flex-1 lg:flex">
-        <ScheduleStrip />
-      </div>
-      <div className="flex-1 lg:hidden" />
-
+      <div className="min-w-0 flex-1" />
+      <ScheduleStrip />
       <NotificationsMenu />
       <UserMenu />
     </header>

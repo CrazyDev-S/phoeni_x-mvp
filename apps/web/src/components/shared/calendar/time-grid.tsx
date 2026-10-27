@@ -22,11 +22,11 @@ import {
 } from "@/lib/calendar";
 import { cn } from "@/lib/utils";
 
-const HOUR_HEIGHT = 90;
-const HEADER_HEIGHT = 84;
+const HOUR_HEIGHT = 48;
+const HEADER_HEIGHT = 44;
 const SNAP_MINUTES = 15;
-const MIN_COLUMN_WIDTH = 110;
-const GUTTER_WIDTH = 64;
+const MIN_COLUMN_WIDTH = 96;
+const GUTTER_WIDTH = 48;
 const HOURS = Array.from({ length: 23 }, (_, index) => index + 1);
 // Under this many pixels of travel, a press is a click rather than a drag.
 const DRAG_THRESHOLD = 4;
@@ -326,7 +326,7 @@ export function TimeGrid({
     <div
       ref={scrollRef}
       className={cn(
-        "bg-card shadow-card relative max-h-[70svh] min-h-96 overflow-auto rounded-[2rem] lg:max-h-[67rem]",
+        "bg-card relative max-h-[calc(100svh-8.5rem)] min-h-96 overflow-auto rounded-lg border",
         resizing && "cursor-ns-resize",
       )}
     >
@@ -336,7 +336,7 @@ export function TimeGrid({
           style={{ width: GUTTER_WIDTH }}
         >
           <div
-            className="bg-card text-subtle sticky top-0 z-10 flex items-end justify-center pb-3.5 text-[11px] font-bold tracking-[0.06em] uppercase"
+            className="bg-card text-subtle border-border sticky top-0 z-10 flex items-end justify-center border-b pb-1.5 text-[10px] font-semibold tracking-wide uppercase"
             style={{ height: HEADER_HEIGHT }}
             title={`Times shown in ${days[0] ? zoneAbbreviation(days[0]) : ""}`}
           >
@@ -346,7 +346,7 @@ export function TimeGrid({
             {HOURS.map((hour) => (
               <span
                 key={hour}
-                className="text-subtle absolute right-3 -translate-y-1/2 text-[11.5px] font-semibold whitespace-nowrap"
+                className="text-subtle absolute right-2 -translate-y-1/2 text-[10px] font-medium whitespace-nowrap"
                 style={{ top: hour * HOUR_HEIGHT }}
               >
                 {hourLabel(hour)}
@@ -355,7 +355,7 @@ export function TimeGrid({
             {nowMinutes !== null && todayIndex >= 0 && (
               <span
                 aria-hidden
-                className="bg-primary text-primary-foreground absolute left-2 w-12 -translate-y-1/2 rounded-full py-[3px] text-center text-[11px] font-bold whitespace-nowrap"
+                className="bg-primary text-primary-foreground absolute left-1 w-[42px] -translate-y-1/2 rounded py-px text-center text-[10px] font-semibold whitespace-nowrap"
                 style={{ top: (nowMinutes / 60) * HOUR_HEIGHT }}
               >
                 {clockLabel(nowMinutes)}
@@ -379,11 +379,11 @@ export function TimeGrid({
                   key={day}
                   type="button"
                   onClick={() => onPickDay(day)}
-                  className="border-border hover:bg-soft flex flex-col items-center justify-center gap-1 border-l transition-colors first:border-l-0"
+                  className="border-border hover:bg-soft flex items-center justify-center gap-1.5 border-l transition-colors first:border-l-0"
                 >
                   <span
                     className={cn(
-                      "text-[11.5px] font-bold tracking-widest uppercase",
+                      "text-[11px] font-semibold tracking-wide uppercase",
                       isToday ? "text-foreground" : "text-muted-foreground",
                     )}
                   >
@@ -391,7 +391,7 @@ export function TimeGrid({
                   </span>
                   <span
                     className={cn(
-                      "grid size-[42px] place-items-center rounded-full text-[1.625rem] leading-none font-normal tracking-tight",
+                      "grid size-6 place-items-center rounded-md text-[13px] leading-none font-medium",
                       isToday && "bg-brand text-brand-foreground font-semibold",
                     )}
                   >
@@ -435,11 +435,11 @@ export function TimeGrid({
                   const color = eventColor(meeting.meeting_type);
                   const cancelled = meeting.status === "cancelled";
                   const height = Math.max(
-                    ((placement.endMinutes - placement.startMinutes) / 60) * HOUR_HEIGHT - 4,
-                    20,
+                    ((placement.endMinutes - placement.startMinutes) / 60) * HOUR_HEIGHT - 2,
+                    16,
                   );
                   const width = 100 / placement.columns;
-                  const compact = height < 44;
+                  const compact = height < 34;
                   const end =
                     resizing?.meeting.id === meeting.id
                       ? resizing.targetEnd
@@ -466,43 +466,43 @@ export function TimeGrid({
                       }}
                       onDoubleClick={() => onEdit(meeting)}
                       className={cn(
-                        "absolute overflow-hidden rounded-[14px] text-left text-xs leading-tight transition-shadow select-none",
-                        compact ? "flex items-center gap-1.5 px-2.5" : "px-2.5 py-[7px]",
+                        "absolute overflow-hidden rounded-md text-left text-[11px] leading-tight transition-shadow select-none",
+                        compact ? "flex items-center gap-1 px-1.5" : "px-1.5 py-1",
                         active ? "cursor-grabbing shadow-lg" : "cursor-pointer hover:shadow-md",
-                        cancelled && "border-foreground/20 text-muted-foreground border-2 border-dashed line-through",
+                        cancelled && "border-foreground/20 text-muted-foreground border border-dashed line-through",
                       )}
                       style={{
-                        top: (placement.startMinutes / 60) * HOUR_HEIGHT + 2,
+                        top: (placement.startMinutes / 60) * HOUR_HEIGHT + 1,
                         height,
-                        left: `calc(${placement.column * width}% + 4px)`,
-                        width: `calc(${width}% - 8px)`,
+                        left: `calc(${placement.column * width}% + 2px)`,
+                        width: `calc(${width}% - 4px)`,
                         zIndex: active ? 30 : selectedId === meeting.id ? 22 : 10,
                         backgroundColor: cancelled ? "var(--card)" : color.fill,
                         color: cancelled ? undefined : color.foreground,
                         outline:
                           selectedId === meeting.id ? "2px solid var(--foreground)" : undefined,
-                        outlineOffset: 2,
+                        outlineOffset: 1,
                       }}
                     >
                       {compact ? (
                         <>
-                          <span className="shrink-0 font-bold tabular-nums">
+                          <span className="shrink-0 font-semibold tabular-nums">
                             {clockShort(placement.startMinutes)}
                           </span>
-                          <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold">
+                          <span className="min-w-0 flex-1 truncate font-semibold">
                             {meeting.title}
                           </span>
                         </>
                       ) : (
                         <>
-                          <span className="line-clamp-2 block text-[13px] leading-[1.2] font-bold">
+                          <span className="line-clamp-2 block text-[11px] leading-[1.2] font-semibold">
                             {meeting.title}
                           </span>
-                          <span className="block truncate text-[11.5px] font-medium tabular-nums opacity-75">
+                          <span className="block truncate text-[10px] tabular-nums opacity-75">
                             {spanLabel(placement.startMinutes, end)}
                           </span>
-                          {who && height >= 56 && (
-                            <span className="block truncate text-[11.5px] font-medium opacity-75">
+                          {who && height >= 44 && (
+                            <span className="block truncate text-[10px] opacity-75">
                               {who}
                             </span>
                           )}
@@ -538,7 +538,7 @@ export function TimeGrid({
                 }}
               >
                 <div
-                  className="absolute -top-1 -left-[5px] size-2.5 rounded-full"
+                  className="absolute -top-[3px] -left-1 size-2 rounded-full"
                   style={{ backgroundColor: NOW_LINE }}
                 />
               </div>
@@ -555,7 +555,7 @@ function CreatePreview({ anchor, current }: { anchor: number; current: number })
   return (
     <div
       aria-hidden
-      className="border-brand bg-brand-soft text-brand-ink pointer-events-none absolute inset-x-1 z-30 rounded-[14px] border-2 border-dashed px-2.5 py-1 text-xs font-bold tabular-nums"
+      className="border-brand bg-brand-soft text-brand-ink pointer-events-none absolute inset-x-0.5 z-30 rounded-md border border-dashed px-1.5 py-0.5 text-[11px] font-semibold tabular-nums"
       style={{ top: (from / 60) * HOUR_HEIGHT, height: ((to - from) / 60) * HOUR_HEIGHT }}
     >
       New · {spanLabel(from, to)}

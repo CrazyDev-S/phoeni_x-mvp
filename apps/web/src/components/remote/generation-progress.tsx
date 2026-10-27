@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check } from "lucide-react";
+import { Check, Square } from "lucide-react";
 
 import { ErrorAlert } from "@/components/error-alert";
 import { FindingsList } from "@/components/remote/findings";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Panel } from "@/components/panel";
 import {
   Collapsible,
   CollapsibleContent,
@@ -34,9 +34,12 @@ const LONG_RUN_SECONDS = 60;
 export function GenerationProgress({
   state,
   onOpen,
+  onStop,
 }: {
   state: GenerationState;
   onOpen?: (id: string) => void;
+  /** Shown while the run is going; omitted where a run cannot be stopped. */
+  onStop?: () => void;
 }) {
   const steps = state.steps;
   const currentIndex = steps.length - 1;
@@ -46,12 +49,12 @@ export function GenerationProgress({
     : "";
 
   return (
-    <Card className="py-0">
-      <CardContent className="space-y-4 p-5">
+    <Panel>
+      <div className="space-y-2 p-3">
         <div className="flex items-center gap-2.5">
           {state.running && <Spinner className="text-primary" />}
-          <span className="text-sm font-medium">{state.label || "Working…"}</span>
-          <span className="text-muted-foreground ml-auto text-sm tabular-nums">
+          <span className="text-[13px] font-medium">{state.label || "Working…"}</span>
+          <span className="text-muted-foreground ml-auto text-xs tabular-nums">
             {state.running && state.startedAt ? `${formatElapsed(elapsed)} · ` : ""}
             {state.percent}%
           </span>
@@ -61,19 +64,18 @@ export function GenerationProgress({
 
         {state.running && elapsed >= LONG_RUN_SECONDS && (
           <p className="text-muted-foreground text-xs">
-            A full run takes several minutes. It keeps going if you leave this page, and
-            the result is saved when it finishes.
+            Keeps running if you leave this page; the result is saved when it finishes.
           </p>
         )}
 
         {steps.length > 0 && (
-          <ol className="space-y-2">
+          <ol className="space-y-1">
             {steps.map((step, index) => {
               const done = index < currentIndex || !state.running;
               return (
                 <li
                   key={`${step.phase}-${index}`}
-                  className="flex items-center gap-2.5 text-sm"
+                  className="flex items-center gap-2 text-[13px]"
                 >
                   <span
                     className={cn(
@@ -112,13 +114,26 @@ export function GenerationProgress({
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <ScrollArea className="bg-muted/50 mt-2 h-40 rounded-lg p-3">
+              <ScrollArea className="bg-muted/50 mt-1 h-40 rounded-md p-2">
                 <p className="text-muted-foreground pr-3 font-mono text-xs whitespace-pre-wrap">
                   {state.thinking}
                 </p>
               </ScrollArea>
             </CollapsibleContent>
           </Collapsible>
+        )}
+
+        {state.running && onStop && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onStop}
+            disabled={state.stopping}
+            title="Stop this run. Nothing is saved."
+          >
+            {state.stopping ? <Spinner /> : <Square />}
+            {state.stopping ? "Stopping…" : "Stop"}
+          </Button>
         )}
 
         {state.error && <ErrorAlert>{state.error}</ErrorAlert>}
@@ -132,8 +147,8 @@ export function GenerationProgress({
         {state.resultId && onOpen && (
           <Button onClick={() => onOpen(state.resultId!)}>Open the result</Button>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }
 

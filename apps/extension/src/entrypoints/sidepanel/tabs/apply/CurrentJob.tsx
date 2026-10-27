@@ -1,4 +1,12 @@
-import { Download, ExternalLink, FormInput, Globe, Sparkles } from "lucide-react";
+import {
+  Download,
+  ExternalLink,
+  FilePen,
+  FormInput,
+  Globe,
+  Sparkles,
+  Square,
+} from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -23,7 +31,7 @@ import { ErrorNote, PanelField, Progress } from "../../components";
 import { fillApplication, type FillReport } from "./fill-application";
 import { FillReportCard } from "./FillReport";
 import { ResumeDetails } from "./ResumeDetails";
-import type { JobRow, Strategy } from "./use-job-board";
+import type { JobRow, Mode } from "./use-job-board";
 
 export interface ResumeOption {
   kind: ResumeKind;
@@ -49,18 +57,20 @@ export function CurrentJob({
   row,
   resumes,
   baseResumeId,
-  strategy,
+  mode,
   portalUrl,
-  onTailor,
+  onRun,
+  onStop,
   onLink,
   onDownload,
 }: {
   row: JobRow | null;
   resumes: ResumeOption[];
   baseResumeId: string;
-  strategy: Strategy;
+  mode: Mode;
   portalUrl: string;
-  onTailor: (row: JobRow) => void;
+  onRun: (row: JobRow) => void;
+  onStop: (row: JobRow) => void;
   onLink: (row: JobRow, resume: ResumeRef | null) => Promise<void>;
   onDownload: (row: JobRow) => Promise<void>;
 }) {
@@ -80,9 +90,10 @@ export function CurrentJob({
   const fill = fills[tab.tabId];
   const filling = Boolean(fill?.phase);
   const postingKey = link?.job_key ?? tab.url;
-  // A tailored resume knows its application, so reopening the panel cannot save
-  // it twice. A base resume has no such link; this session remembers those.
-  const saved = tracked.has(postingKey) || Boolean(resume?.application_id);
+  // The backend knows which application tracks the posting, so reopening the
+  // panel cannot save it twice.
+  const saved =
+    tracked.has(postingKey) || Boolean(link?.application_id || resume?.application_id);
 
   function setFill(tabId: number, patch: Partial<FillState>) {
     setFills((all) => ({ ...all, [tabId]: { ...(all[tabId] ?? NO_FILL), ...patch } }));
@@ -126,7 +137,7 @@ export function CurrentJob({
       await api("/api/v1/remote/extension/save-application", {
         method: "POST",
         body: JSON.stringify({
-          tailored_resume_id: resume?.kind === "tailored" ? resume.id : null,
+          resume: resume ? { kind: resume.kind, id: resume.id } : null,
           company_name: (link?.company_name ?? resume?.company_name ?? hostOf(tab.url)).slice(0, 160),
           role_title:
             (link?.job_title ?? resume?.job_title ?? tab.title).slice(0, 160) || "Unknown role",
@@ -164,7 +175,7 @@ export function CurrentJob({
                   disabled={busy === "link" || running}
                 >
                   <SelectTrigger {...control} className="w-full">
-                    <SelectValue placeholder="None yet — tailor one, or pick one" />
+                    <SelectValue placeholder="None yet — make one, or pick one" />
                   </SelectTrigger>
                   <SelectContent>
                     {tailoredOptions.length > 0 && (
@@ -200,23 +211,41 @@ export function CurrentJob({
             </PanelField>
           )}
 
-          {run?.running && <Progress label={run.label} percent={run.percent} />}
+          {run?.running && (
+            <Progress label={run.stopping ? "Stopping…" : run.label} percent={run.percent} />
+          )}
+          {run?.stopped && !running && (
+            <p className="text-muted-foreground text-center text-[11px]">
+              Stopped. Nothing was saved.
+            </p>
+          )}
           {run?.error && <ErrorNote>{run.error}</ErrorNote>}
 
           <div className="space-y-1.5">
-            <Button
-              variant="brand"
-              className="h-10 w-full"
-              disabled={!baseResumeId || !readable || running}
-              onClick={() => onTailor(current)}
-            >
-              {running ? <Spinner /> : <Sparkles />}
-              Tailor &amp; download
-            </Button>
+            {running ? (
+              <Button
+                variant="outline"
+                className="h-10 w-full"
+                disabled={run?.stopping}
+                onClick={() => onStop(current)}
+              >
+                {run?.stopping ? <Spinner /> : <Square />}
+                {run?.stopping ? "Stopping…" : "Stop"}
+              </Button>
+            ) : (
+              <Button
+                variant="brand"
+                className="h-10 w-full"
+                // Generating needs only the posting; tailoring needs a resume to reframe.
+                disabled={(mode === "tailor" && !resume && !baseResumeId) || !readable}
+                onClick={() => onRun(current)}
+              >
+                {mode === "generate" ? <Sparkles /> : <FilePen />}
+                {mode === "generate" ? "Generate & download" : "Tailor & download"}
+              </Button>
+            )}
             <p className="text-subtle text-center text-[10px] leading-snug">
-              {strategy === "full"
-                ? "Builds a new resume for this posting from your base resume, and saves the .docx."
-                : "Reframes your base resume against this posting, and saves the .docx."}
+              {runHint(resume, mode)}
             </p>
           </div>
 
@@ -320,8 +349,23 @@ function TabHeading({ row, readable }: { row: JobRow; readable: boolean }) {
   );
 }
 
+function runHint(resume: LinkedResume | null, mode: Mode): string {
+  if (mode === "generate") {
+    return resume
+      ? "Builds a new resume from this posting and your resume profile, links it here in place of the current one, and saves the .docx."
+      : "Builds a new resume from this posting and your resume profile, and saves the .docx.";
+  }
+  if (resume?.kind === "base") {
+    return "Reframes this base resume itself for the job — no copy — and saves the .docx. Unlink it to tailor a new one instead.";
+  }
+  if (resume) {
+    return "Reframes this job's resume in place — no new resume — and saves the .docx. Unlink it to tailor a new one instead.";
+  }
+  return "Reframes your base resume against this posting, and saves the .docx.";
+}
+
 function resumeHint(resume: LinkedResume | null): string {
-  if (!resume) return "Tailor one below, or pick a resume you already have.";
+  if (!resume) return "Generate or tailor one below, or pick a resume you already have.";
   if (resume.kind === "base") return "Used as it is, without tailoring.";
   const coverage = resume.must_have_coverage_percent;
   return coverage === null

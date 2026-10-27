@@ -13,7 +13,7 @@ import { TrackBoard, TrackTable } from "@/components/freelancing/track-views";
 import { PageHero } from "@/components/page-hero";
 import { MeetingDialog, type MeetingDialogState } from "@/components/shared/calendar/meeting-dialog";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Panel } from "@/components/panel";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -109,10 +109,9 @@ function Tracking() {
   }, [data, open]);
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-3">
       <PageHero
         title="Pipeline"
-        description="Every bid you are tracking, from the day you save it to the day it pays."
         stats={
           s
             ? [
@@ -125,80 +124,75 @@ function Tracking() {
         }
       />
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <Tabs value={view} onValueChange={(v) => setView(v as View)}>
           <TabsList>
-            <TabsTrigger value="board">
+            <TabsTrigger value="board" className="gap-1.5">
               <LayoutGrid />
               Board
             </TabsTrigger>
-            <TabsTrigger value="list">
+            <TabsTrigger value="list" className="gap-1.5">
               <List />
               List
             </TabsTrigger>
           </TabsList>
         </Tabs>
 
-        <div className="relative w-full sm:w-80">
-          <Search aria-hidden className="text-muted-foreground absolute top-1/2 left-5 size-[17px] -translate-y-1/2" />
+        <div className="relative w-full sm:w-64">
+          <Search aria-hidden className="text-muted-foreground absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search opportunities…"
+            placeholder="Search opportunities"
             aria-label="Search opportunities"
-            className="bg-card/70 h-11 rounded-full pr-5 pl-12 text-sm"
+            className="pl-8"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
-          <Select value={stage} onValueChange={setStage}>
-            <SelectTrigger aria-label="Stage" className="bg-card/70 h-11 min-w-44 rounded-full pr-4 pl-5 text-sm font-semibold">
-              <SelectValue placeholder="All stages" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>All stages</SelectItem>
-              {STAGES.map((st) => (
-                <SelectItem key={st} value={st}>
-                  {STAGE_LABEL[st]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <Select value={stage} onValueChange={setStage}>
+          <SelectTrigger size="sm" aria-label="Stage" className="w-40">
+            <SelectValue placeholder="All stages" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All stages</SelectItem>
+            {STAGES.map((st) => (
+              <SelectItem key={st} value={st}>
+                {STAGE_LABEL[st]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-          <label className="bg-card/70 flex h-11 cursor-pointer items-center gap-2.5 rounded-full pr-1.5 pl-4 text-sm font-semibold">
-            Show closed
-            <Switch checked={showClosed} onCheckedChange={setShowClosed} />
-          </label>
-        </div>
+        <label className="flex cursor-pointer items-center gap-2 text-xs">
+          <Switch checked={showClosed} onCheckedChange={setShowClosed} size="sm" />
+          Show closed
+        </label>
       </div>
 
       {error && <ErrorAlert>{(error as Error).message}</ErrorAlert>}
 
       {isLoading ? (
-        <div className="space-y-3">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-32 w-full rounded-[2rem]" />
+        <Panel className="divide-y">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex h-9 items-center px-3">
+              <Skeleton className="h-3.5 w-1/2" />
+            </div>
           ))}
-        </div>
+        </Panel>
       ) : !rows.length ? (
-        <Card tone="soft" className="p-8">
+        <Panel>
           <EmptyState
             icon={<Users />}
             title={data?.length ? "Nothing at this stage" : "Nothing tracked yet"}
-            description={
-              data?.length
-                ? "Pick another stage or clear filters."
-                : "Save a job from Find Opportunities to begin tracking it here."
-            }
             action={
               !data?.length ? (
-                <Button asChild>
-                  <Link href="/freelancing/jobs">Find Opportunities</Link>
+                <Button asChild size="sm">
+                  <Link href="/freelancing/jobs">Find jobs</Link>
                 </Button>
               ) : undefined
             }
           />
-        </Card>
+        </Panel>
       ) : view === "board" ? (
         <TrackBoard
           rows={rows}

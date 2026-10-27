@@ -1,27 +1,15 @@
 "use client";
 
-import {
-  Briefcase,
-  ClipboardPaste,
-  FileText,
-  Lightbulb,
-  ListChecks,
-  Save,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
+import { FileText, Sparkles, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ErrorAlert } from "@/components/error-alert";
 import { FormField } from "@/components/form-field";
 import { GenerationProgress } from "@/components/remote/generation-progress";
 import { PageHero } from "@/components/page-hero";
-import { CheckList, SidePanel } from "@/components/side-panel";
-import { Tile } from "@/components/tile";
-import { Badge } from "@/components/ui/badge";
+import { Panel } from "@/components/panel";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -29,207 +17,229 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useGeneration } from "@/hooks/use-generation";
 import { request } from "@/lib/api";
-
-const NEW_RESUME_TIPS = [
-  "Name it for the stack, e.g. “Senior AI Fullstack — Python/FastAPI”.",
-  "Keep the target title close to the roles you will apply for.",
-  "One base resume per stack beats one per company.",
-  "Generated resumes still need a read before you send them.",
-];
-
-const ON_SAVE = [
-  {
-    Icon: ShieldCheck,
-    title: "It is parsed, not just stored",
-    detail:
-      "A document that cannot be read back cannot be exported, so it is checked here rather than at download time.",
-  },
-  {
-    Icon: ListChecks,
-    title: "Hard rules are re-checked",
-    detail:
-      "No placeholders, exactly four skill categories, and tenure arithmetic that agrees with the claimed years.",
-  },
-];
+import { cn } from "@/lib/utils";
 
 const MODES = [
-  {
-    value: "upload",
-    Icon: ClipboardPaste,
-    title: "Paste existing",
-    detail: "You already have a resume in Canonical Resume Markdown.",
-  },
-  {
-    value: "story",
-    Icon: Sparkles,
-    title: "From a story",
-    detail: "Describe the career you want represented and let it build one.",
-  },
-  {
-    value: "job",
-    Icon: Briefcase,
-    title: "From a job",
-    detail: "Start from a posting and work backwards to a base resume.",
-  },
+  { value: "upload", Icon: Upload, title: "Upload existing" },
+  { value: "story", Icon: Sparkles, title: "From a story" },
+  { value: "job", Icon: FileText, title: "From a job" },
 ];
-
-const CRM_PLACEHOLDER = `---
-name: Your Name
-title: Senior Engineer
-location: City, Country
----
-
-## PROFESSIONAL SUMMARY
-
-…`;
 
 export default function NewResumePage() {
   return (
-    <div className="space-y-7">
+    <div className="space-y-3">
       <PageHero title="Add a resume" back="/remote/resumes" />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22.5rem] lg:items-start">
-        <Tabs defaultValue="upload" className="min-w-0 gap-5">
-          <TabsList className="grid h-auto w-full items-stretch group-data-horizontal/tabs:h-auto grid-cols-1 gap-4 rounded-none bg-transparent p-0 shadow-none sm:grid-cols-3">
-            {MODES.map(({ value, Icon, title, detail }) => (
-              <TabsTrigger
-                key={value}
-                value={value}
-                className="group/mode bg-card shadow-card data-[state=active]:bg-panel data-[state=active]:text-panel-foreground h-auto flex-none items-center justify-start gap-4 rounded-[28px] px-[1.125rem] py-[1.125rem] text-left whitespace-normal data-[state=active]:shadow-none"
-              >
-                <Tile
-                  icon={Icon}
-                  size="lg"
-                  className="size-12 group-data-[state=active]/mode:bg-brand group-data-[state=active]/mode:text-brand-foreground"
-                />
-                <span className="min-w-0">
-                  <span className="block text-[1.0625rem] font-bold tracking-tight">
-                    {title}
-                  </span>
-                  <span className="text-muted-foreground group-data-[state=active]/mode:text-panel-muted mt-0.5 block text-[0.8125rem] leading-snug font-medium">
-                    {detail}
-                  </span>
-                </span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
+      <Tabs defaultValue="upload" className="max-w-3xl min-w-0 gap-3">
+        <TabsList>
+          {MODES.map(({ value, Icon, title }) => (
+            <TabsTrigger key={value} value={value} className="gap-1.5">
+              <Icon />
+              {title}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-          <TabsContent value="upload">
-            <UploadForm />
-          </TabsContent>
-          <TabsContent value="story">
-            <GenerateForm kind="story" />
-          </TabsContent>
-          <TabsContent value="job">
-            <GenerateForm kind="job" />
-          </TabsContent>
-        </Tabs>
-
-        <aside className="space-y-5 lg:sticky lg:top-24">
-          <SidePanel icon={Lightbulb} title="Tips for better results">
-            <CheckList items={NEW_RESUME_TIPS} />
-          </SidePanel>
-          <SidePanel
-            icon={ShieldCheck}
-            title="What happens on save"
-            tone="dark"
-          >
-            <ul className="divide-panel-raised divide-y">
-              {ON_SAVE.map(({ Icon, title, detail }) => (
-                <li
-                  key={title}
-                  className="flex gap-3.5 py-5 first:pt-1 last:pb-0"
-                >
-                  <Tile
-                    icon={Icon}
-                    tone="ink"
-                    size="sm"
-                    className="bg-panel-raised"
-                  />
-                  <div>
-                    <p className="font-semibold">{title}</p>
-                    <p className="text-panel-muted mt-1 text-sm leading-relaxed">
-                      {detail}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </SidePanel>
-        </aside>
-      </div>
+        <TabsContent value="upload">
+          <UploadForm />
+        </TabsContent>
+        <TabsContent value="story">
+          <GenerateForm kind="story" />
+        </TabsContent>
+        <TabsContent value="job">
+          <GenerateForm kind="job" />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
+/** What the backend can read; mirrors app/remote/services/documents.py. */
+const ACCEPTED = ".pdf,.docx,.odt,.rtf,.html,.htm,.txt,.md,.markdown";
+const ACCEPTED_LABEL = "PDF, Word, ODT, RTF, HTML, Markdown or text";
+const MAX_FILE_BYTES = 8 * 1024 * 1024;
+
+interface ImportAccepted {
+  id: string;
+  direct: boolean;
+  result_id: string | null;
+  warnings: string[];
+}
+
 function UploadForm() {
   const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { state, attach, stop } = useGeneration();
+  const [file, setFile] = useState<File | null>(null);
+  const [pasted, setPasted] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [targetTitle, setTargetTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [parseHint, setParseHint] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  // The restyled resume opens as soon as the job saves it.
+  useEffect(() => {
+    if (!state.running && state.resultId) router.push(`/remote/resumes/${state.resultId}`);
+  }, [state.running, state.resultId, router]);
+
+  function choose(next: File | undefined) {
+    if (!next) return;
+    setError(null);
+    if (!/\.(pdf|docx|odt|rtf|html?|txt|md|markdown)$/i.test(next.name)) {
+      setError(
+        /\.doc$/i.test(next.name)
+          ? "Old .doc files are not supported. Save it as .docx or PDF and upload that."
+          : `That file type is not supported. Upload ${ACCEPTED_LABEL}.`,
+      );
+      return;
+    }
+    if (next.size > MAX_FILE_BYTES) {
+      setError("That file is larger than 8 MB.");
+      return;
+    }
+    setFile(next);
+  }
+
+  const working = sending || state.running;
+  const ready = Boolean(file) || pasted.trim().length >= 80;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
+    if (!ready || working) return;
+    setSending(true);
     setError(null);
-    setParseHint(null);
     try {
-      const created = await request<{ id: string }>("/api/v1/remote/resumes", {
+      const form = new FormData();
+      if (file) form.append("file", file);
+      else form.append("text", pasted);
+      if (displayName.trim()) form.append("display_name", displayName.trim());
+      if (targetTitle.trim()) form.append("target_title", targetTitle.trim());
+      const accepted = await request<ImportAccepted>("/api/v1/remote/resumes/import", {
         method: "POST",
-        body: JSON.stringify({
-          display_name: displayName,
-          target_title: targetTitle,
-          content_markdown: content,
-        }),
+        body: form,
       });
-      router.push(`/remote/resumes/${created.id}`);
-    } catch (err) {
-      const e = err as {
-        code?: string;
-        message?: string;
-        detail?: Record<string, unknown>;
-      };
-      setError(e.message ?? "Could not save");
-      if (e.code === "CRM_PARSE_ERROR" && e.detail) {
-        setParseHint(
-          `Line ${e.detail.line} in ${e.detail.section}: ${String(e.detail.line_text ?? "")}`,
-        );
+      // Already in the house format: saved on the spot, nothing to follow.
+      if (accepted.direct && accepted.result_id) {
+        router.push(`/remote/resumes/${accepted.result_id}`);
+        return;
       }
+      attach(accepted.id);
+    } catch (err) {
+      setError((err as { message?: string }).message ?? "Could not import that file");
     } finally {
-      setBusy(false);
+      setSending(false);
     }
   }
 
   return (
-    <Card className="gap-0 p-5 md:px-8 md:py-8">
+    <Panel className="p-3">
       <form onSubmit={submit}>
-        <FieldGroup className="gap-6">
-          <div className="grid gap-5 md:grid-cols-2 md:gap-5">
-            <FormField
-              label="Name"
-              hint="Include the stack, e.g. “Senior AI Fullstack — Python/FastAPI”."
-            >
+        <FieldGroup className="gap-3">
+          <FormField label="Your resume">
+            {(control) => (
+              <div className="space-y-2">
+                <input
+                  ref={inputRef}
+                  id={control.id}
+                  type="file"
+                  accept={ACCEPTED}
+                  className="sr-only"
+                  disabled={working}
+                  onChange={(e) => {
+                    choose(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragging(true);
+                  }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragging(false);
+                    if (!working) choose(e.dataTransfer.files[0]);
+                  }}
+                  className={cn(
+                    "flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-4 text-center transition-colors",
+                    dragging ? "border-primary bg-accent/60" : "border-border",
+                  )}
+                >
+                  {file ? (
+                    <div className="flex items-center gap-3">
+                      <FileText className="text-brand size-5 shrink-0" />
+                      <div className="min-w-0 text-left">
+                        <p className="truncate font-semibold">{file.name}</p>
+                        <p className="text-muted-foreground text-xs">
+                          {(file.size / 1024).toFixed(0)} KB
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label="Remove the file"
+                        disabled={working}
+                        onClick={() => setFile(null)}
+                      >
+                        <X />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="text-muted-foreground size-5" />
+                      <p className="text-[13px] font-medium">Drop your resume here</p>
+                      <p className="text-muted-foreground text-xs">{ACCEPTED_LABEL} · up to 8 MB</p>
+                    </>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={working}
+                    onClick={() => inputRef.current?.click()}
+                  >
+                    {file ? "Choose a different file" : "Choose a file"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </FormField>
+
+          {!file && (
+            <FormField label="Or paste the text">
+              {(control) => (
+                <Textarea
+                  {...control}
+                  rows={7}
+                  disabled={working}
+                  className="field-sizing-fixed min-h-40 leading-5"
+                  value={pasted}
+                  onChange={(e) => setPasted(e.target.value)}
+                  placeholder="Paste your resume text here…"
+                />
+              )}
+            </FormField>
+          )}
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <FormField label="Name (optional)">
               {(control) => (
                 <Input
                   {...control}
-                  required
+                  disabled={working}
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                 />
               )}
             </FormField>
-
-            <FormField
-              label="Target title"
-              hint="Keep it close to the roles you will apply for."
-            >
+            <FormField label="Target title (optional)">
               {(control) => (
                 <Input
                   {...control}
-                  required
+                  disabled={working}
                   value={targetTitle}
                   onChange={(e) => setTargetTitle(e.target.value)}
                 />
@@ -237,63 +247,30 @@ function UploadForm() {
             </FormField>
           </div>
 
-          <FormField label="Resume (Canonical Resume Markdown)">
-            {(control) => (
-              <div className="bg-panel text-panel-foreground overflow-hidden rounded-[26px]">
-                <div className="border-panel-raised flex items-center gap-2.5 border-b py-3.5 pr-4 pl-5">
-                  <FileText className="text-brand size-4" />
-                  <span className="text-panel-muted text-[0.8125rem] font-semibold">
-                    resume.md
-                  </span>
-                  <Badge className="bg-panel-raised text-panel-muted ml-auto">
-                    <ShieldCheck />
-                    Parsed on save
-                  </Badge>
-                </div>
-                <Textarea
-                  {...control}
-                  required
-                  rows={18}
-                  spellCheck={false}
-                  className="field-sizing-fixed placeholder:text-panel-muted caret-brand min-h-96 rounded-none border-0 bg-transparent px-5 py-4 font-mono text-[13px] leading-6 font-normal focus-visible:bg-transparent"
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder={CRM_PLACEHOLDER}
-                />
-              </div>
-            )}
-          </FormField>
+          {error && <ErrorAlert>{error}</ErrorAlert>}
 
-          {error && (
-            <ErrorAlert>
-              {error}
-              {parseHint && (
-                <span className="mt-1 block font-mono text-xs">
-                  {parseHint}
-                </span>
-              )}
-            </ErrorAlert>
+          {(state.running || state.error) && (
+            <GenerationProgress state={state} onStop={stop} />
           )}
 
           <Button
             type="submit"
             variant="brand"
-            size="lg"
-            className="h-14 w-full text-base"
-            disabled={busy}
+            className="w-full"
+            disabled={!ready || working}
           >
-            {busy ? <Spinner /> : <Save />}
-            Save resume
+            {working ? <Spinner /> : <Sparkles />}
+            {working ? "Importing…" : "Import and restyle"}
           </Button>
         </FieldGroup>
       </form>
-    </Card>
+    </Panel>
   );
 }
 
 function GenerateForm({ kind }: { kind: "story" | "job" }) {
   const router = useRouter();
-  const { state, start } = useGeneration();
+  const { state, start, stop } = useGeneration();
   const [targetTitle, setTargetTitle] = useState("");
   const [skillCount, setSkillCount] = useState("");
   const [jobDescription, setJobDescription] = useState("");
@@ -311,9 +288,9 @@ function GenerateForm({ kind }: { kind: "story" | "job" }) {
   }
 
   return (
-    <Card className="gap-0 p-5 md:px-8 md:py-8">
+    <Panel className="p-3">
       <form onSubmit={submit}>
-        <FieldGroup className="gap-6">
+        <FieldGroup className="gap-3">
           <FormField label="Target title">
             {(control) => (
               <Input
@@ -328,10 +305,7 @@ function GenerateForm({ kind }: { kind: "story" | "job" }) {
 
           {kind === "story" ? (
             <>
-              <FormField
-                label="How many technologies overall?"
-                hint="Still spread across exactly four categories."
-              >
+              <FormField label="How many technologies overall?">
                 {(control) => (
                   <Input
                     {...control}
@@ -347,7 +321,7 @@ function GenerateForm({ kind }: { kind: "story" | "job" }) {
                 {(control) => (
                   <Textarea
                     {...control}
-                    rows={5}
+                    rows={4}
                     value={extra}
                     onChange={(e) => setExtra(e.target.value)}
                   />
@@ -360,7 +334,7 @@ function GenerateForm({ kind }: { kind: "story" | "job" }) {
                 <Textarea
                   {...control}
                   required
-                  rows={12}
+                  rows={10}
                   value={jobDescription}
                   onChange={(e) => setJobDescription(e.target.value)}
                   placeholder="Paste the full posting…"
@@ -372,8 +346,7 @@ function GenerateForm({ kind }: { kind: "story" | "job" }) {
           <Button
             type="submit"
             variant="brand"
-            size="lg"
-            className="h-14 w-full text-base"
+            className="w-full"
             disabled={state.running}
           >
             {state.running ? <Spinner /> : <Sparkles />}
@@ -384,10 +357,11 @@ function GenerateForm({ kind }: { kind: "story" | "job" }) {
             <GenerationProgress
               state={state}
               onOpen={(id) => router.push(`/remote/resumes/${id}`)}
+              onStop={stop}
             />
           )}
         </FieldGroup>
       </form>
-    </Card>
+    </Panel>
   );
 }

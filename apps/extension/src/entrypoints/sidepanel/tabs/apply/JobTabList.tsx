@@ -1,4 +1,4 @@
-import { Download, Globe, Sparkles } from "lucide-react";
+import { Download, FilePen, Globe, Sparkles, Square } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -8,23 +8,27 @@ import { hostOf } from "@/lib/page";
 import { cn } from "@/lib/utils";
 import { EmptyNote } from "../../chrome-shell";
 import { Progress } from "../../components";
-import type { JobRow } from "./use-job-board";
+import type { JobRow, Mode } from "./use-job-board";
 
 /** Every web page open in the window, each with its posting's resume or run. */
 export function JobTabList({
   rows,
   selected,
+  mode,
   canTailor,
   onSelect,
-  onTailor,
+  onRun,
+  onStop,
   onDownload,
   onFocus,
 }: {
   rows: JobRow[];
   selected: Set<number>;
+  mode: Mode;
   canTailor: boolean;
   onSelect: (tabId: number, on: boolean) => void;
-  onTailor: (row: JobRow) => void;
+  onRun: (row: JobRow) => void;
+  onStop: (row: JobRow) => void;
   onDownload: (row: JobRow) => void;
   onFocus: (row: JobRow) => void;
 }) {
@@ -80,16 +84,14 @@ export function JobTabList({
                   <Download />
                 </Button>
               )}
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                aria-label={`Tailor a resume for ${title}`}
-                title="Tailor & download"
-                disabled={!canTailor || running}
-                onClick={() => onTailor(row)}
-              >
-                {running ? <Spinner /> : <Sparkles />}
-              </Button>
+              <RunButton
+                row={row}
+                title={title}
+                mode={mode}
+                canTailor={canTailor}
+                onRun={onRun}
+                onStop={onStop}
+              />
             </div>
           </li>
         );
@@ -98,9 +100,71 @@ export function JobTabList({
   );
 }
 
+/** Generate or tailor one row, saying which and what happens to its resume. */
+function RunButton({
+  row,
+  title,
+  mode,
+  canTailor,
+  onRun,
+  onStop,
+}: {
+  row: JobRow;
+  title: string;
+  mode: Mode;
+  canTailor: boolean;
+  onRun: (row: JobRow) => void;
+  onStop: (row: JobRow) => void;
+}) {
+  const linked = Boolean(row.link?.resume);
+  const running = Boolean(row.run?.running);
+  const [label, hint] =
+    mode === "generate"
+      ? linked
+        ? [`Generate a new resume for ${title}`, "Generate a new resume & download — replaces its link"]
+        : [`Generate a resume for ${title}`, "Generate & download"]
+      : linked
+        ? [`Tailor the resume linked to ${title} in place`, "Tailor its resume in place & download"]
+        : [`Tailor a resume for ${title}`, "Tailor & download"];
+  if (running) {
+    const stopping = Boolean(row.run?.stopping);
+    return (
+      <Button
+        size="icon-xs"
+        variant="ghost"
+        aria-label={`Stop the run for ${title}`}
+        title={stopping ? "Stopping…" : "Stop — nothing is saved"}
+        disabled={stopping}
+        onClick={() => onStop(row)}
+      >
+        {stopping ? <Spinner /> : <Square />}
+      </Button>
+    );
+  }
+  return (
+    <Button
+      size="icon-xs"
+      variant="ghost"
+      aria-label={label}
+      title={hint}
+      disabled={mode === "tailor" && !canTailor && !linked}
+      onClick={() => onRun(row)}
+    >
+      {mode === "generate" ? <Sparkles /> : <FilePen />}
+    </Button>
+  );
+}
+
 function RowStatus({ row }: { row: JobRow }) {
   const { tab, link, run } = row;
-  if (run?.running) return <Progress label={run.label} percent={run.percent} />;
+  if (run?.running) {
+    return (
+      <Progress label={run.stopping ? "Stopping…" : run.label} percent={run.percent} />
+    );
+  }
+  if (run?.stopped) {
+    return <p className="text-muted-foreground truncate text-[10px]">Stopped · nothing saved</p>;
+  }
   if (run?.error) {
     return <p className="text-destructive line-clamp-2 text-[10px] leading-snug">{run.error}</p>;
   }

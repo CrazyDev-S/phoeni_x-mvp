@@ -1,11 +1,11 @@
 "use client";
 
-import { ChevronDown, RotateCcw, Search } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import type { ComponentProps } from "react";
 import { useState, type ReactNode } from "react";
 
 import { FilterTags } from "@/components/freelancing/filter-tags";
-import { FormField, type ControlProps } from "@/components/form-field";
+import { FormField } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -19,11 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import {
-  activeFilterCount,
-  EMPTY_SEARCH,
   type FilterCatalogue,
   type FilterOption,
   type JobSearchParams,
@@ -46,26 +43,17 @@ const ENGLISH_LEVELS: [NonNullable<JobSearchParams["english_level"]>, string][] 
   ["native", "Native or bilingual"],
 ];
 
-const POSTED_WITHIN: [number, string][] = [
-  [1, "Last hour"],
-  [6, "Last 6 hours"],
-  [24, "Last 24 hours"],
-  [72, "Last 3 days"],
-  [168, "Last week"],
-  [720, "Last 30 days"],
-];
-
-/** The panel's fields are tighter than the app's: a bold small label, a small hint. */
+/** The sheet's fields: a small label over a 32px control. */
 function PanelField(props: ComponentProps<typeof FormField>) {
   return (
     <FormField
       {...props}
-      className="gap-1.5 *:data-[slot=field-label]:text-[12.5px] *:data-[slot=field-label]:font-bold *:data-[slot=field-description]:text-xs *:data-[slot=field-description]:leading-snug *:data-[slot=field-description]:font-medium"
+      className="gap-1 *:data-[slot=field-label]:text-xs *:data-[slot=field-label]:font-medium"
     />
   );
 }
 
-const PANEL_LABEL = "text-[12.5px] font-bold";
+const PANEL_LABEL = "text-xs font-medium";
 
 /** A labelled group of controls that folds away, so the panel stays scannable. */
 function Group({
@@ -85,18 +73,18 @@ function Group({
       <CollapsibleTrigger asChild>
         <button
           type="button"
-          className="flex h-[46px] w-full items-center gap-2.5 text-left text-[15px] font-bold"
+          className="flex h-9 w-full items-center gap-2 text-left text-[13px] font-semibold"
         >
           <span className="flex-1">{title}</span>
           {count ? (
-            <span className="bg-accent text-accent-foreground grid h-[22px] min-w-[22px] place-items-center rounded-full px-1.5 text-[11.5px] font-bold tabular-nums">
+            <span className="bg-accent text-accent-foreground grid h-4 min-w-4 place-items-center rounded px-1 text-[11px] font-semibold tabular-nums">
               {count}
             </span>
           ) : null}
-          <ChevronDown className={cn("text-subtle size-[17px] transition-transform", open && "rotate-180")} />
+          <ChevronDown className={cn("text-subtle size-4 transition-transform", open && "rotate-180")} />
         </button>
       </CollapsibleTrigger>
-      <CollapsibleContent className="space-y-3.5 pt-0.5 pb-4">{children}</CollapsibleContent>
+      <CollapsibleContent className="space-y-2.5 pt-0.5 pb-3">{children}</CollapsibleContent>
     </Collapsible>
   );
 }
@@ -155,7 +143,7 @@ function RangeFields({
       <Label className={PANEL_LABEL}>{label}</Label>
       <div className="grid grid-cols-2 gap-2">
         <div className="relative">
-          {prefix && <span className="text-subtle pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm font-semibold">{prefix}</span>}
+          {prefix && <span className="text-subtle pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-[13px]">{prefix}</span>}
           <Input
             type="number"
             min={0}
@@ -164,11 +152,11 @@ function RangeFields({
             aria-label={`${label} minimum`}
             value={low ?? ""}
             onChange={(e) => onChange(parse(e.target.value), high)}
-            className={cn(prefix && "pl-7!")}
+            className={cn(prefix && "pl-6!")}
           />
         </div>
         <div className="relative">
-          {prefix && <span className="text-subtle pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm font-semibold">{prefix}</span>}
+          {prefix && <span className="text-subtle pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-[13px]">{prefix}</span>}
           <Input
             type="number"
             min={0}
@@ -177,7 +165,7 @@ function RangeFields({
             aria-label={`${label} maximum`}
             value={high ?? ""}
             onChange={(e) => onChange(low, parse(e.target.value))}
-            className={cn(prefix && "pl-7!")}
+            className={cn(prefix && "pl-6!")}
           />
         </div>
       </div>
@@ -188,53 +176,46 @@ function RangeFields({
 /** Three-state: unset, on, off. Upwork treats "off" differently from "not sent". */
 function TriSwitch({
   label,
-  hint,
   value,
   onChange,
 }: {
   label: string;
-  hint?: string;
   value: boolean | null;
   onChange: (next: boolean | null) => void;
 }) {
   return (
-    <div className="flex items-start gap-3">
+    <div className="flex items-center gap-2.5">
       <Switch
+        size="sm"
         checked={value === true}
         onCheckedChange={(checked) => onChange(checked ? true : null)}
         aria-label={label}
       />
-      <div className="flex min-h-7 min-w-0 flex-col justify-center">
-        <p className="text-sm leading-snug font-semibold">{label}</p>
-        {hint && <p className="text-muted-foreground text-xs font-medium">{hint}</p>}
+      <div className="min-w-0">
+        <p className="text-[13px] leading-snug">{label}</p>
       </div>
     </div>
   );
 }
 
 /**
- * The full search form: every parameter the job source accepts.
- *
- * The free-text query and the sort sit at the top because they change on
- * every search; everything else folds into groups so the panel reads as a
- * checklist rather than a wall of inputs. A control the source in service
- * cannot apply is not rendered: a filter that silently did nothing would be
- * worse than none.
+ * The filters that do not fit the toolbar: every other parameter the job
+ * source accepts, folded into groups. The query, sort, posting age, job type
+ * and experience level are in the toolbar (`JobToolbar`). A control the source
+ * in service cannot apply is not rendered: a filter that silently did nothing
+ * would be worse than none.
  */
 export function JobFilters({
   value,
   catalogue,
-  searching,
   onChange,
   onSearch,
-  onReset,
 }: {
   value: JobSearchParams;
   catalogue: FilterCatalogue | undefined;
-  searching: boolean;
   onChange: (next: JobSearchParams) => void;
+  /** Enter inside a field runs the search. */
   onSearch: () => void;
-  onReset: () => void;
 }) {
   const set = <K extends keyof JobSearchParams>(key: K, next: JobSearchParams[K]) =>
     onChange({ ...value, [key]: next, cursor: null });
@@ -254,7 +235,7 @@ export function JobFilters({
     value.exact_terms.length, value.exclude_terms.length].filter(Boolean).length;
   const taxonomyCount = [value.category_ids.length, value.subcategory_ids.length, value.occupation_ids.length,
     value.ontology_skill_ids.length].filter(Boolean).length;
-  const contractCount = [value.job_type, value.workload, value.durations.length, value.experience_level,
+  const contractCount = [value.workload, value.durations.length,
     value.budget_min ?? value.budget_max, value.hourly_rate_min ?? value.hourly_rate_max].filter((v) => v !== null && v !== 0 && v !== "").length;
   const clientCount = [value.client_hires_min ?? value.client_hires_max, value.proposals_min ?? value.proposals_max,
     value.verified_payment_only, value.previous_clients_only, value.client_locations.length, value.client_timezone,
@@ -263,82 +244,14 @@ export function JobFilters({
   ].filter((v) => v !== null && v !== 0 && v !== "").length;
   const applyCount = [value.connects_min ?? value.connects_max, value.english_level, value.contractor_type,
     value.featured_only, value.exclude_with_questions].filter((v) => v !== null && v !== 0).length;
-  // The search box speaks the source's language: Upwork's API takes a Lucene
-  // expression, the Apify actors take keywords.
-  const queryPlaceholder =
-    source?.key === "upwork"
-      ? "Search postings — Lucene syntax works"
-      : source && !source.filters.includes("and_terms")
-        ? "Keywords, comma-separated — any of them matches"
-        : "Search postings";
-
   return (
     <form
-      className={cn(
-        "space-y-3",
-        "[&_[data-slot=input]]:h-11 [&_[data-slot=input]]:rounded-[14px] [&_[data-slot=input]]:px-3.5 [&_[data-slot=input]]:text-sm",
-        "[&_[data-slot=select-trigger]]:h-11 [&_[data-slot=select-trigger]]:rounded-[14px] [&_[data-slot=select-trigger]]:pl-3.5 [&_[data-slot=select-trigger]]:text-sm",
-      )}
+      className="space-y-0"
       onSubmit={(event) => {
         event.preventDefault();
         onSearch();
       }}
     >
-      <div className="relative">
-        <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 z-10 size-4 -translate-y-1/2" />
-        <Input
-          value={value.query}
-          onChange={(e) => set("query", e.target.value)}
-          placeholder={queryPlaceholder}
-          className="bg-card h-[50px]! rounded-[18px]! pl-10! shadow-[inset_0_0_0_1.5px_var(--foreground)] focus-visible:border-transparent"
-          aria-label="Search"
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <Select value={value.sort} onValueChange={(v) => set("sort", v as JobSearchParams["sort"])}>
-          <SelectTrigger className="w-full" aria-label="Sort">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(catalogue?.sorts ?? []).map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={String(value.page_size)} onValueChange={(v) => set("page_size", Number(v))}>
-          <SelectTrigger className="w-full" aria-label="Results per page">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(catalogue?.page_sizes ?? [20]).map((n) => (
-              <SelectItem key={n} value={String(n)}>
-                {n} per page
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex gap-2">
-        <Button type="submit" variant="brand" size="lg" className="flex-1" disabled={searching}>
-          {searching ? <Spinner /> : <Search />}
-          Search {source?.label ?? "jobs"}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-lg"
-          onClick={onReset}
-          disabled={activeFilterCount(value) === 0 && !value.query}
-          aria-label="Reset filters"
-        >
-          <RotateCcw />
-        </Button>
-      </div>
-
       <div className="space-y-0">
         {has("title", "skills", "and_terms", "or_terms", "exact_terms", "exclude_terms") && (
         <Group title="Text" count={textCount} defaultOpen>
@@ -352,11 +265,6 @@ export function JobFilters({
           {has("skills") && (
           <PanelField
             label="Skills"
-            hint={
-              source?.key === "upwork"
-                ? "Upwork skill slugs, any of them. Enter or comma to add."
-                : "Skill names as Upwork shows them, any of them. Enter or comma to add."
-            }
           >
             {(control) => (
               <FilterTags {...control} value={value.skills} onChange={(v) => set("skills", v)} placeholder="python, fastapi" />
@@ -372,9 +280,6 @@ export function JobFilters({
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-3 pt-2">
-              <p className="text-subtle text-xs">
-                Used only when the search box above is empty; Upwork ignores these next to a query.
-              </p>
               <PanelField label="All of these words">
                 {(control) => <FilterTags {...control} value={value.and_terms} onChange={(v) => set("and_terms", v)} />}
               </PanelField>
@@ -393,31 +298,6 @@ export function JobFilters({
         </Group>
         )}
 
-        {has("posted_within_hours") && (
-        <Group title="Posted" count={value.posted_within_hours ? 1 : 0} defaultOpen>
-          <PanelField label="Posted within" hint="Fresh postings get fewer proposals.">
-            {(control) => (
-              <Select
-                value={value.posted_within_hours ? String(value.posted_within_hours) : ANY}
-                onValueChange={(v) => set("posted_within_hours", v === ANY ? null : Number(v))}
-              >
-                <SelectTrigger {...control} className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ANY}>Any time</SelectItem>
-                  {POSTED_WITHIN.map(([hours, label]) => (
-                    <SelectItem key={hours} value={String(hours)}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </PanelField>
-        </Group>
-        )}
-
         {has("category_ids", "subcategory_ids", "occupation_ids", "ontology_skill_ids") && (
         <Group title="Category" count={taxonomyCount}>
           {!has("category_ids") ? null : catalogue?.categories_error ? (
@@ -425,13 +305,13 @@ export function JobFilters({
           ) : categories.length === 0 ? (
             <p className="text-subtle text-xs">Categories load from {source?.label ?? "the job source"} once connected.</p>
           ) : (
-            <ScrollArea className="h-64 rounded-[14px] border">
+            <ScrollArea className="h-56 rounded-md border">
               <ul className="space-y-1 p-2">
                 {categories.map((category) => {
                   const on = value.category_ids.includes(category.id);
                   return (
                     <li key={category.id}>
-                      <label className="flex items-center gap-2 rounded-md px-1.5 py-1 text-sm hover:bg-muted/60">
+                      <label className="flex items-center gap-2 rounded px-1.5 py-0.5 text-[13px] hover:bg-muted/60">
                         <Checkbox checked={on} onCheckedChange={() => toggleIn("category_ids", category.id)} />
                         <span className="min-w-0 flex-1 truncate">{category.label}</span>
                       </label>
@@ -457,28 +337,20 @@ export function JobFilters({
             </ScrollArea>
           )}
           {has("occupation_ids") && (
-          <PanelField label="Occupation IDs" hint="Ontology occupation UIDs, any of them.">
+          <PanelField label="Occupation IDs">
             {(control) => <FilterTags {...control} value={value.occupation_ids} onChange={(v) => set("occupation_ids", v)} />}
           </PanelField>
           )}
           {has("ontology_skill_ids") && (
-          <PanelField label="Ontology skill IDs" hint="All of them must match.">
+          <PanelField label="Ontology skill IDs">
             {(control) => <FilterTags {...control} value={value.ontology_skill_ids} onChange={(v) => set("ontology_skill_ids", v)} />}
           </PanelField>
           )}
         </Group>
         )}
 
-        {has("job_type", "workload", "experience_level", "durations", "budget_min", "hourly_rate_min") && (
+        {has("workload", "durations", "budget_min", "hourly_rate_min") && (
         <Group title="Contract" count={contractCount}>
-          {has("job_type") && (
-          <OptionSelect
-            label="Job type"
-            value={value.job_type}
-            options={catalogue?.job_types ?? []}
-            onChange={(v) => set("job_type", v as JobSearchParams["job_type"])}
-          />
-          )}
           {has("workload") && (
           <OptionSelect
             label="Workload"
@@ -487,21 +359,13 @@ export function JobFilters({
             onChange={(v) => set("workload", v)}
           />
           )}
-          {has("experience_level") && (
-          <OptionSelect
-            label="Experience level"
-            value={value.experience_level}
-            options={catalogue?.experience_levels ?? []}
-            onChange={(v) => set("experience_level", v)}
-          />
-          )}
           {has("durations") && (
           <div className="space-y-1.5">
             <Label className={PANEL_LABEL}>Duration</Label>
-            <ul className="space-y-2">
+            <ul className="space-y-1.5">
               {(catalogue?.durations ?? []).map((o) => (
                 <li key={o.value}>
-                  <label className="flex items-center gap-2.5 text-sm font-medium">
+                  <label className="flex items-center gap-2 text-[13px]">
                     <Checkbox
                       checked={value.durations.includes(o.value)}
                       onCheckedChange={() => toggleIn("durations", o.value)}
@@ -546,7 +410,6 @@ export function JobFilters({
           {has("previous_clients_only") && (
           <TriSwitch
             label="Previous clients only"
-            hint="Clients you have worked with before."
             value={value.previous_clients_only}
             onChange={(v) => set("previous_clients_only", v)}
           />
@@ -597,7 +460,7 @@ export function JobFilters({
           />
           )}
           {has("client_min_hire_rate") && (
-          <PanelField label="Client hire rate at least (%)" hint="Share of their postings that ended in a hire.">
+          <PanelField label="Client hire rate at least (%)">
             {(control) => (
               <Input
                 {...control}
@@ -636,13 +499,12 @@ export function JobFilters({
           {has("client_locations") && (
           <PanelField
             label="Client location"
-            hint={source?.key === "apify" ? "Region, subregion or country, e.g. Europe, Northern America, Germany." : "Country or city."}
           >
             {(control) => <FilterTags {...control} value={value.client_locations} onChange={(v) => set("client_locations", v)} placeholder="Germany, New York" />}
           </PanelField>
           )}
           {has("exclude_client_locations") && (
-          <PanelField label="Not from these client locations" hint="Region, subregion or country.">
+          <PanelField label="Not from these client locations">
             {(control) => (
               <FilterTags
                 {...control}
@@ -717,7 +579,6 @@ export function JobFilters({
           {has("featured_only") && (
           <TriSwitch
             label="Featured postings only"
-            hint="Clients paid to promote them."
             value={value.featured_only}
             onChange={(v) => set("featured_only", v)}
           />
@@ -737,13 +598,12 @@ export function JobFilters({
           {has("user_location_match") && (
           <TriSwitch
             label="Match my location"
-            hint="Only postings open to freelancers where you are."
             value={value.user_location_match}
             onChange={(v) => set("user_location_match", v)}
           />
           )}
           {has("visitor_country") && (
-          <PanelField label="Visitor country" hint="Two-letter code.">
+          <PanelField label="Visitor country">
             {(control) => (
               <Input {...control} maxLength={2} value={value.visitor_country} onChange={(e) => set("visitor_country", e.target.value.toUpperCase())} placeholder="US" className="w-24 uppercase" />
             )}
@@ -804,7 +664,6 @@ export function JobFilters({
           />
           <PanelField
             label="Open to applicants from"
-            hint="Drops postings that only accept freelancers from other countries."
           >
             {(control) => (
               <Input
@@ -818,14 +677,6 @@ export function JobFilters({
         </Group>
       </div>
 
-      {source && (
-        <p className="text-subtle text-xs">
-          Source: <span className="text-muted-foreground font-medium">{source.label}</span>
-          {supported ? ` · ${supported.size} filters offered` : ""}
-        </p>
-      )}
     </form>
   );
 }
-
-export { EMPTY_SEARCH };

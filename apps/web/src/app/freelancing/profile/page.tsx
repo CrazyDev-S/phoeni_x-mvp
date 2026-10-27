@@ -32,10 +32,9 @@ export default function ProfilePage() {
         null);
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-3">
       <PageHero
         title="Profile"
-        description="What every proposal is written from. One profile per specialism, one marked as the default."
         stats={
           profiles.length > 0
             ? [
@@ -50,9 +49,9 @@ export default function ProfilePage() {
       {error && <ErrorAlert>{(error as Error).message}</ErrorAlert>}
 
       {isLoading ? (
-        <Skeleton className="h-96 w-full rounded-[2rem]" />
+        <Skeleton className="h-96 w-full" />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           {profiles.length > 0 && (
             <ChipRow>
               {profiles.map((p) => (
@@ -61,11 +60,7 @@ export default function ProfilePage() {
                   {p.is_default && <ChipCount>Default</ChipCount>}
                 </Chip>
               ))}
-              <Chip
-                active={selected === NEW}
-                className="bg-transparent shadow-[inset_0_0_0_1.5px_rgb(0_0_0/0.18)]"
-                onClick={() => setSelected(NEW)}
-              >
+              <Chip active={selected === NEW} className="border-dashed" onClick={() => setSelected(NEW)}>
                 <Plus />
                 New profile
               </Chip>

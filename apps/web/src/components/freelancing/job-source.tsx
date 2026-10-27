@@ -32,14 +32,12 @@ export function JobSourceBanner() {
   return (
     <div
       role="alert"
-      className="bg-card shadow-card flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[20px] px-4 py-2.5 text-sm"
+      className="bg-card flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-3 py-1.5 text-[13px]"
     >
-      <span className="bg-brand-soft text-brand-ink grid size-8 shrink-0 place-items-center rounded-full">
-        <Plug className="size-4" />
-      </span>
+      <Plug className="text-brand-ink size-4 shrink-0" />
       <p className="min-w-0 flex-1 basis-60">
         <span className="font-semibold">{data.label} is not set up.</span>{" "}
-        <span className="text-muted-foreground font-medium">
+        <span className="text-muted-foreground">
           {data.setup_hint ?? "Finish setting up the job source to search."}
         </span>
       </p>

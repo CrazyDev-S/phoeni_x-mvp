@@ -169,6 +169,65 @@ async def test_only_a_resume_upload_is_sent_the_resume(aran_markdown) -> None:
     assert nothing_linked.unanswered[0].reason.startswith("Link or tailor a resume")
 
 
+YES_NO = [{"label": "Yes"}, {"label": "No"}]
+
+# The Lever form from the bug report, with the user's stored answers spelled
+# as they typed them.
+LEVER_SENSITIVE = form(
+    {"type": "radio", "label": "Are you currently authorized to work in the US for any employer?",
+     "options": YES_NO},
+    {"type": "radio", "label": "Do you now or will you in the future require employer sponsorship?",
+     "options": YES_NO},
+    {"type": "radio", "label": "Does your work authorization now, or will it in the future, involve CPT or OPT?",
+     "options": YES_NO},
+    {"type": "select", "label": "Gender",
+     "options": [{"label": "Select ..."}, {"label": "Male"}, {"label": "Female"}]},
+    {"type": "select", "label": "Race",
+     "options": [{"label": "Select ..."}, {"label": "Asian (Not Hispanic or Latino)"},
+                 {"label": "White (Not Hispanic or Latino)"}]},
+    {"type": "select", "label": "Veteran status",
+     "options": [{"label": "I am a veteran"}, {"label": "I am not a veteran"}]},
+)
+
+
+async def test_sensitive_questions_take_only_the_users_stored_answers(aran_markdown) -> None:
+    profile = {"US authorization": "Yes", "Sponsership": "No", "Gender": "Male", "Race": "Asian"}
+    stub = StubProvider([json.dumps({
+        "f0_0": {"answer": "Yes", "stored_key": "us authorization"},
+        "f0_1": {"answer": "Yes", "stored_key": "Sponsership"},
+        "f0_2": {"answer": "No", "needs_user_input": True, "reason": "No stored answer on CPT or OPT"},
+        "f0_3": {"answer": "Female", "stored_key": "Gender"},
+        "f0_4": {"answer": "Asian (Not Hispanic or Latino)", "stored_key": "Race"},
+        "f0_5": {"answer": "I am not a veteran", "stored_key": "Veteran status"},
+    })])
+    result = await answer_form(model(stub), LEVER_SENSITIVE, context=context(aran_markdown, profile))
+
+    answers = {a.id: a for a in result.answers}
+    assert answers["f0:0"].answer == "Yes"
+    # The stored answer stands, whatever the model says.
+    assert answers["f0:1"].answer == "No"
+    assert answers["f0:3"].answer == "Male"
+    # Stored in the user's own words: the model's pick of option, flagged.
+    assert (answers["f0:4"].answer, answers["f0:4"].matched_fuzzily) == (
+        "Asian (Not Hispanic or Latino)", True,
+    )
+    assert not answers["f0:0"].matched_fuzzily
+    assert {a.source for a in answers.values()} == {"profile"}
+    # No stored answer on CPT or OPT, and none called "Veteran status".
+    assert {u.id for u in result.unanswered} == {"f0:2", "f0:5"}
+    (request,) = stub.requests
+    assert "sensitive" in request.messages[0]["content"]
+
+
+async def test_with_nothing_stored_a_sensitive_question_is_never_sent(aran_markdown) -> None:
+    stub = StubProvider([])
+    result = await answer_form(model(stub), LEVER_SENSITIVE, context=context(aran_markdown))
+
+    assert stub.requests == []
+    assert result.answers == []
+    assert all("autofill profile" in u.reason for u in result.unanswered)
+
+
 def test_sensitive_questions_are_matched_as_words() -> None:
     def asks(label: str) -> bool:
         return is_sensitive(FormFieldIn(id="x", label=label))

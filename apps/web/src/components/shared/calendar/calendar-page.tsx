@@ -6,7 +6,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { CalendarClock, CalendarPlus, Plus, SlidersHorizontal } from "lucide-react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -17,24 +17,24 @@ import {
 } from "@/components/remote/applications/shared";
 import { EventPopover } from "@/components/shared/calendar/event-popover";
 import { MeetingDialog, type MeetingDialogState } from "@/components/shared/calendar/meeting-dialog";
-import { MiniMonth } from "@/components/shared/calendar/mini-month";
 import { MonthGrid } from "@/components/shared/calendar/month-grid";
 import { TimeGrid } from "@/components/shared/calendar/time-grid";
 import { rangeTitle, Toolbar, type CalendarView } from "@/components/shared/calendar/toolbar";
-import { NextCallBanner } from "@/components/shared/next-call";
 import { PageHero } from "@/components/page-hero";
-import { Tile } from "@/components/tile";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
+import { Chip } from "@/components/ui/chip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { request } from "@/lib/api";
 import {
   addDays,
   addMonths,
   dayOf,
   durationMinutes,
-  eventColor,
   instantAt,
   minutesLabel,
   monthGrid,
@@ -43,10 +43,8 @@ import {
   type DayKey,
   type Meeting,
 } from "@/lib/calendar";
-import { formatDateTime, relative } from "@/lib/format";
 import type { PortalId } from "@/lib/portals";
 import { invalidateSchedule } from "@/lib/schedule";
-import { cn } from "@/lib/utils";
 
 interface Selection {
   meeting: Meeting;
@@ -58,14 +56,6 @@ interface PatchVariables {
   body: Record<string, unknown>;
   /** Applied to the cache up front, so a dragged meeting lands where it was dropped. */
   optimistic?: Pick<Meeting, "starts_at" | "ends_at">;
-}
-
-interface UpcomingItem {
-  meeting: Meeting;
-  company_name: string | null;
-  role_title: string | null;
-  stage_name: string | null;
-  starts_in_minutes: number;
 }
 
 type Filter = "interviews" | "bids" | "jobs" | "cancelled";
@@ -91,7 +81,6 @@ export function CalendarPage({ portal }: { portal: PortalId }) {
   const queryClient = useQueryClient();
   const [view, setView] = useState<CalendarView>("week");
   const [anchor, setAnchor] = useState<DayKey>(() => todayKey());
-  const [miniMonth, setMiniMonth] = useState<DayKey>(anchor);
   const [selected, setSelected] = useState<Selection | null>(null);
   const [dialog, setDialog] = useState<MeetingDialogState>(null);
   const [show, setShow] = useState<Record<Filter, boolean>>({
@@ -136,13 +125,6 @@ export function CalendarPage({ portal }: { portal: PortalId }) {
       request<Meeting[]>(
         `/api/v1/shared/meetings?from=${thisWeek[0]}&to=${thisWeek[6]}&category=${portal}`,
       ),
-  });
-
-  const upcoming = useQuery({
-    queryKey: ["upcoming", "calendar", portal],
-    queryFn: () =>
-      request<UpcomingItem[]>(`/api/v1/shared/meetings/upcoming?limit=5&category=${portal}`),
-    refetchInterval: 60_000,
   });
 
   const applications = useQuery({
@@ -285,9 +267,6 @@ export function CalendarPage({ portal }: { portal: PortalId }) {
     [create, days, anchor],
   );
 
-  // The mini calendar follows whatever the main grid is showing.
-  useEffect(() => setMiniMonth(anchor), [anchor]);
-
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (dialog || event.metaKey || event.ctrlKey || event.altKey) return;
@@ -332,36 +311,18 @@ export function CalendarPage({ portal }: { portal: PortalId }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [step, dialog, createHere]);
 
-  const highlighted = useMemo(
-    () => new Set<DayKey>(view === "month" ? [] : days),
-    [view, days],
-  );
-  const busyDays = useMemo(() => new Set(meetings.map(dayOf)), [meetings]);
-
-  const showUpNext = (index: number, item: UpcomingItem) =>
-    selected?.meeting.id === item.meeting.id || (index === 0 && !selected && item.starts_in_minutes <= 60);
-
   return (
-    <div className="space-y-7">
+    <div className="space-y-3">
       <PageHero
         title="Calendar"
         stats={stats}
         actions={
-          <Button
-            variant="brand"
-            onClick={createHere}
-            title="New meeting (N)"
-            className="h-[52px] gap-2.5 pr-6 pl-2 text-[0.9375rem]"
-          >
-            <span className="grid size-[38px] place-items-center rounded-full bg-black/12">
-              <Plus className="size-[18px]" />
-            </span>
+          <Button variant="brand" onClick={createHere} title="New meeting (N)">
+            <Plus />
             New meeting
           </Button>
         }
       />
-
-      <NextCallBanner />
 
       <Toolbar
         view={view}
@@ -370,187 +331,72 @@ export function CalendarPage({ portal }: { portal: PortalId }) {
         onView={setView}
         onToday={() => setAnchor(todayKey())}
         onStep={step}
-      />
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_19.25rem] lg:items-start">
-        <div className="min-w-0 space-y-5">
-          {view === "month" ? (
-            <MonthGrid
-              anchor={anchor}
-              days={days}
-              meetings={meetings}
-              selectedId={selected?.meeting.id ?? null}
-              onSelect={(meeting, rect) => setSelected({ meeting, anchor: rect })}
-              onEdit={edit}
-              onCreate={(day) => create(day)}
-              onPickDay={openDay}
-            />
-          ) : (
-            <TimeGrid
-              days={days}
-              meetings={meetings}
-              selectedId={selected?.meeting.id ?? null}
-              onSelect={(meeting, rect) => setSelected({ meeting, anchor: rect })}
-              onMove={move}
-              onResize={resize}
-              onCreate={create}
-              onEdit={edit}
-              onPickDay={openDay}
-            />
-          )}
-
-          <ShortcutBar />
-        </div>
-
-        <aside className="space-y-5 lg:sticky lg:top-24">
-          <MiniMonth
-            month={miniMonth}
-            selected={anchor}
-            highlighted={highlighted}
-            busyDays={busyDays}
-            onMonth={setMiniMonth}
-            onPick={(day) => setAnchor(day)}
+      >
+        {FILTERS[portal].map(([key, label]) => (
+          <Chip
+            key={key}
+            size="sm"
+            active={show[key]}
+            onClick={() => setShow((current) => ({ ...current, [key]: !current[key] }))}
           >
-            <div className="mb-3 flex items-center gap-2">
-              <SlidersHorizontal className="text-muted-foreground size-[15px]" />
-              <span className="text-sm font-bold">Show</span>
-            </div>
-            <div className="space-y-3">
-              {FILTERS[portal].map(([key, label]) => (
-                <div key={key} className="flex items-center gap-2.5">
-                  <Checkbox
-                    id={`show-${key}`}
-                    checked={show[key]}
-                    onCheckedChange={(checked) =>
-                      setShow((current) => ({ ...current, [key]: checked === true }))
-                    }
-                  />
-                  <Label htmlFor={`show-${key}`} className="text-sm font-semibold">
-                    {label}
-                  </Label>
-                  <FilterKey filter={key} />
-                </div>
+            <FilterKey filter={key} />
+            {label}
+          </Chip>
+        ))}
+        {portal === "remote" && toBook.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                To book
+                <span className="text-muted-foreground tabular-nums">{toBook.length}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              {toBook.slice(0, TO_BOOK_LIMIT).map(({ row, stage }) => (
+                <DropdownMenuItem
+                  key={row.id}
+                  onSelect={() => setDialog({ mode: "create", draft: { stageId: stage.id } })}
+                >
+                  <span className="min-w-0 flex-1 truncate font-medium">{row.company_name}</span>
+                  <span className="text-muted-foreground truncate text-xs">{stage.name}</span>
+                </DropdownMenuItem>
               ))}
-            </div>
-          </MiniMonth>
-
-          <Card tone="dark" className="gap-0 px-3.5 pt-[22px] pb-3.5">
-            <div className="mb-3.5 flex items-center gap-2.5 px-2.5">
-              <Tile icon={CalendarClock} tone="neutral" className="bg-panel-raised text-panel-foreground size-9 rounded-full" />
-              <h3 className="text-[1.1875rem] font-medium">Up next</h3>
-            </div>
-            {!upcoming.data?.length ? (
-              <p className="text-panel-muted px-2.5 pb-2 text-sm leading-relaxed">
-                Nothing booked ahead.
-              </p>
-            ) : (
-              <ul>
-                {upcoming.data.map((item, index) => (
-                  <li key={item.meeting.id} className={cn(index > 0 && "mt-0.5")}>
-                    <button
-                      type="button"
-                      className={cn(
-                        "hover:bg-panel-raised/60 flex w-full items-center gap-2.5 rounded-2xl px-3 py-[9px] text-left transition-colors",
-                        showUpNext(index, item) && "bg-panel-raised hover:bg-panel-raised",
-                      )}
-                      onClick={(event) => {
-                        setAnchor(dayOf(item.meeting));
-                        setSelected({
-                          meeting: {
-                            ...item.meeting,
-                            company_name: item.company_name,
-                            role_title: item.role_title,
-                            stage_name: item.stage_name,
-                          },
-                          anchor: event.currentTarget.getBoundingClientRect(),
-                        });
-                      }}
-                    >
-                      <span
-                        aria-hidden
-                        className="size-2.5 shrink-0 rounded-[4px]"
-                        style={{ backgroundColor: eventColor(item.meeting.meeting_type).fill }}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[0.90rem] font-semibold">
-                          {item.meeting.title}
-                        </span>
-                        <span className="text-panel-muted mt-px block text-[0.78rem] tabular-nums">
-                          {formatDateTime(item.meeting.starts_at, "EEE d MMM, h:mm aaa")}
-                        </span>
-                      </span>
-                      <span
-                        className={cn(
-                          "shrink-0 text-[0.78rem] font-bold whitespace-nowrap",
-                          showUpNext(index, item) ? "text-brand" : "text-panel-foreground/80",
-                        )}
-                      >
-                        {relative(item.starts_in_minutes)}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          {portal === "remote" && (
-            <Card className="gap-0 px-[22px] pt-[22px] pb-5">
-              <div className="mb-3.5 flex items-center gap-2.5">
-                <Tile icon={CalendarPlus} size="sm" />
-                <h3 className="text-[1.1875rem] font-medium">Still to book</h3>
-                {toBook.length > 0 && (
-                  <span className="text-muted-foreground border-foreground ml-auto border-b-[1.5px] pb-px text-[13px] font-semibold">
-                    {toBook.length}
-                  </span>
-                )}
-              </div>
-              {!toBook.length ? (
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  {applications.isLoading
-                    ? "Checking your applications…"
-                    : "Every active application has its next step booked."}
-                </p>
-              ) : (
-                <ul className="divide-border divide-y">
-                  {toBook.slice(0, TO_BOOK_LIMIT).map(({ row, stage }) => (
-                    <li key={row.id} className="flex items-center gap-3 py-[11px] last:pb-0">
-                      <Tile tone="ink" className="size-9 rounded-xl text-[0.9375rem]">
-                        {row.company_name.charAt(0).toUpperCase()}
-                      </Tile>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">{row.company_name}</p>
-                        <p className="text-muted-foreground truncate text-[0.8rem]">
-                          {stage.name}
-                        </p>
-                      </div>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        onClick={() =>
-                          setDialog({ mode: "create", draft: { stageId: stage.id } })
-                        }
-                      >
-                        Book
-                      </Button>
-                    </li>
-                  ))}
-                  {toBook.length > TO_BOOK_LIMIT && (
-                    <li className="pt-3">
-                      <Link
-                        href="/remote/applications"
-                        className="text-muted-foreground text-xs font-semibold hover:underline"
-                      >
-                        {toBook.length - TO_BOOK_LIMIT} more in Applications
-                      </Link>
-                    </li>
-                  )}
-                </ul>
+              {toBook.length > TO_BOOK_LIMIT && (
+                <DropdownMenuItem asChild>
+                  <Link href="/remote/applications" className="text-muted-foreground text-xs">
+                    {toBook.length - TO_BOOK_LIMIT} more in Applications
+                  </Link>
+                </DropdownMenuItem>
               )}
-            </Card>
-          )}
-        </aside>
-      </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </Toolbar>
+
+      {view === "month" ? (
+        <MonthGrid
+          anchor={anchor}
+          days={days}
+          meetings={meetings}
+          selectedId={selected?.meeting.id ?? null}
+          onSelect={(meeting, rect) => setSelected({ meeting, anchor: rect })}
+          onEdit={edit}
+          onCreate={(day) => create(day)}
+          onPickDay={openDay}
+        />
+      ) : (
+        <TimeGrid
+          days={days}
+          meetings={meetings}
+          selectedId={selected?.meeting.id ?? null}
+          onSelect={(meeting, rect) => setSelected({ meeting, anchor: rect })}
+          onMove={move}
+          onResize={resize}
+          onCreate={create}
+          onEdit={edit}
+          onPickDay={openDay}
+        />
+      )}
 
       {selected && (
         <EventPopover
@@ -572,51 +418,16 @@ export function CalendarPage({ portal }: { portal: PortalId }) {
 /** The colour (or outline) a filter's meetings are drawn in, at the end of its row. */
 function FilterKey({ filter }: { filter: Filter }) {
   return filter === "cancelled" ? (
-    <span aria-hidden className="ml-auto size-2.5 rounded-full shadow-[inset_0_0_0_1.5px_var(--subtle)]" />
+    <span aria-hidden className="size-2 rounded-full shadow-[inset_0_0_0_1.5px_var(--subtle)]" />
   ) : (
     <span
       aria-hidden
-      className="ml-auto size-2.5 rounded-full"
+      className="size-2 rounded-full"
       style={{
         backgroundColor:
           filter === "jobs" ? "var(--event-4)" : "var(--event-1)",
         boxShadow: filter === "jobs" ? "inset 0 0 0 1px rgb(0 0 0 / 0.08)" : undefined,
       }}
     />
-  );
-}
-
-const SHORTCUTS: [string[], string][] = [
-  [["N"], "New meeting"],
-  [["T"], "Jump to today"],
-  [["D", "W", "M"], "Day, week or month"],
-  [["←", "→"], "Page back and forward"],
-];
-
-/** The keyboard legend under the grid: a slim translucent pill. */
-function ShortcutBar() {
-  return (
-    <div className="bg-card/55 text-muted-foreground hidden flex-wrap items-center gap-x-3 gap-y-2 rounded-[2rem] px-5 py-4 text-[0.78rem] font-medium lg:flex">
-      {SHORTCUTS.map(([keys, label]) => (
-        <span key={label} className="flex items-center gap-2">
-          <span className="flex gap-1">
-            {keys.map((key) => (
-              <Kbd key={key}>{key}</Kbd>
-            ))}
-          </span>
-          {label}
-        </span>
-      ))}
-      <span className="text-subtle ml-auto">Double-click to edit · US Eastern</span>
-    </div>
-  );
-}
-
-/** A key cap. */
-function Kbd({ children }: { children: React.ReactNode }) {
-  return (
-    <kbd className="bg-card text-foreground/70 inline-flex min-w-6 items-center justify-center rounded-lg px-[7px] py-0.5 text-xs font-bold shadow-[inset_0_0_0_1px_var(--border)]">
-      {children}
-    </kbd>
   );
 }

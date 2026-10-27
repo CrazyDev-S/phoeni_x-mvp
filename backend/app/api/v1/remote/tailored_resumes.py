@@ -16,11 +16,13 @@ from app.core.deps import CurrentUser, Session
 from app.models.application import JobApplication
 from app.models.resume import TailoredResume
 from app.remote.resume.renderer import render_plain_text
+from app.remote.services.links import linked_jobs
 from app.remote.services.resumes import parse_or_422, rescore_tailored
 from app.schemas.common import Page
 from app.schemas.resume import (
     TailoredResumeOut,
     TailoredResumePatch,
+    TailoredResumeRow,
     TailoredResumeSummary,
 )
 
@@ -42,7 +44,7 @@ async def _owned(
     return row
 
 
-@router.get("", response_model=Page[TailoredResumeSummary])
+@router.get("", response_model=Page[TailoredResumeRow])
 async def list_tailored_resumes(
     user: CurrentUser,
     session: Session,
@@ -50,7 +52,7 @@ async def list_tailored_resumes(
     q: str | None = Query(default=None, description="full-text search"),
     limit: int = Query(default=50, le=200),
     offset: int = 0,
-) -> Page[TailoredResumeSummary]:
+) -> Page[TailoredResumeRow]:
     stmt = select(TailoredResume).where(
         TailoredResume.user_id == user.id,
         # Tailoring from the side panel is not saving it: that resume is listed
@@ -69,11 +71,20 @@ async def list_tailored_resumes(
         )
 
     total = await session.scalar(select(func.count()).select_from(stmt.subquery()))
-    rows = await session.scalars(
-        stmt.order_by(TailoredResume.created_at.desc()).limit(limit).offset(offset)
+    rows = list(
+        await session.scalars(
+            stmt.order_by(TailoredResume.created_at.desc()).limit(limit).offset(offset)
+        )
     )
+    linked = await linked_jobs(session, user.id, "tailored", [r.id for r in rows])
     return Page(
-        items=[TailoredResumeSummary.model_validate(r) for r in rows],
+        items=[
+            TailoredResumeRow(
+                **TailoredResumeSummary.model_validate(r).model_dump(),
+                linked_jobs=linked.get(r.id, []),  # type: ignore[arg-type]
+            )
+            for r in rows
+        ],
         total=total or 0,
         limit=limit,
         offset=offset,

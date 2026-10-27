@@ -46,10 +46,14 @@ DOCX_ACCEPTS = {
     "*",
 }
 UNREADABLE_REPLY = "The answer came back unreadable - press Re-scan to try again"
+NO_STORED_ANSWER = (
+    "Sensitive question - store your answer in your autofill profile, or answer it yourself"
+)
 
-# Questions we never answer automatically. Getting one of these wrong on a real
-# application is not a UX bug - it is a compliance and honesty problem, and the
-# user is the only one who can answer them.
+# Questions only the user can answer. Getting one of these wrong on a real
+# application is not a UX bug - it is a compliance and honesty problem. So they
+# are answered from the user's own stored answers or not at all: the model may
+# say which stored answer a question asks for, never what the answer is.
 #
 # The word boundaries are load-bearing: without them "corporate" and "accurate"
 # read as a pay rate, "advisable" as a visa and "Essex" as a question about sex,
@@ -163,6 +167,12 @@ Rules:
   A blank you flag is far better than a confident wrong answer on a real
   application.
 - Never guess a name, an email, a phone number, or a URL that is not supplied.
+- A field marked sensitive (work authorization, sponsorship, demographics, pay
+  and the like) is answered ONLY from a stored answer to that same question.
+  Put that stored answer's key in "stored_key", exactly as written. A stored
+  answer on a related topic does not count: one about work authorization does
+  not answer a question about CPT or OPT. Never infer a sensitive answer from
+  the resume or the job. If no stored answer fits, set needs_user_input to true.
 """
 
 
@@ -347,7 +357,11 @@ async def answer_form(
             upload = upload_answer(f, context)
             (unanswered if upload.needs_user_input else answers).append(upload)
         elif is_sensitive(f):
-            unanswered.append(_needs(f, "Sensitive question - answer this one yourself"))
+            # Only a stored answer can answer it; with none, the model is not asked.
+            if context.autofill_fields:
+                for_model.append(f)
+            else:
+                unanswered.append(_needs(f, NO_STORED_ANSWER))
         elif (direct := fact_answer(f, context)) is not None:
             answers.append(direct)
         else:
@@ -411,6 +425,11 @@ async def _ask_model(
         value = entry.get("answer", "")
         reason = str(entry.get("reason", ""))
 
+        if is_sensitive(f):
+            stored = _stored_answer(f, entry, context)
+            (unanswered if stored.needs_user_input else answers).append(stored)
+            continue
+
         if f.type == "checkbox":
             if entry.get("needs_user_input") or value in ("", None):
                 unanswered.append(_needs(f, reason or "Not present in your profile"))
@@ -444,6 +463,44 @@ async def _ask_model(
             )
         )
     return True
+
+
+def _stored_answer(f: FormFieldIn, entry: dict, context: FormContext) -> AutofillAnswer:
+    """A sensitive field, answered with the stored answer the model named.
+
+    The value is the user's own: a stored "No" is never turned into "Yes".
+    Only a stored answer in the user's own words ("US citizen" for a Yes/No
+    question) takes the model's pick of option, and is flagged as matched
+    loosely.
+    """
+    key = _stored_key(entry.get("stored_key"), context.autofill_fields)
+    if key is None or entry.get("needs_user_input") or f.type == "checkbox":
+        return _needs(f, NO_STORED_ANSWER)
+    value = str(context.autofill_fields[key]).strip()
+    loose = False
+    if f.type in CHOICE_TYPES and f.options and not f.options_unknown:
+        labels = [o.label for o in f.options]
+        matched, loose = snap(value, labels)
+        if matched is None:
+            matched, _ = snap(str(entry.get("answer") or ""), labels)
+            loose = True
+        if matched is None:
+            return _needs(f, f'Your stored answer "{key}" matches none of the options', value)
+        value = matched
+    elif f.max_length and len(value) > f.max_length:
+        return _needs(f, f'Your stored answer "{key}" is longer than this field allows', value)
+    return AutofillAnswer(
+        id=f.id, type=f.type, label=f.label, answer=value,
+        matched_fuzzily=loose, reason=f'From your stored answer "{key}"', source="profile",
+    )
+
+
+def _stored_key(named: object, stored: dict) -> str | None:
+    """The stored answer's key as the profile spells it, or None."""
+    if not isinstance(named, str) or not named.strip():
+        return None
+    wanted = _normalise(named)
+    return next((key for key in stored if _normalise(key) == wanted), None)
 
 
 def _json_object(text: str) -> dict | None:
@@ -488,6 +545,8 @@ def _user_message(req: AutofillRequest, fields: list[FormFieldIn], context: Form
         parts = [f'{_key(f.id)}: "{f.label or f.name}"', f"type={f.type}"]
         if f.required:
             parts.append("required")
+        if is_sensitive(f):
+            parts.append("sensitive")
         if f.help:
             parts.append(f"help={f.help!r}")
         if f.max_length:
@@ -500,6 +559,7 @@ def _user_message(req: AutofillRequest, fields: list[FormFieldIn], context: Form
     lines.append("")
     lines.append(
         "Reply with a JSON object keyed by the field key shown above. Each value is "
-        '{"answer": ..., "needs_user_input": bool, "reason": string}.'
+        '{"answer": ..., "needs_user_input": bool, "reason": string}, plus '
+        '"stored_key": string for a sensitive field.'
     )
     return "\n".join(lines)

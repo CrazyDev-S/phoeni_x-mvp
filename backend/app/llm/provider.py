@@ -10,8 +10,6 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
-from pydantic import BaseModel
-
 Effort = Literal["low", "medium", "high", "xhigh", "max"]
 CacheTTL = Literal["5m", "1h"]
 
@@ -62,7 +60,9 @@ class LLMRequest:
     messages: list[dict[str, Any]]
     max_output_tokens: int = 16_000
     effort: Effort = "high"
-    output_schema: type[BaseModel] | None = None
+    # A JSON Schema from app.llm.schemas, sent to the provider as written. Its
+    # name, where a provider asks for one, is the purpose.
+    output_schema: dict[str, Any] | None = None
     tools: list[dict[str, Any]] = field(default_factory=list)
     tool_choice: dict[str, Any] | None = None
     thinking: bool = True
@@ -93,7 +93,7 @@ class Usage:
 @dataclass
 class LLMResponse:
     text: str
-    parsed: BaseModel | dict | None = None
+    parsed: dict | None = None
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     raw_content: list[Any] = field(default_factory=list)
     stop_reason: str | None = None

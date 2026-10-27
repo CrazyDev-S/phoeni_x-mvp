@@ -14,6 +14,7 @@ from app.models.enums import (
     WorkMode,
 )
 from app.schemas.common import ORMModel
+from app.schemas.extension import ResumeKind, ResumeRef
 
 # The two portals. Shared tools (calendar, maintenance) are scoped to one of them.
 Category = Literal["remote", "freelancing"]
@@ -85,44 +86,59 @@ class ApplicationOut(ORMModel):
     next_action_at: datetime | None
     notes_markdown: str | None
     tailored_resume_id: uuid.UUID | None
+    base_resume_id: uuid.UUID | None = None
     created_at: datetime
 
 
-class TailoredResumeBrief(BaseModel):
-    """The resume an application was sent with, and how well it covered the posting."""
+class ResumeBrief(BaseModel):
+    """The resume an application was sent with, and how well it covered the posting.
 
+    Tailored for it, or a base resume used as it is. A base resume's figures
+    are only filled in once it has been tailored to this job's description.
+    """
+
+    kind: ResumeKind
     id: uuid.UUID
     display_name: str
+    # The base resume behind it: the one it was tailored from, or itself.
     base_resume_id: uuid.UUID
     base_resume_name: str | None = None
     status: str
-    job_url: str | None
-    job_source: str
-    must_have_covered: int | None
-    must_have_total: int | None
-    must_have_coverage_percent: float | None
-    nice_to_have_coverage_percent: float | None
-    years_required: int | None
-    years_shown: float | None
+    job_url: str | None = None
+    job_source: str | None = None
+    must_have_covered: int | None = None
+    must_have_total: int | None = None
+    must_have_coverage_percent: float | None = None
+    nice_to_have_coverage_percent: float | None = None
+    years_required: int | None = None
+    years_shown: float | None = None
     content_markdown: str
     flags: dict | None = None
+    # Other applications sent with the same base resume: tailoring it in place
+    # rewrites it for them too.
+    shared_with: int = 0
     created_at: datetime
+    updated_at: datetime
 
 
-class TailoredResumeOption(BaseModel):
+class ResumeOption(BaseModel):
+    kind: ResumeKind
     id: uuid.UUID
     display_name: str
+    # The base resume behind it: the one it was tailored from, or itself.
     base_resume_id: uuid.UUID
     must_have_coverage_percent: float | None = None
+    # "panel": chosen for this posting in the side panel. "tailored": tailored for it.
+    reason: Literal["panel", "tailored"]
     created_at: datetime
 
 
 class ApplicationDetail(ApplicationOut):
     job_description_text: str | None
     stages: list[StageOut] = Field(default_factory=list)
-    tailored_resume: TailoredResumeBrief | None = None
-    # When nothing is linked: the tailored resume written for this posting.
-    suggested_tailored_resume: TailoredResumeOption | None = None
+    resume: ResumeBrief | None = None
+    # When nothing is linked: the resume meant for this posting.
+    suggested_resume: ResumeOption | None = None
 
 
 class ApplicationRow(ApplicationOut):
@@ -146,6 +162,8 @@ class ApplicationCreate(BaseModel):
     salary_min: int | None = None
     salary_max: int | None = None
     salary_currency: str | None = Field(default=None, max_length=3)
+    # Either kind. ``tailored_resume_id`` is the older spelling of a tailored one.
+    resume: ResumeRef | None = None
     tailored_resume_id: uuid.UUID | None = None
     status: ApplicationStatus = ApplicationStatus.APPLIED
     origin: str = "web"
@@ -168,7 +186,9 @@ class ApplicationPatch(BaseModel):
     notes_markdown: str | None = None
     next_action_at: datetime | None = None
     applied_at: datetime | None = None
-    # Null unlinks; the resume itself is never touched.
+    # Either kind; null unlinks, and the resume itself is never touched.
+    # ``tailored_resume_id`` is the older spelling of a tailored one.
+    resume: ResumeRef | None = None
     tailored_resume_id: uuid.UUID | None = None
 
 

@@ -1,33 +1,22 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  ArrowRight,
-  ArrowUpRight,
-  BadgeCheck,
-  ExternalLink,
-  EyeOff,
-  FileSignature,
-  KanbanSquare,
-  Paperclip,
-  RefreshCw,
-} from "lucide-react";
+import { BadgeCheck, ExternalLink, EyeOff, FileSignature, KanbanSquare, Paperclip, RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useState, type ComponentType, type ReactNode } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useState, type ReactNode } from "react";
 
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
-import { FocusButton, JobMetaChips } from "@/components/freelancing/job-card";
+import { FocusButton, JobMetaChips } from "@/components/freelancing/job-list";
 import { useJobSource } from "@/components/freelancing/job-source";
 import { NewProposalDialog } from "@/components/freelancing/new-proposal-dialog";
-import { SectionHead } from "@/components/section-head";
+import { PageHero } from "@/components/page-hero";
+import { Panel, PanelHead } from "@/components/panel";
 import { StatusBadge } from "@/components/status-badge";
-import { Tile } from "@/components/tile";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { request } from "@/lib/api";
@@ -51,14 +40,9 @@ function money(value: number | null | undefined): string {
   return value == null ? "—" : `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
-/** "$60–$90/hr" -> the number big and the unit small; anything else stays whole. */
-function splitUnit(text: string, unit: RegExp): { value: string; unit?: string } {
-  const match = text.match(unit);
-  return match ? { value: match[1].trim().replace(/\s+to\s+/, "–"), unit: match[2].trim() } : { value: text };
-}
-
 export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [drafting, setDrafting] = useState(false);
   const key = ["freelancing", "job", id];
@@ -91,8 +75,8 @@ export default function JobDetailPage() {
   if (isLoading || !data) {
     if (error) return <ErrorAlert>{(error as Error).message}</ErrorAlert>;
     return (
-      <div className="space-y-6" aria-busy>
-        <Skeleton className="h-10 w-2/3" />
+      <div className="space-y-3" aria-busy>
+        <Skeleton className="h-8 w-2/3" />
         <Skeleton className="h-72 w-full" />
       </div>
     );
@@ -101,95 +85,75 @@ export default function JobDetailPage() {
   const client = data.client;
   const activity = data.activity ?? {};
 
-  const budget = splitUnit(formatBudget(data), /^(.*?)(\/hr| fixed)$/);
-  const headline: { value: string; unit?: string; label: string }[] = [
-    { ...budget, label: data.job_type === "fixed" ? "Fixed price" : "Hourly budget" },
-    ...(data.duration_label ? [{ ...splitUnit(data.duration_label, /^(.*?)\s+(months?|weeks?)$/i), label: "Duration" }] : []),
-    ...(data.workload ? [{ ...splitUnit(data.workload, /^(.*?)\s*(hrs\/week|hours\/week)$/i), label: "Workload" }] : []),
-    ...(data.connects_required != null
-      ? [{ value: String(data.connects_required), unit: "connects", label: "To apply" }]
-      : []),
-  ];
+  // The terms of the posting, as one line under the title.
+  const terms = [
+    formatBudget(data),
+    data.duration_label,
+    data.workload,
+    data.connects_required != null ? `${data.connects_required} connects` : null,
+  ].filter(Boolean) as string[];
 
   return (
-    <div className="space-y-7">
-      <header className="flex flex-wrap items-start gap-x-5 gap-y-4">
-        <Link
-          href="/freelancing/jobs"
-          aria-label="Back to jobs"
-          className="bg-card shadow-card focus-visible:ring-ring/40 mt-1 grid size-14 shrink-0 place-items-center rounded-full outline-none focus-visible:ring-3"
-        >
-          <ArrowLeft className="size-5" />
-        </Link>
-        <div className="min-w-0 flex-1 basis-80">
-          {data.track_stage && (
-            <StatusBadge tone={STAGE_TONE[data.track_stage]} className="mb-3">
-              <KanbanSquare />
-              {STAGE_LABEL[data.track_stage]}
-            </StatusBadge>
-          )}
-          <h1 className="max-w-[660px] text-3xl leading-[1.12] font-medium tracking-tight text-balance sm:text-4xl">
-            {data.title}
-          </h1>
-          <p className="text-muted-foreground mt-2.5 text-[13.5px] font-medium">
-            Posted {timeAgo(data.published_at)}
-            {data.renewed_at ? ` · renewed ${timeAgo(data.renewed_at)}` : ""}
-            {data.category ? ` · ${data.subcategory ?? data.category}` : ""}
-            {data.detail_fetched_at ? ` · details from ${formatDateTime(data.detail_fetched_at, "d MMM, HH:mm")}` : ""}
-            {data.status === "CLOSED" ? " · closed on Upwork" : ""}
-          </p>
-        </div>
-        <div className="mt-1 flex flex-wrap items-center gap-3">
-          <FocusButton
-            job={data}
-            variant="pill"
-            onChange={(next) =>
-              queryClient.setQueryData(key, (current: JobDetail | undefined) => current && { ...current, ...next })
-            }
-          />
-          {data.url && (
-            <Button asChild size="lg" variant="secondary">
-              <a href={data.url} target="_blank" rel="noreferrer">
-                <ExternalLink />
-                Upwork
-              </a>
-            </Button>
-          )}
-          <Button variant="brand" size="lg" className="pl-2.5" onClick={() => setDrafting(true)}>
-            <span className="grid size-8 place-items-center rounded-full bg-black/12">
+    <div className="space-y-3">
+      <PageHero
+        back="/freelancing/jobs"
+        title={<span className="whitespace-normal">{data.title}</span>}
+        badge={
+          data.track_stage && (
+            <Link href={`/freelancing/tracking?job=${data.id}`} title="Open the track">
+              <StatusBadge tone={STAGE_TONE[data.track_stage]}>
+                <KanbanSquare />
+                {STAGE_LABEL[data.track_stage]}
+              </StatusBadge>
+            </Link>
+          )
+        }
+        actions={
+          <>
+            <FocusButton
+              job={data}
+              variant="pill"
+              onChange={(next) =>
+                queryClient.setQueryData(key, (current: JobDetail | undefined) => current && { ...current, ...next })
+              }
+            />
+            {data.url && (
+              <Button asChild variant="outline">
+                <a href={data.url} target="_blank" rel="noreferrer">
+                  <ExternalLink />
+                  Upwork
+                </a>
+              </Button>
+            )}
+            <Button variant="brand" onClick={() => setDrafting(true)}>
               <FileSignature />
-            </span>
-            Draft a proposal
-          </Button>
-        </div>
-      </header>
+              Draft a proposal
+            </Button>
+          </>
+        }
+      />
+      <p className="text-muted-foreground -mt-1 flex flex-wrap items-center gap-x-2 text-xs">
+        {terms.map((term, index) => (
+          <span key={term} className={cn(index === 0 && "text-foreground text-[13px] font-semibold")}>
+            {index > 0 && <span className="mr-2">·</span>}
+            {term}
+          </span>
+        ))}
+        <span>
+          · posted {timeAgo(data.published_at)}
+          {data.renewed_at ? ` · renewed ${timeAgo(data.renewed_at)}` : ""}
+          {data.category ? ` · ${data.subcategory ?? data.category}` : ""}
+          {data.detail_fetched_at ? ` · details from ${formatDateTime(data.detail_fetched_at, "d MMM, HH:mm")}` : ""}
+          {data.status === "CLOSED" ? " · closed on Upwork" : ""}
+        </span>
+      </p>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_26.5rem] lg:items-start">
-        <div className="min-w-0 space-y-6">
-          <Card className="gap-0 px-6 py-7 sm:px-8">
-            <dl className="flex flex-wrap gap-x-8 gap-y-5 lg:grid lg:auto-cols-[minmax(max-content,1fr)] lg:grid-flow-col lg:gap-0">
-              {headline.map(({ value, unit, label }) => (
-                <div key={label} className="lg:border-l lg:px-6 lg:first:border-l-0 lg:first:pl-0">
-                  <dd
-                    className={cn(
-                      "order-first font-medium tracking-tight whitespace-nowrap tabular-nums",
-                      value.length > 11 ? "text-2xl leading-[1.3]" : "text-[2.375rem] leading-none",
-                    )}
-                  >
-                    {value}
-                    {unit && <small className="text-muted-foreground ml-1 text-[17px] font-medium tracking-normal">{unit}</small>}
-                  </dd>
-                  <dt className="text-muted-foreground mt-2 text-[13px] font-semibold">{label}</dt>
-                </div>
-              ))}
-            </dl>
-            <div className="border-border my-6 border-t" />
-
-            <div className="flex flex-wrap items-center gap-2">
-              <JobMetaChips job={data} detail />
-            </div>
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <div className="min-w-0 space-y-3">
+          <Panel className="space-y-3 p-4">
+            <JobMetaChips job={data} />
             {data.preferred_freelancer_location.length > 0 && (
-              <p className="text-muted-foreground mt-3.5 text-[13.5px]">
+              <p className="text-muted-foreground text-xs">
                 Preferred freelancer location: {data.preferred_freelancer_location.join(", ")}
               </p>
             )}
@@ -197,27 +161,25 @@ export default function JobDetailPage() {
             <Description text={data.description} />
 
             {data.skills.length > 0 && (
-              <ul className="mt-6 flex flex-wrap gap-[7px]">
+              <ul className="flex flex-wrap gap-1.5">
                 {data.skills.map((skill) => (
                   <li key={skill}>
-                    <Badge variant="outline" className="h-[30px] px-3.5 text-[13px] font-semibold">
-                      {skill}
-                    </Badge>
+                    <Badge variant="outline">{skill}</Badge>
                   </li>
                 ))}
               </ul>
             )}
             {data.attachments.length > 0 && (
-              <ul className="mt-5 flex flex-wrap gap-2.5">
+              <ul className="flex flex-wrap gap-1.5">
                 {data.attachments.map((a, index) => {
                   const name = a.fileName ?? "Attachment";
                   const inner = (
                     <>
-                      <Tile icon={Paperclip} size="sm" className="size-8 rounded-full [&_svg]:size-[15px]" />
+                      <Paperclip className="size-3.5" />
                       {name}
                     </>
                   );
-                  const pill = "bg-soft inline-flex h-[46px] items-center gap-2.5 rounded-full pr-[18px] pl-2 text-sm font-semibold";
+                  const pill = "bg-muted inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium";
                   return (
                     <li key={a.id ?? index}>
                       {a.link ? (
@@ -232,153 +194,139 @@ export default function JobDetailPage() {
                 })}
               </ul>
             )}
-          </Card>
+          </Panel>
 
           {data.screening_questions.length > 0 && (
-            <Card className="gap-0 px-6 pt-6 pb-4 sm:px-8">
-              <SectionHead title="Screening questions" count={`${data.screening_questions.length} ${data.screening_questions.length === 1 ? "question" : "questions"}`} className="mb-2" />
-              <ol>
+            <Panel>
+              <PanelHead title="Screening questions" count={data.screening_questions.length} />
+              <ol className="divide-y">
                 {data.screening_questions.map((q, index) => (
-                  <li key={q} className="flex items-start gap-4 border-t py-4 first:border-t-0">
-                    <span className="bg-primary text-brand grid size-[30px] shrink-0 place-items-center rounded-full text-[13.5px] font-bold">
-                      {index + 1}
-                    </span>
-                    <p className="pt-[3px] text-[15.5px] leading-normal font-medium">{q}</p>
+                  <li key={q} className="flex items-start gap-2.5 px-3 py-2">
+                    <span className="text-muted-foreground w-4 shrink-0 text-xs font-semibold tabular-nums">{index + 1}</span>
+                    <p className="text-[13px]">{q}</p>
                   </li>
                 ))}
               </ol>
               {data.cover_letter_required === false && (
-                <p className="text-muted-foreground mt-1 border-t pt-3.5 pb-2 text-[13.5px]">
-                  A cover letter is optional for this posting.
-                </p>
+                <p className="text-muted-foreground border-t px-3 py-2 text-xs">A cover letter is optional for this posting.</p>
               )}
-            </Card>
+            </Panel>
           )}
 
-          <Card className="gap-0 px-6 pt-6 pb-3 sm:px-8">
-            <SectionHead title="Your proposals for this posting" className="mb-1">
+          <Panel>
+            <PanelHead title="Your proposals for this posting" count={proposals.data?.items.length ?? 0}>
               <Button size="xs" variant="outline" onClick={() => setDrafting(true)}>
                 <FileSignature />
                 New draft
               </Button>
-            </SectionHead>
+            </PanelHead>
             {!proposals.data?.items.length ? (
-              <EmptyState title="No proposal yet" description="Draft one here; it starts from your profile and this posting." />
+              <EmptyState title="No proposal yet." />
             ) : (
-              <ul>
-                {proposals.data.items.map((p) => (
-                  <li key={p.id} className="relative flex items-center gap-3.5 border-t py-3.5 first:border-t-0 sm:gap-4">
-                    <Tile icon={FileSignature} />
-                    <div className="min-w-0 flex-1">
-                      <Link href={`/freelancing/proposals/${p.id}`} className="block truncate font-semibold after:absolute after:inset-0">
-                        {describeEngine(p.engine_version)}
-                      </Link>
-                      <p className="text-muted-foreground text-[13px] font-medium">
-                        {p.bid_amount != null ? `${money(p.bid_amount)}${p.bid_type === "hourly" ? "/hr" : ""} · ` : ""}
-                        updated {timeAgo(p.updated_at)}
-                      </p>
-                    </div>
-                    <StatusBadge tone={PROPOSAL_STATUS_LABEL[p.status].tone}>{PROPOSAL_STATUS_LABEL[p.status].label}</StatusBadge>
-                    <span aria-hidden className="bg-soft grid size-9 shrink-0 place-items-center rounded-full">
-                      <ArrowUpRight className="size-4" />
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <Table>
+                <TableBody>
+                  {proposals.data.items.map((p) => (
+                    <TableRow
+                      key={p.id}
+                      className="cursor-pointer"
+                      onClick={() => router.push(`/freelancing/proposals/${p.id}`)}
+                    >
+                      <TableCell className="w-full max-w-0">
+                        <Link
+                          href={`/freelancing/proposals/${p.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="block truncate font-medium hover:underline"
+                        >
+                          {describeEngine(p.engine_version)}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">
+                        {p.bid_amount != null ? `${money(p.bid_amount)}${p.bid_type === "hourly" ? "/hr" : ""}` : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge tone={PROPOSAL_STATUS_LABEL[p.status].tone}>{PROPOSAL_STATUS_LABEL[p.status].label}</StatusBadge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">{timeAgo(p.updated_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
-          </Card>
+          </Panel>
         </div>
 
-        <aside className="space-y-5 lg:sticky lg:top-24">
-          {data.track_stage && (
-            <Card tone="accent" className="gap-0 rounded-[32px] px-6 py-5.5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Tile icon={KanbanSquare} tone="ink" />
-                  <div>
-                    <p className="text-sm font-semibold opacity-60">Tracking</p>
-                    <p className="text-xl font-bold tracking-tight">{STAGE_LABEL[data.track_stage]}</p>
-                  </div>
-                </div>
-                <Button asChild size="sm">
-                  <Link href={`/freelancing/tracking?job=${data.id}`}>
-                    Open the track
-                    <ArrowRight />
-                  </Link>
+        <aside className="space-y-3 lg:sticky lg:top-14">
+          <Panel>
+            <FactGroup title="Client">
+              <Facts
+                items={[
+                  ...(client.contact_name ? [{ label: "Name", value: client.contact_name }] : []),
+                  { label: "Location", value: [client.city, client.state, client.country].filter(Boolean).join(", ") || "-" },
+                  {
+                    label: "Payment",
+                    value: client.payment_verified ? (
+                      <span className="text-success inline-flex items-center gap-1">
+                        <BadgeCheck className="size-3.5" />
+                        Verified
+                      </span>
+                    ) : client.payment_verified === false ? (
+                      "Unverified"
+                    ) : (
+                      "-"
+                    ),
+                  },
+                  { label: "Total spent", value: client.total_spent_display ?? money(client.total_spent) },
+                  ...(client.hire_rate_percent != null
+                    ? [{ label: "Hire rate", value: `${Math.round(client.hire_rate_percent)}%` }]
+                    : [{ label: "Hires", value: client.total_hires ?? "-" }]),
+                  ...(client.avg_hourly_rate != null
+                    ? [{ label: "Avg hourly paid", value: `$${client.avg_hourly_rate.toFixed(2)}` }]
+                    : []),
+                  { label: "Jobs posted", value: client.total_posted_jobs ?? "-" },
+                  {
+                    label: "Rating",
+                    value: client.feedback != null && client.total_reviews ? `${client.feedback.toFixed(1)}★ · ${client.total_reviews} reviews` : "-",
+                  },
+                  { label: "Timezone", value: client.timezone ?? "-", muted: true },
+                ]}
+              />
+            </FactGroup>
+
+            <FactGroup title="Activity on this posting">
+              <Facts
+                items={[
+                  { label: "Proposals", value: data.total_applicants ?? "-" },
+                  { label: "Average bid", value: money(activity.average_bid) },
+                  { label: "Bid range", value: activity.min_bid != null || activity.max_bid != null ? `${money(activity.min_bid)} – ${money(activity.max_bid)}` : "-" },
+                  { label: "Interviewed at", value: money(activity.average_interviewed_bid) },
+                  { label: "Invites sent", value: activity.invites_sent ?? "-" },
+                  {
+                    label: "Hired",
+                    value:
+                      activity.total_hired ??
+                      (activity.client_has_hired == null ? "-" : activity.client_has_hired ? "Someone already" : "Nobody yet"),
+                  },
+                  { label: "Last client activity", value: activity.last_client_activity ? timeAgo(activity.last_client_activity) : "-", muted: true },
+                  { label: "Where", value: data.on_site_type ? humanizeEnum(data.on_site_type) : "-", muted: true },
+                ]}
+              />
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {canRefresh && (
+                  <Button size="xs" variant="outline" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
+                    {refresh.isPending ? <Spinner /> : <RefreshCw />}
+                    Refresh from {source.data?.label ?? "the source"}
+                  </Button>
+                )}
+                <Button size="xs" variant="outline" disabled={hide.isPending} onClick={() => hide.mutate()}>
+                  <EyeOff />
+                  {data.hidden_at ? "Unhide" : "Hide"}
                 </Button>
               </div>
-            </Card>
-          )}
+              {refresh.error && <p className="text-destructive mt-1.5 text-xs">{(refresh.error as Error).message}</p>}
+            </FactGroup>
 
-          <Panel icon={BadgeCheck} title="Client" tone="dark">
-            <Facts
-              items={[
-                ...(client.contact_name ? [{ label: "Name", value: client.contact_name }] : []),
-                { label: "Location", value: [client.city, client.state, client.country].filter(Boolean).join(", ") || "—" },
-                {
-                  label: "Payment",
-                  value: client.payment_verified ? (
-                    <span className="text-success inline-flex items-center gap-1.5 group-data-[tone=dark]/card:brightness-125">
-                      <BadgeCheck className="size-[15px]" />
-                      Verified
-                    </span>
-                  ) : client.payment_verified === false ? (
-                    "Unverified"
-                  ) : (
-                    "—"
-                  ),
-                },
-                { label: "Total spent", value: client.total_spent_display ?? money(client.total_spent) },
-                ...(client.hire_rate_percent != null
-                  ? [{ label: "Hire rate", value: `${Math.round(client.hire_rate_percent)}%` }]
-                  : [{ label: "Hires", value: client.total_hires ?? "—" }]),
-                ...(client.avg_hourly_rate != null
-                  ? [{ label: "Avg hourly paid", value: `$${client.avg_hourly_rate.toFixed(2)}` }]
-                  : []),
-                { label: "Jobs posted", value: client.total_posted_jobs ?? "—" },
-                {
-                  label: "Rating",
-                  value: client.feedback != null && client.total_reviews ? `${client.feedback.toFixed(1)}★ · ${client.total_reviews} reviews` : "—",
-                },
-                { label: "Timezone", value: client.timezone ?? "—", muted: true },
-              ]}
-            />
+            <Requirements qualification={data.qualification} />
           </Panel>
-
-          <Panel icon={KanbanSquare} title="Activity on this posting">
-            <Facts
-              items={[
-                { label: "Proposals", value: data.total_applicants ?? "—" },
-                { label: "Average bid", value: money(activity.average_bid) },
-                { label: "Bid range", value: activity.min_bid != null || activity.max_bid != null ? `${money(activity.min_bid)} – ${money(activity.max_bid)}` : "—" },
-                { label: "Interviewed at", value: money(activity.average_interviewed_bid) },
-                { label: "Invites sent", value: activity.invites_sent ?? "—" },
-                {
-                  label: "Hired",
-                  value:
-                    activity.total_hired ??
-                    (activity.client_has_hired == null ? "—" : activity.client_has_hired ? "Someone already" : "Nobody yet"),
-                },
-                { label: "Last client activity", value: activity.last_client_activity ? timeAgo(activity.last_client_activity) : "—", muted: true },
-                { label: "Where", value: data.on_site_type ? humanizeEnum(data.on_site_type) : "—", muted: true },
-              ]}
-            />
-            <div className="mt-3 flex flex-wrap gap-2">
-              {canRefresh && (
-                <Button size="xs" variant="outline" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
-                  {refresh.isPending ? <Spinner /> : <RefreshCw />}
-                  Refresh from {source.data?.label ?? "the source"}
-                </Button>
-              )}
-              <Button size="xs" variant="ghost" className="bg-soft hover:bg-soft-2" disabled={hide.isPending} onClick={() => hide.mutate()}>
-                <EyeOff />
-                {data.hidden_at ? "Unhide" : "Hide"}
-              </Button>
-            </div>
-            {refresh.error && <p className="text-destructive mt-2 text-xs">{(refresh.error as Error).message}</p>}
-          </Panel>
-
-          <Requirements qualification={data.qualification} />
         </aside>
       </div>
 
@@ -393,7 +341,7 @@ export default function JobDetailPage() {
  * stop between paragraphs is a heading.
  */
 function Description({ text }: { text: string | null }) {
-  if (!text?.trim()) return <p className="text-muted-foreground mt-5 text-[15.5px]">No description.</p>;
+  if (!text?.trim()) return <p className="text-muted-foreground text-[13px]">No description.</p>;
   const blocks = text
     .replace(/\r\n/g, "\n")
     .split(/\n{2,}/)
@@ -401,11 +349,11 @@ function Description({ text }: { text: string | null }) {
     .filter((lines) => lines.length);
   const bullet = /^\s*[-•*]\s+/;
   return (
-    <div className="text-foreground/85 mt-5 space-y-3.5 text-[15.5px] leading-[1.65]">
+    <div className="text-foreground/85 space-y-2 text-[13px] leading-relaxed">
       {blocks.map((lines, index) => {
         if (lines.every((line) => bullet.test(line))) {
           return (
-            <ul key={index} className="list-disc space-y-1.5 pl-5 leading-[1.55]">
+            <ul key={index} className="list-disc space-y-0.5 pl-5">
               {lines.map((line) => (
                 <li key={line}>{line.replace(bullet, "")}</li>
               ))}
@@ -414,7 +362,7 @@ function Description({ text }: { text: string | null }) {
         }
         if (lines.length === 1 && lines[0].length <= 60 && !/[.!?,;]$/.test(lines[0].trim()) && index > 0) {
           return (
-            <h4 key={index} className="text-foreground !mt-6 text-[15px] font-bold">
+            <h4 key={index} className="text-foreground !mt-3 text-[13px] font-semibold">
               {lines[0].trim()}
             </h4>
           );
@@ -429,54 +377,24 @@ function Description({ text }: { text: string | null }) {
   );
 }
 
-/** A side card: a leading mark, a title, and facts beneath. */
-function Panel({
-  icon: Icon,
-  title,
-  tone = "default",
-  children,
-}: {
-  icon: ComponentType<{ className?: string }>;
-  title: string;
-  tone?: "default" | "dark";
-  children: ReactNode;
-}) {
-  const dark = tone === "dark";
+/** A titled block of facts in the fact column; blocks are ruled apart. */
+function FactGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <Card tone={tone} className={cn("gap-0 px-6 pt-6 pb-4", dark ? "rounded-[36px]" : "rounded-[32px]")}>
-      <div className="mb-1.5 flex items-center gap-2.5">
-        {dark ? (
-          <span className="bg-panel-raised grid size-9 place-items-center rounded-full">
-            <Icon className="size-[18px]" />
-          </span>
-        ) : (
-          <Tile icon={Icon} size="sm" />
-        )}
-        <h2 className={cn("font-medium tracking-tight", dark ? "text-2xl" : "text-[21px]")}>{title}</h2>
-      </div>
+    <section className="border-t px-3 py-2 first:border-t-0">
+      <h2 className="mb-1 text-[13px] font-semibold">{title}</h2>
       {children}
-    </Card>
+    </section>
   );
 }
 
-/** Label/value rows with a rule between them. */
+/** Label/value rows. */
 function Facts({ items }: { items: { label: string; value: ReactNode; muted?: boolean }[] }) {
   return (
     <dl>
       {items.map(({ label, value, muted }) => (
-        <div
-          key={label}
-          className="group-data-[tone=dark]/card:border-panel-raised flex items-baseline justify-between gap-4 border-t py-3 text-[14.5px] first:border-t-0"
-        >
-          <dt className="text-muted-foreground group-data-[tone=dark]/card:text-panel-muted shrink-0 font-medium">{label}</dt>
-          <dd
-            className={cn(
-              "text-right font-semibold",
-              muted && "text-muted-foreground group-data-[tone=dark]/card:text-panel-muted font-medium",
-            )}
-          >
-            {value}
-          </dd>
+        <div key={label} className="flex items-baseline justify-between gap-3 py-0.5 text-xs">
+          <dt className="text-muted-foreground shrink-0">{label}</dt>
+          <dd className={cn("text-right font-medium", muted && "text-muted-foreground font-normal")}>{value}</dd>
         </div>
       ))}
     </dl>
@@ -497,8 +415,8 @@ function Requirements({ qualification }: { qualification: Record<string, unknown
   ].filter((item): item is { label: string; value: string } => item !== null);
   if (!items.length) return null;
   return (
-    <Panel icon={BadgeCheck} title="Requirements">
+    <FactGroup title="Requirements">
       <Facts items={items} />
-    </Panel>
+    </FactGroup>
   );
 }

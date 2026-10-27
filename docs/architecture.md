@@ -134,10 +134,32 @@ repair turn naming the exact failure.
 **Why turns of one conversation rather than three calls.** Three independent
 calls each re-pay the ~17k-token prefix. Turns share a growing cached prefix.
 
+**Stages around the conversation.** A resume built from the candidate's own
+history runs as four stages:
+
+1. **Criteria** (own prompt, `CRITERIA_SYSTEM`): the posting read once into
+   `JobCriteria` - core stack, keyword plan, essential experience, required
+   years, education. Platform and application text (Upwork, proposals,
+   Connects, budget, boilerplate) is left out by the prompt, and
+   `orchestration/staging.py` strips any marketplace name that gets through.
+   The posting goes no further; later stages see only the criteria.
+2. **Scenario**: turn 1 of the conversation, built from the criteria.
+3. **Research**, two calls at once, each with its own prompt: the employers
+   and the education the history names, profiled and checked (with web
+   search when research is on). Research never adds or replaces an employer
+   or a school; code drops anything the history does not state. A failed
+   research call leaves the compile without it rather than failing the run.
+4. **Compile**: turn 2, the resume with every timeframe committed, then the
+   repair loop and the prep turn as before.
+
+The criteria and the research are saved inside the ledger (`criteria`,
+`research`). Tailoring starts with the same criteria stage. A constructed
+scenario (no work history) is still one conversation.
+
 **BLOCK 3 is computed, not asked for.** Keyword coverage counts and
-percentages are derived in `orchestration/ats_report.py` from the turn-1
-keyword plan plus the parsed resume, so the report can never disagree with the
-document it describes.
+percentages are derived in `orchestration/ats_report.py` from the keyword
+plan - the criteria's when there are any - plus the parsed resume, so the
+report can never disagree with the document it describes.
 
 ## Markdown is canonical, so the dialect is strict
 

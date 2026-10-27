@@ -10,7 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { STATUS_LABEL, STATUSES } from "./shared";
 
-/** Outcomes read at a glance in the table; the rest stay an outlined pill. */
+/** Outcomes read at a glance in the table; the rest stay a plain bordered select. */
 const OUTCOME: Record<string, string> = {
   offer: "bg-success/15 text-success border-transparent",
   hired: "bg-success/15 text-success border-transparent",
@@ -22,23 +22,20 @@ const OUTCOME: Record<string, string> = {
 /**
  * The application's status.
  *
- * "pill" is the compact control in a table row or card; "field" is the
- * full-size, soft-filled one for a detail view. `raised` fills the pill white
- * for use on the accent row.
+ * "pill" is the 28px control in a table row or card; "field" is the 32px one
+ * for a detail view.
  */
 export function StatusSelect({
   value,
   onChange,
   disabled,
   appearance = "pill",
-  raised = false,
   label,
 }: {
   value: string;
   onChange: (next: string) => void;
   disabled?: boolean;
   appearance?: "pill" | "field";
-  raised?: boolean;
   label: string;
 }) {
   return (
@@ -46,17 +43,7 @@ export function StatusSelect({
       <SelectTrigger
         size={appearance === "pill" ? "sm" : "default"}
         aria-label={label}
-        className={cn(
-          "w-full rounded-full",
-          appearance === "pill"
-            ? cn(
-                "data-[size=sm]:h-[34px] data-[size=sm]:rounded-full data-[size=sm]:pr-2.5 data-[size=sm]:pl-3.5 border-[1.4px] text-[13px] font-semibold",
-                raised
-                  ? "bg-card border-transparent"
-                  : (OUTCOME[value] ?? "border-foreground/20 hover:bg-foreground/5 bg-transparent"),
-              )
-            : "data-[size=default]:h-[46px] pr-4 pl-5 text-[0.9063rem]",
-        )}
+        className={cn("w-full font-medium", appearance === "pill" && OUTCOME[value])}
       >
         <SelectValue />
       </SelectTrigger>

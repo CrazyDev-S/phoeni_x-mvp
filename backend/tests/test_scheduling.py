@@ -254,8 +254,8 @@ async def test_detail_carries_the_resume_sent_and_the_company(
     assert detail["job_url"] == "https://acme.example/jobs/1"
     assert detail["company_domain"] == "acme.example"
     assert (detail["salary_min"], detail["salary_max"]) == (180000, 220000)
-    resume = detail["tailored_resume"]
-    assert resume["id"] == tailored_id
+    resume = detail["resume"]
+    assert (resume["kind"], resume["id"]) == ("tailored", tailored_id)
     assert resume["base_resume_name"] == "Platform Engineer"
     assert resume["must_have_coverage_percent"] == 90.0
     assert resume["content_markdown"]
@@ -266,7 +266,7 @@ async def test_detail_carries_the_resume_sent_and_the_company(
         headers=auth,
         json={"tailored_resume_id": None},
     )
-    assert res.json()["tailored_resume"] is None
+    assert res.json()["resume"] is None
     assert (
         await client.get(f"/api/v1/remote/tailored-resumes/{tailored_id}", headers=auth)
     ).status_code == 200

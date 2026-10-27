@@ -1,10 +1,8 @@
 import type { ComponentType, ReactNode } from "react";
 
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tile } from "@/components/tile";
 
-/** One headline number, its label, and an optional line of context beneath. */
+/** One headline number and its label: a compact cell, ruled rather than boxed. */
 export function StatCard({
   label,
   value,
@@ -17,21 +15,21 @@ export function StatCard({
   hint?: ReactNode;
   Icon?: ComponentType<{ className?: string }>;
   loading?: boolean;
-  /** Accepted for older call sites; every stat now uses the accent wash. */
+  /** Accepted for older call sites. */
   tone?: "primary" | "success" | "warning" | "info";
 }) {
   return (
-    <Card className="gap-0 p-5 sm:p-6">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-muted-foreground text-sm font-semibold">{label}</p>
-        {Icon && <Tile icon={Icon} size="sm" />}
+    <div className="bg-card min-w-0 rounded-lg border px-3 py-2">
+      <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
+        {Icon && <Icon className="size-3.5 shrink-0" />}
+        <span className="truncate">{label}</span>
       </div>
       {loading ? (
-        <Skeleton className="mt-3 h-10 w-20" />
+        <Skeleton className="mt-1 h-6 w-12" />
       ) : (
-        <p className="mt-2 text-4xl font-medium tracking-tight tabular-nums">{value}</p>
+        <p className="mt-0.5 text-xl leading-tight font-semibold tabular-nums">{value}</p>
       )}
-      {hint && <p className="text-subtle mt-1 text-xs font-medium">{hint}</p>}
-    </Card>
+      {hint && <p className="text-subtle truncate text-[11px]">{hint}</p>}
+    </div>
   );
 }

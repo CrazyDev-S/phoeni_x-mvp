@@ -39,6 +39,7 @@ export interface ApplicationRow {
   status: string;
   origin: string;
   tailored_resume_id: string | null;
+  base_resume_id: string | null;
   stages: Stage[];
   stage_count: number;
   stages_passed: number;
@@ -55,14 +56,25 @@ export interface ResumeFlags {
   must_verify?: string[];
 }
 
-export interface TailoredResumeBrief {
+export type ResumeKind = "base" | "tailored";
+
+export interface ResumeRef {
+  kind: ResumeKind;
   id: string;
+}
+
+/**
+ * The resume an application was sent with: tailored for it, or a base resume
+ * as it is. A base resume's figures are null until it is tailored to this job.
+ */
+export interface ResumeBrief extends ResumeRef {
   display_name: string;
+  /** The base resume behind it: the one it was tailored from, or itself. */
   base_resume_id: string;
   base_resume_name: string | null;
   status: string;
   job_url: string | null;
-  job_source: string;
+  job_source: string | null;
   must_have_covered: number | null;
   must_have_total: number | null;
   must_have_coverage_percent: number | null;
@@ -71,7 +83,17 @@ export interface TailoredResumeBrief {
   years_shown: number | null;
   content_markdown: string;
   flags: ResumeFlags | null;
+  /** Other applications sent with the same base resume. */
+  shared_with: number;
   created_at: string;
+  updated_at: string;
+}
+
+/** Where a resume opens in the portal. */
+export function resumeHref(resume: ResumeRef): string {
+  return resume.kind === "tailored"
+    ? `/remote/resumes/tailored/${resume.id}`
+    : `/remote/resumes/${resume.id}`;
 }
 
 export interface ApplicationDetail {
@@ -91,17 +113,21 @@ export interface ApplicationDetail {
   next_action_at: string | null;
   notes_markdown: string | null;
   tailored_resume_id: string | null;
+  base_resume_id: string | null;
   created_at: string;
   job_description_text: string | null;
   stages: Stage[];
-  tailored_resume: TailoredResumeBrief | null;
-  /** When nothing is linked: the tailored resume written for this posting. */
-  suggested_tailored_resume: {
-    id: string;
-    display_name: string;
-    base_resume_id: string;
-    must_have_coverage_percent: number | null;
-  } | null;
+  resume: ResumeBrief | null;
+  /** When nothing is linked: the resume meant for this posting. */
+  suggested_resume:
+    | (ResumeRef & {
+        display_name: string;
+        base_resume_id: string;
+        must_have_coverage_percent: number | null;
+        /** "panel": chosen for the posting in the side panel. "tailored": tailored for it. */
+        reason: "panel" | "tailored";
+      })
+    | null;
 }
 
 export interface StageUpdated {
@@ -192,15 +218,6 @@ export function stageStatus(status: string): StageStatusMeta {
     STAGE_STATUS[status] ?? { label: status.replace(/_/g, " "), tone: "neutral", Icon: Circle }
   );
 }
-
-/** A quieter cousin of StatusBadge's tones, for cells in a dense grid. */
-export const TONE_TINT: Record<Tone, string> = {
-  neutral: "text-muted-foreground",
-  ok: "bg-success/10 text-success dark:bg-success/15",
-  warn: "bg-warning/10 text-warning dark:bg-warning/15",
-  bad: "bg-destructive/10 text-destructive dark:bg-destructive/15",
-  brand: "bg-primary/10 text-primary dark:bg-primary/20",
-};
 
 const OPEN_STAGE_STATUSES = new Set([
   "pending",

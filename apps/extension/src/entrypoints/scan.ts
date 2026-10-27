@@ -56,8 +56,7 @@ function visible(el: Element): boolean {
   return anyEl.offsetParent !== null || style.position === "fixed";
 }
 
-/** Label resolution drives answer quality more than the model does. */
-function resolveLabel(el: Element): string {
+function ariaLabel(el: Element): string {
   const byIds = el.getAttribute("aria-labelledby");
   if (byIds) {
     const text = byIds
@@ -67,8 +66,13 @@ function resolveLabel(el: Element): string {
       .trim();
     if (text) return clean(text);
   }
-  const aria = el.getAttribute("aria-label");
-  if (aria?.trim()) return clean(aria);
+  return clean(el.getAttribute("aria-label") ?? "");
+}
+
+/** Label resolution drives answer quality more than the model does. */
+function resolveLabel(el: Element): string {
+  const aria = ariaLabel(el);
+  if (aria) return aria;
 
   const id = el.getAttribute("id");
   if (id) {
@@ -77,7 +81,14 @@ function resolveLabel(el: Element): string {
     if (forLabel?.textContent?.trim()) return clean(forLabel.textContent);
   }
   const ancestorLabel = el.closest("label");
-  if (ancestorLabel?.textContent?.trim()) return clean(ancestorLabel.textContent);
+  if (ancestorLabel?.textContent?.trim()) {
+    // A label wrapping the whole field also wraps its options, its upload
+    // status and its location suggestions: Lever's Gender select read as
+    // "GenderSelect ...MaleFemale...". The question is the text beside the control.
+    return textAround(el, ancestorLabel) || clean(ancestorLabel.textContent);
+  }
+  const beside = textAround(el);
+  if (beside) return beside;
 
   const container = el.closest(
     "[data-automation-id],[class*=field],[class*=form-group],[class*=question]",
@@ -98,6 +109,73 @@ function resolveLabel(el: Element): string {
       el.getAttribute("data-automation-id") ??
       "",
   );
+}
+
+const CONTROLS = 'input:not([type=hidden]),select,textarea,[contenteditable=""],[contenteditable=true]';
+
+/**
+ * The text beside a control within its own field: walking up from `scope`,
+ * the first ancestor with words outside the branch holding the control. Text
+ * before the control wins over text after it, which is help or an error.
+ *
+ * This is where Lever puts a custom question - in a div next to the input's
+ * wrapper, not in a label - so its radios read as "Yes" and its textareas as
+ * "cards[...][field3]", and the model could not tell what was asked.
+ *
+ * The walk stops at an ancestor holding another control: past that, the text
+ * belongs to another question or to the whole section.
+ */
+function textAround(scope: Element, limit: Element | null = null): string {
+  const before: string[] = [];
+  const after: string[] = [];
+  let branch = scope;
+  for (let depth = 0; depth < 6; depth++) {
+    const parent = branch.parentElement;
+    if (!parent || ownsOtherControl(parent, scope)) break;
+    let passed = false;
+    const here: string[][] = [[], []];
+    for (const node of Array.from(parent.childNodes)) {
+      if (node === branch) passed = true;
+      else here[passed ? 1 : 0].push(shownTextOf(node));
+    }
+    before.push(clean(here[0].join(" ")));
+    after.push(clean(here[1].join(" ")));
+    if (parent === limit) break;
+    branch = parent;
+  }
+  return before.find(isWords) ?? after.find(isWords) ?? "";
+}
+
+function ownsOtherControl(ancestor: Element, scope: Element): boolean {
+  return Array.from(ancestor.querySelectorAll(CONTROLS)).some((c) => !scope.contains(c));
+}
+
+function shownTextOf(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
+  return node instanceof HTMLElement && visible(node) ? node.innerText : "";
+}
+
+/** Words, not a "$" prefix or a "+1" dialling code. */
+function isWords(text: string): boolean {
+  return /\p{L}{2}/u.test(text);
+}
+
+/** A radio group's question: its legend, its radiogroup's label, or the text beside it. */
+function groupLabel(el: HTMLInputElement): string {
+  const legend = el.closest("fieldset")?.querySelector("legend")?.textContent;
+  if (legend?.trim()) return clean(legend);
+  const radiogroup = el.closest("[role=radiogroup]");
+  const named = radiogroup ? ariaLabel(radiogroup) : "";
+  if (named) return named;
+  const root = el.getRootNode() as Document | ShadowRoot;
+  const radios = Array.from(
+    root.querySelectorAll(`input[type=radio][name="${CSS.escape(el.name)}"]`),
+  );
+  let scope: Element = el;
+  while (scope.parentElement && !radios.every((r) => scope.contains(r))) {
+    scope = scope.parentElement;
+  }
+  return textAround(scope) || clean(el.name);
 }
 
 function isFileInput(el: Element): el is HTMLInputElement {
@@ -135,7 +213,8 @@ function resolveHelp(el: Element): string {
 }
 
 function clean(text: string): string {
-  return text.replace(/\s+/g, " ").replace(/\*$/, "").trim().slice(0, 300);
+  // Required markers come as "*" or, on Lever, "✱".
+  return text.replace(/\s+/g, " ").replace(/[\s*✱∗＊]+$/u, "").trim().slice(0, 300);
 }
 
 function fieldType(el: Element): FieldType {
@@ -217,11 +296,10 @@ export function scanFrame(frameKey: string): FrameScan {
         continue;
       }
       const id = `${frameKey}:${index++}`;
-      const group = el.closest("fieldset,[role=radiogroup],[class*=field]");
       const field: ScannedField = {
         id,
         type: "radio",
-        label: clean(group?.querySelector("legend,label,[class*=label]")?.textContent ?? input.name),
+        label: groupLabel(input),
         help: resolveHelp(el),
         name: input.name,
         autocomplete: input.autocomplete ?? "",
@@ -283,7 +361,7 @@ export function extractJob(): JobExtract {
   const description =
     (jsonLd?.description as string | undefined) ??
     heuristicText() ??
-    document.body.innerText;
+    shownText(document.body);
 
   return {
     url: location.href,
@@ -318,8 +396,18 @@ function heuristicText(): string | null {
     "[class*=job-description],[data-ui=job-description]," +
       "[data-automation-id*=jobPostingDescription],#content,main,article",
   );
-  const text = (el as HTMLElement | null)?.innerText;
-  return text && text.length > 200 ? text : null;
+  const text = shownText(el as HTMLElement | null);
+  return text.length > 200 ? text : null;
+}
+
+/**
+ * An element's text as the page shows it. One that is not rendered - in a
+ * frame the page keeps hidden, like a captcha's or a feedback widget's - reads
+ * back as its raw text, scripts included: a reCAPTCHA frame came through as
+ * 36KB of base64 titled "reCAPTCHA", and outweighed the posting itself.
+ */
+function shownText(el: HTMLElement | null | undefined): string {
+  return el && el.getClientRects().length > 0 ? el.innerText : "";
 }
 
 function guessTitle(): string | null {

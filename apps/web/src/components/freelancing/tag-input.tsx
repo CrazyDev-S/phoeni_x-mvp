@@ -27,7 +27,7 @@ export function TagInput({
   onChange: (next: string[]) => void;
   placeholder?: string;
   className?: string;
-  /** "pill": charcoal pills with a round remove button, for the profile editor. */
+  /** "pill": charcoal chips with a small remove button, for the profile editor. */
   chips?: "default" | "pill";
   "aria-describedby"?: string;
 }) {
@@ -75,14 +75,14 @@ export function TagInput({
         }}
       />
       {value.length > 0 && (
-        <ul className={cn("flex flex-wrap", chips === "pill" ? "gap-2 pt-1" : "gap-1.5")}>
+        <ul className={cn("flex flex-wrap", "gap-1.5")}>
           {value.map((item) => (
             <li
               key={item}
               className={cn(
                 "inline-flex items-center font-medium",
                 chips === "pill"
-                  ? "bg-primary text-primary-foreground h-[34px] gap-2 rounded-full pr-2 pl-3.5 text-[0.84rem] font-semibold"
+                  ? "bg-primary text-primary-foreground h-6 gap-1 rounded-md pr-1 pl-2 text-xs font-medium"
                   : "bg-secondary text-secondary-foreground h-6 gap-1 rounded-md pr-1 pl-2 text-xs",
               )}
             >
@@ -93,7 +93,7 @@ export function TagInput({
                 className={cn(
                   "transition-colors",
                   chips === "pill"
-                    ? "grid size-5 place-items-center rounded-full bg-white/15 hover:bg-white/25"
+                    ? "grid size-4 place-items-center rounded bg-white/15 hover:bg-white/25"
                     : "hover:bg-background/60 rounded-sm p-0.5",
                 )}
                 onClick={() => onChange(value.filter((v) => v !== item))}

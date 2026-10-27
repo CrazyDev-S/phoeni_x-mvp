@@ -2,6 +2,7 @@
 
 import { useId, type ReactNode } from "react";
 
+import { cn } from "@/lib/utils";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 
 export interface ControlProps {
@@ -39,7 +40,7 @@ export function FormField({
     .join(" ");
 
   return (
-    <Field className={className} data-invalid={error ? true : undefined}>
+    <Field className={cn("gap-1", className)} data-invalid={error ? true : undefined}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       {children({
         id,

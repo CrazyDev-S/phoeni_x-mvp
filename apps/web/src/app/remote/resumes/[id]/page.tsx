@@ -1,16 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  Check,
-  Download,
-  FileDown,
-  Folder,
-  Save,
-  Sparkles,
-  Trash2,
-} from "lucide-react";
+import { Check, Download, FileDown, Save, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -19,17 +10,18 @@ import { ConfirmDelete } from "@/components/confirm-delete";
 import { ErrorAlert } from "@/components/error-alert";
 import { FindingsList, type Finding } from "@/components/remote/findings";
 import { GenerationProgress } from "@/components/remote/generation-progress";
+import { PdfButton } from "@/components/remote/pdf-button";
+import { PrepTab } from "@/components/remote/prep-tab";
 import {
   AtsPanel,
   DocumentPane,
   JsonPanel,
-  PrepPanel,
   type Flags,
 } from "@/components/remote/resume-editor";
 import { Badge } from "@/components/ui/badge";
-import { Tile } from "@/components/tile";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { PageHero } from "@/components/page-hero";
+import { Panel } from "@/components/panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -52,6 +44,7 @@ interface Resume {
   ats_report: Record<string, unknown> | null;
   ledger: Record<string, unknown> | null;
   flags: Record<string, unknown> | null;
+  job_description_text: string | null;
   validation: { findings?: Finding[] } | null;
 }
 
@@ -109,17 +102,11 @@ export default function ResumeDetailPage() {
 
   if (isLoading || !data || draft === null) {
     return (
-      <div className="space-y-6" aria-busy>
-        <div className="flex items-center gap-5">
-          <Skeleton className="size-14 rounded-full" />
-          <div className="space-y-3">
-            <Skeleton className="h-6 w-72 rounded-full" />
-            <Skeleton className="h-9 w-96 max-w-full" />
-          </div>
-        </div>
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-          <Skeleton className="h-[32rem] rounded-[2rem]" />
-          <Skeleton className="h-[32rem] rounded-[2rem]" />
+      <div className="space-y-3" aria-busy>
+        <Skeleton className="h-8 w-72" />
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <Skeleton className="h-[32rem]" />
+          <Skeleton className="h-[32rem]" />
         </div>
       </div>
     );
@@ -132,103 +119,82 @@ export default function ResumeDetailPage() {
   const upgradeBlock = errorCount > 0 || upgrade.state.running;
 
   return (
-    <div className="space-y-7">
-      <header className="flex flex-wrap items-center gap-x-5 gap-y-4">
-        <Link
-          href="/remote/resumes"
-          aria-label="Back"
-          className="bg-card shadow-card focus-visible:ring-ring/40 grid size-14 shrink-0 place-items-center rounded-full outline-none focus-visible:ring-3"
-        >
-          <ArrowLeft className="size-5" />
-        </Link>
-        <div className="min-w-0 flex-1 space-y-2.5">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Badge className="h-7 gap-1.5 px-3 text-[0.8125rem]">
-              <Folder />
-              {data.mode === "constructed"
-                ? "Constructed scenario"
-                : "Base resume"}
+    <div className="space-y-3">
+      <PageHero
+        title={data.display_name}
+        back="/remote/resumes"
+        badge={
+          <>
+            <Badge variant="secondary">
+              {data.mode === "constructed" ? "Constructed scenario" : "Base resume"}
             </Badge>
-            <span className="text-muted-foreground text-sm font-medium">
-              {data.target_title}
-            </span>
-            {data.status === "needs_review" && (
-              <Badge variant="warning">Needs review</Badge>
-            )}
-          </div>
-          <h1 className="page-title page-title-sm !whitespace-normal text-balance [overflow-wrap:anywhere] max-md:!text-[1.625rem]">
-            {data.display_name}
-          </h1>
-        </div>
-        <div className="ml-auto flex flex-wrap items-center gap-3">
-          {/* Outline once saved: a faded primary reads as broken, not done. */}
-          <Button
-            variant={dirty ? "default" : "secondary"}
-            size="lg"
-            className="disabled:opacity-100"
-            disabled={!dirty || save.isPending}
-            onClick={() => save.mutate(draft)}
-          >
-            {save.isPending ? <Spinner /> : dirty ? <Save /> : <Check />}
-            {save.isPending ? "Saving…" : dirty ? "Save changes" : "Saved"}
-          </Button>
-          <Button asChild variant="brand" size="lg">
-            <Link href="/remote/tailor">
-              <Sparkles />
-              Tailor
-            </Link>
-          </Button>
-          <ConfirmDelete
-            label={data.display_name}
-            trigger={
-              <Button
-                variant="default"
-                size="icon-lg"
-                aria-label="Delete resume"
-              >
-                <Trash2 />
-              </Button>
-            }
-            onDelete={(cascade) =>
-              request(
-                `/api/v1/remote/resumes/${id}${cascade ? "?cascade=true" : ""}`,
-                {
+            {data.status === "needs_review" && <Badge variant="warning">Needs review</Badge>}
+          </>
+        }
+        description={data.target_title}
+        actions={
+          <>
+            {/* Outline once saved: a faded primary reads as broken, not done. */}
+            <Button
+              variant={dirty ? "default" : "outline"}
+              className="disabled:opacity-100"
+              disabled={!dirty || save.isPending}
+              onClick={() => save.mutate(draft)}
+            >
+              {save.isPending ? <Spinner /> : dirty ? <Save /> : <Check />}
+              {save.isPending ? "Saving…" : dirty ? "Save changes" : "Saved"}
+            </Button>
+            <Button asChild variant="brand">
+              <Link href="/remote/tailor">
+                <Sparkles />
+                Tailor
+              </Link>
+            </Button>
+            <ConfirmDelete
+              label={data.display_name}
+              trigger={
+                <Button variant="outline" size="icon" aria-label="Delete resume">
+                  <Trash2 />
+                </Button>
+              }
+              onDelete={(cascade) =>
+                request(`/api/v1/remote/resumes/${id}${cascade ? "?cascade=true" : ""}`, {
                   method: "DELETE",
-                },
-              ).then(() => undefined)
-            }
-            onDeleted={() => {
-              queryClient.invalidateQueries({ queryKey: ["resumes"] });
-              router.replace("/remote/resumes");
-            }}
-          />
-        </div>
-      </header>
+                }).then(() => undefined)
+              }
+              onDeleted={() => {
+                queryClient.invalidateQueries({ queryKey: ["resumes"] });
+                router.replace("/remote/resumes");
+              }}
+            />
+          </>
+        }
+      />
 
       {saveError && <ErrorAlert>{saveError}</ErrorAlert>}
 
       {(upgrade.state.running || upgrade.state.error) && (
-        <GenerationProgress state={upgrade.state} />
+        <GenerationProgress state={upgrade.state} onStop={upgrade.stop} />
       )}
       {!upgrade.state.running && upgrade.state.resultId && (
         <p
           className={cn(
-            "text-sm font-medium",
+            "text-xs",
             upgrade.state.needsReview
               ? "text-warning"
               : "text-muted-foreground",
           )}
         >
           {upgrade.state.needsReview
-            ? "Upgrade fixed what it could, but some rule errors remain — see Rules. Run Upgrade again, or edit them by hand."
-            : "Upgrade complete — every rule error is fixed."}
+            ? "Upgrade fixed what it could, but some rule errors remain. See Rules."
+            : "Upgrade complete: every rule error is fixed."}
         </p>
       )}
 
       {/* min-w-0 on both tracks is load-bearing: a grid `1fr` is
           `minmax(auto, 1fr)`, and `auto` resolves to min-content — so one wide
           child (the JSON block) expands its column and crushes the other. */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start">
         <DocumentPane
           draft={draft}
           onChange={setDraft}
@@ -238,7 +204,6 @@ export default function ResumeDetailPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-[2.375rem] px-4"
                 onClick={() =>
                   downloadDocx(
                     { resume_id: id, kind: "base", profile: "designed" },
@@ -254,7 +219,6 @@ export default function ResumeDetailPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-[2.375rem] px-4"
                     onClick={() =>
                       downloadDocx(
                         { resume_id: id, kind: "base", profile: "ats_plain" },
@@ -270,28 +234,32 @@ export default function ResumeDetailPage() {
                   Single column, no table — for Workday and Taleo upload forms
                 </TooltipContent>
               </Tooltip>
+              <PdfButton
+                variant="outline"
+                size="sm"
+                body={{ resume_id: id, kind: "base", profile: "designed" }}
+                filename={`${data.display_name}.pdf`}
+              >
+                PDF
+              </PdfButton>
             </>
           }
         />
 
-        <Card className="min-w-0 gap-0 self-start overflow-hidden py-0">
+        <Panel className="self-start overflow-hidden">
           <Tabs defaultValue="validation" className="gap-0">
-            <div className="border-b p-4">
-              <TabsList className="bg-soft h-auto w-full gap-0.5 p-1 shadow-none group-data-horizontal/tabs:h-auto">
+            <div className="border-b px-3 py-2">
+              <TabsList>
                 {[
-                  ["validation", `Rules`, findings.length],
+                  ["validation", "Rules", findings.length],
                   ["ats", "ATS report", 0],
                   ["ledger", "Ledger", 0],
                   ["flags", "Prep", 0],
                 ].map(([value, label, count]) => (
-                  <TabsTrigger
-                    key={value}
-                    value={String(value)}
-                    className="group/tab data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-9 px-2 text-[0.8125rem] sm:text-sm"
-                  >
+                  <TabsTrigger key={value} value={String(value)}>
                     {label}
                     {Number(count) > 0 && (
-                      <span className="rounded-full bg-black/10 px-1.5 text-xs font-bold group-data-[state=active]/tab:bg-white/20">
+                      <span className="bg-muted rounded px-1 text-[11px] font-semibold tabular-nums">
                         {count}
                       </span>
                     )}
@@ -309,44 +277,31 @@ export default function ResumeDetailPage() {
             <TabsContent value="ledger">
               <JsonPanel
                 value={data.ledger}
-                empty="No scenario ledger — this resume was uploaded, not generated."
+                empty="No scenario ledger: this resume was uploaded, not generated."
               />
             </TabsContent>
             <TabsContent value="flags">
-              <PrepPanel
-                value={data.flags as Flags | null}
-                empty="No interview-prep block for this resume."
+              <PrepTab
+                path={`/api/v1/remote/resumes/${id}/prep`}
+                flags={data.flags as Flags | null}
+                dirty={dirty}
+                onDone={() => void refetch()}
               />
             </TabsContent>
           </Tabs>
 
           {upgradeBlock && (
-            <div className="bg-soft border-t px-6 pt-5 pb-6">
-              <div className="flex items-start gap-3">
-                <Tile icon={Sparkles} size="sm" />
-                <div>
-                  <p className="text-[0.9375rem] font-bold">
-                    Upgrade fixes the saved version
-                  </p>
-                  <p className="text-muted-foreground mt-0.5 text-[0.8125rem] leading-relaxed font-medium">
-                    Rewrites the resume until every rule error is fixed. Errors
-                    block the extension’s one-click download.
-                  </p>
-                </div>
-              </div>
+            <div className="bg-muted/40 border-t px-3 py-2">
               <Button
                 variant="brand"
-                size="lg"
-                className="mt-4 h-12 w-full"
+                className="w-full"
                 disabled={dirty || upgrade.state.running}
                 title={
                   dirty
-                    ? "Save or discard your edits first — Upgrade fixes the saved version"
+                    ? "Save or discard your edits first. Upgrade fixes the saved version."
                     : "Rewrite the resume until every rule error is fixed"
                 }
-                onClick={() =>
-                  upgrade.start(`/api/v1/remote/resumes/${id}/repair`, {})
-                }
+                onClick={() => upgrade.start(`/api/v1/remote/resumes/${id}/repair`, {})}
               >
                 {upgrade.state.running ? <Spinner /> : <Sparkles />}
                 {upgrade.state.running
@@ -355,7 +310,7 @@ export default function ResumeDetailPage() {
               </Button>
             </div>
           )}
-        </Card>
+        </Panel>
       </div>
     </div>
   );

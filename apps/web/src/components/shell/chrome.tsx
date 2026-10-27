@@ -1,13 +1,14 @@
 "use client";
 
-import { Rail } from "@/components/shell/rail";
+import { Sidebar } from "@/components/shell/sidebar";
 import { TopBar } from "@/components/shell/top-bar";
 import type { PortalId } from "@/lib/portals";
 
 /**
- * The frame around every signed-in page: the top bar, the rail, and the page.
- * `portal` is null on the portal picker and in Settings, where the rail offers
- * only the way home and the account.
+ * The frame around every signed-in page: the sidebar, the top bar, and the page
+ * itself running the full width of what is left. `portal` is null on the portal
+ * picker and in Settings, where the sidebar offers only the way home and the
+ * account.
  */
 export function Chrome({
   portal,
@@ -19,15 +20,14 @@ export function Chrome({
   children: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto flex min-h-svh w-full max-w-[1560px] flex-col gap-5 p-3 pb-28 md:p-6 md:pb-10">
-      <TopBar portal={portal} />
-      <div className="grid items-start gap-5 md:grid-cols-[88px_minmax(0,1fr)]">
-        <Rail portal={portal} pathname={pathname} />
+    <div className="flex min-h-svh w-full">
+      <Sidebar portal={portal} pathname={pathname} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <TopBar portal={portal} />
         <main
-          // Keyed on the route so each navigation replays the entrance rather
-          // than animating only on first mount.
+          // Keyed on the route so each navigation replays the short fade.
           key={pathname}
-          className="page-enter min-w-0 space-y-7 px-1 pt-1.5"
+          className="page-enter min-w-0 flex-1 space-y-3 p-3 pb-16 md:p-4"
         >
           {children}
         </main>

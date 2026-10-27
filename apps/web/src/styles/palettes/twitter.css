@@ -1,0 +1,215 @@
+/*
+ * Twitter: Twitter blue on dark slate and cool greys
+ *
+ * Source colours:
+ * Twitter Blue #1da1f2, Dark #14171a, Dark Grey #657786, Light Grey
+ * #aab8c2, Extra Light Grey #e1e8ed, Extra Extra Light Grey #f5f8fa.
+ * The text, ink and dark-mode surfaces are derived from them so every text
+ * pair clears WCAG AA.
+ * Remote's accent is Twitter Blue; Freelancing's is Light Grey.
+ *
+ * Selected by data-theme="twitter" on <html> (see lib/palettes.ts). How the
+ * four blocks outrank the defaults, and why the portal blocks must set every
+ * accent token, is explained in prussian.css.
+ */
+
+:root[data-theme="twitter"] {
+  --shadow-ink: 20 23 26;
+  --background: #e6ecf0;
+  --foreground: #14171a;
+  --card: #ffffff;
+  --card-foreground: #14171a;
+  --popover: #ffffff;
+  --popover-foreground: #14171a;
+  --primary: #15202b;
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff;
+  --secondary-foreground: #14171a;
+  --muted: #f4f6f8;
+  --muted-foreground: #66686a;
+  --subtle: #959798;
+  --accent: #99d5f9;
+  --accent-foreground: #185c86;
+  --border: #d3d9dd;
+  --input: #f2f6f8;
+  --ring: #1b83c2;
+
+  --brand: #1da1f2;
+  --brand-foreground: #14171a;
+  --brand-soft: #99d5f9;
+  --brand-ink: #185c86;
+
+  --soft: #f5f7f9;
+  --soft-2: #d7dde1;
+
+  --panel: #15202b;
+  --panel-foreground: #ffffff;
+  --panel-raised: #2c3640;
+  --panel-muted: #b9bcbf;
+
+  --chart-1: #1da1f2;
+  --chart-2: #15202b;
+  --chart-3: #aab8c2;
+  --chart-4: #17a05e;
+  --chart-5: #e8a21a;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #14171a;
+  --sidebar-primary: #15202b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #99d5f9;
+  --sidebar-accent-foreground: #185c86;
+  --sidebar-border: #d3d9dd;
+  --sidebar-ring: #1b83c2;
+
+  --gradient-brand: #8ed0f8, #1da1f2, #1b85c7;
+  --gradient-brand-strong: #61bdf6, #1da1f2, #1c8ed4;
+  --gradient-brand-text: #196391, #185175, #17405b;
+
+  --event-1: #1da1f2;
+  --event-1-foreground: #14171a;
+  --event-1-ink: #185c86;
+  --event-2: #e7e0ff;
+  --event-2-foreground: #3b2790;
+  --event-2-ink: #5a3fc4;
+  --event-3: #d4f2e3;
+  --event-3-foreground: #0b5f37;
+  --event-3-ink: #0c7a43;
+  --event-4: #d1d7db;
+  --event-4-foreground: #14171a;
+  --event-4-ink: #4f5153;
+  --event-5: #dfeaff;
+  --event-5-foreground: #1d4fb3;
+  --event-5-ink: #1d4fb3;
+  --event-6: #fbefcf;
+  --event-6-foreground: #6f4700;
+  --event-6-ink: #8a5a00;
+}
+
+:root[data-theme="twitter"].dark {
+  --background: #13191f;
+  --foreground: #eff3f5;
+  --card: #1e2730;
+  --card-foreground: #eff3f5;
+  --popover: #1e2730;
+  --popover-foreground: #eff3f5;
+  --primary: #e6ecf0;
+  --primary-foreground: #13191f;
+  --secondary: #26323e;
+  --secondary-foreground: #eff3f5;
+  --muted: #26323e;
+  --muted-foreground: #9ba0a4;
+  --subtle: #6f7579;
+  --accent: #153a52;
+  --accent-foreground: #61bdf6;
+  --border: #2b3846;
+  --input: #26323e;
+  --ring: #1da1f2;
+
+  --brand: #1da1f2;
+  --brand-foreground: #13191f;
+  --brand-soft: #153a52;
+  --brand-ink: #61bdf6;
+
+  --soft: #242f3a;
+  --soft-2: #31404f;
+
+  --panel: #354656;
+  --panel-foreground: #eff3f5;
+  --panel-raised: #556a80;
+  --panel-muted: #e5e8ea;
+
+  --chart-1: #1da1f2;
+  --chart-2: #aab8c2;
+  --chart-3: #8a9095;
+  --chart-4: #3ac787;
+  --chart-5: #f2b94b;
+
+  --sidebar: #1e2730;
+  --sidebar-foreground: #eff3f5;
+  --sidebar-primary: #e6ecf0;
+  --sidebar-primary-foreground: #13191f;
+  --sidebar-accent: #153a52;
+  --sidebar-accent-foreground: #61bdf6;
+  --sidebar-border: #2b3846;
+  --sidebar-ring: #1da1f2;
+
+  --gradient-brand-strong: #61bdf6, #1da1f2, #198ad0;
+  --gradient-brand-text: #77c7f7, #1da1f2, #198ad0;
+
+  --event-1: #185d88;
+  --event-1-foreground: #c6e8fc;
+  --event-1-ink: #61bdf6;
+  --event-2: #443a73;
+  --event-2-foreground: #e4dcff;
+  --event-2-ink: #c4b5fd;
+  --event-3: #1f4a38;
+  --event-3-foreground: #c9f1dc;
+  --event-3-ink: #6ee7b7;
+  --event-4: #101820;
+  --event-4-foreground: #eff3f5;
+  --event-4-ink: #adb2b5;
+  --event-5: #22407a;
+  --event-5-foreground: #d3e2ff;
+  --event-5-ink: #93c5fd;
+  --event-6: #5a4515;
+  --event-6-foreground: #fbe8b4;
+  --event-6-ink: #fcd34d;
+}
+
+:is(:root[data-theme="twitter"][data-portal="freelancing"], :root[data-theme="twitter"] [data-portal="freelancing"]) {
+  --ring: #89959d;
+  --accent: #d9dfe4;
+  --accent-foreground: #5a6369;
+
+  --brand: #aab8c2;
+  --brand-foreground: #14171a;
+  --brand-soft: #d9dfe4;
+  --brand-ink: #5a6369;
+
+  --chart-1: #aab8c2;
+  --chart-2: #15202b;
+  --chart-3: #1da1f2;
+  --chart-4: #17a05e;
+  --chart-5: #e8a21a;
+
+  --sidebar-accent: #d9dfe4;
+  --sidebar-accent-foreground: #5a6369;
+  --sidebar-ring: #89959d;
+
+  --gradient-brand: #d4dce0, #aab8c2, #8c98a0;
+  --gradient-brand-strong: #c4cdd4, #aab8c2, #95a1aa;
+  --gradient-brand-text: #677076, #535b61, #41474c;
+
+  --event-1: #aab8c2;
+  --event-1-foreground: #14171a;
+  --event-1-ink: #5a6369;
+}
+
+:is(:root[data-theme="twitter"].dark[data-portal="freelancing"], :root[data-theme="twitter"].dark [data-portal="freelancing"]) {
+  --ring: #aab8c2;
+  --accent: #373f46;
+  --accent-foreground: #c4cdd4;
+
+  --brand: #aab8c2;
+  --brand-foreground: #13191f;
+  --brand-soft: #373f46;
+  --brand-ink: #c4cdd4;
+
+  --chart-1: #aab8c2;
+  --chart-2: #1da1f2;
+  --chart-3: #8a9095;
+  --chart-4: #3ac787;
+  --chart-5: #f2b94b;
+
+  --sidebar-accent: #373f46;
+  --sidebar-accent-foreground: #c4cdd4;
+  --sidebar-ring: #aab8c2;
+
+  --gradient-brand-strong: #c4cdd4, #aab8c2, #929ea7;
+  --gradient-brand-text: #ccd4da, #aab8c2, #929ea7;
+
+  --event-1: #5e6870;
+  --event-1-foreground: #eaedf0;
+  --event-1-ink: #c4cdd4;
+}

@@ -15,7 +15,7 @@ from app.models.resume import BaseResume, TailoredResume
 from app.models.user import User, UserSettings
 from app.services.generation import enqueue, job_description_hash
 from app.worker.runner import run_once
-from tests.test_pipeline import ANALYSIS_JSON, FLAGS_JSON, LEDGER_JSON, StubProvider
+from tests.test_pipeline import CRITERIA_JSON, FLAGS_JSON, LEDGER_JSON, StubProvider
 
 
 class StreamingStub(StubProvider):
@@ -183,7 +183,7 @@ async def test_upgrading_a_tailored_resume_rescores_it_in_place(
     user_id, monkeypatch, aran_markdown
 ) -> None:
     tailored_id, _ = await queue_tailoring(user_id, aran_markdown, strategy="existing", in_place=True)
-    use_provider(monkeypatch, StreamingStub([ANALYSIS_JSON, aran_markdown]))
+    use_provider(monkeypatch, StreamingStub([CRITERIA_JSON, aran_markdown]))
 
     assert await run_once() is True
 
@@ -200,7 +200,7 @@ async def test_re_tailoring_the_same_posting_replaces_the_row(
     """One non-draft row per (base, posting) is a unique index; a second run
     used to die on it after the whole generation was paid for."""
     tailored_id, _ = await queue_tailoring(user_id, aran_markdown, strategy="existing", in_place=False)
-    use_provider(monkeypatch, StreamingStub([ANALYSIS_JSON, aran_markdown]))
+    use_provider(monkeypatch, StreamingStub([CRITERIA_JSON, aran_markdown]))
 
     assert await run_once() is True
 
@@ -220,17 +220,23 @@ async def test_a_full_upgrade_rebuilds_from_the_job_description(
     user_id, monkeypatch, aran_markdown
 ) -> None:
     tailored_id, _ = await queue_tailoring(user_id, aran_markdown, strategy="full", in_place=True)
-    provider = StreamingStub([LEDGER_JSON, aran_markdown, FLAGS_JSON])
+    provider = StreamingStub([CRITERIA_JSON, LEDGER_JSON, aran_markdown, FLAGS_JSON])
     use_provider(monkeypatch, provider)
 
     assert await run_once() is True
 
-    scenario = provider.requests[0].messages[0]["content"]
+    criteria, scenario_call = provider.requests[:2]
+    assert JD in criteria.messages[0]["content"]
+    scenario = scenario_call.messages[0]["content"]
     assert "FULL UPGRADE" in scenario
-    assert JD in scenario
+    # The scenario is built from the posting's criteria, not the posting.
+    assert JD not in scenario
+    assert "JOB_CRITERIA" in scenario
     assert "Aran Thammasiri" in scenario  # the existing resume is the profile
 
     [row] = await tailored_rows(user_id)
     assert row.id == tailored_id
     assert row.must_have_total == 2
     assert row.flags and row.flags["must_verify"], "a full upgrade writes interview prep"
+    # Saved with the ledger, so the resume shows what it was built from.
+    assert row.ledger["criteria"]["core_stack"] == ["FastAPI", "React"]

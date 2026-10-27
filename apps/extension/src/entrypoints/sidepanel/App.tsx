@@ -1,4 +1,4 @@
-import { Briefcase, CalendarDays, Settings2, Sparkles, Wrench } from "lucide-react";
+import { Briefcase, CalendarDays, Settings2, Wrench } from "lucide-react";
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -8,13 +8,12 @@ import { api, getSettings } from "@/lib/api";
 import { DEFAULT_PORTAL_URL, NEXT_CALL_KEY, ROUTE_KEY } from "@/lib/constants";
 import { ApplyTab } from "./tabs/Apply";
 import { CalendarTab } from "./tabs/Calendar";
-import { GenerateTab } from "./tabs/Generate";
 import { MaintainTab } from "./tabs/Maintain";
 import { SettingsTab } from "./tabs/Settings";
 import { PanelFooter, PanelHeader, type Connection } from "./chrome-shell";
 import { NextCall, type Upcoming } from "./components";
 
-type Route = "apply" | "generate" | "calendar" | "maintain" | "settings";
+type Route = "apply" | "calendar" | "maintain" | "settings";
 
 const TABS: {
   key: Route;
@@ -22,7 +21,6 @@ const TABS: {
   Icon: ComponentType<{ className?: string }>;
 }[] = [
   { key: "apply", label: "Apply", Icon: Briefcase },
-  { key: "generate", label: "Generate", Icon: Sparkles },
   { key: "calendar", label: "Calendar", Icon: CalendarDays },
   { key: "maintain", label: "Jobs", Icon: Wrench },
   { key: "settings", label: "Settings", Icon: Settings2 },
@@ -65,7 +63,8 @@ export function App() {
     // is restored from session storage rather than kept in memory.
     void chrome.storage.session.get(ROUTE_KEY).then((s) => {
       const stored = (s as Record<string, string | undefined>)[ROUTE_KEY];
-      if (stored) setRoute(stored as Route);
+      // A route that no longer exists (the old Generate tab) falls back to Apply.
+      if (stored && TABS.some((t) => t.key === stored)) setRoute(stored as Route);
     });
     void check().finally(() => setReady(true));
     void chrome.storage.local
@@ -143,13 +142,10 @@ export function App() {
               ) : (
                 <>
                   <TabsContent value="apply" className="flex flex-col gap-3">
-                    <ApplyTab portalUrl={portalUrl} />
-                  </TabsContent>
-                  <TabsContent value="generate">
-                    <GenerateTab />
+                    <ApplyTab portalUrl={portalUrl} onOpenSettings={() => go("settings")} />
                   </TabsContent>
                   <TabsContent value="calendar">
-                    <CalendarTab />
+                    <CalendarTab portalUrl={portalUrl} />
                   </TabsContent>
                   <TabsContent value="maintain" className="flex flex-col gap-3">
                     <MaintainTab />

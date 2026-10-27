@@ -100,10 +100,7 @@ class AnthropicAdapter:
         if self.caps.get("effort"):
             output_config["effort"] = req.effort
         if req.output_schema is not None:
-            output_config["format"] = {
-                "type": "json_schema",
-                "schema": _anthropic_schema(req.output_schema),
-            }
+            output_config["format"] = {"type": "json_schema", "schema": req.output_schema}
         if output_config:
             kwargs["output_config"] = output_config
 
@@ -158,23 +155,39 @@ class AnthropicAdapter:
         kwargs = self._kwargs(req)
         started = time.perf_counter()
         client = self._client.with_options(timeout=req.timeout_s)
-        try:
-            async with client.messages.stream(**kwargs) as stream:
-                async for event in stream:
-                    if event.type == "content_block_delta":
-                        if event.delta.type == "text_delta":
-                            yield LLMEvent("text_delta", {"text": event.delta.text})
-                        elif event.delta.type == "thinking_delta":
-                            yield LLMEvent("thinking", {"text": event.delta.thinking})
-                    elif event.type == "content_block_start":
-                        block = event.content_block
-                        if block.type == "tool_use":
-                            yield LLMEvent("tool_started", {"name": block.name})
-                message = await stream.get_final_message()
-        except anthropic.APIError as exc:
-            raise _translate(exc) from exc
+        totals = Usage()
+
+        # Resumed after a pause exactly as complete() is: the worker streams
+        # every turn, so without this a search that hit its iteration limit
+        # ended the turn half way through its research.
+        for _ in range(MAX_PAUSE_RESUMES + 1):
+            try:
+                async with client.messages.stream(**kwargs) as stream:
+                    async for event in stream:
+                        if event.type == "content_block_delta":
+                            if event.delta.type == "text_delta":
+                                yield LLMEvent("text_delta", {"text": event.delta.text})
+                            elif event.delta.type == "thinking_delta":
+                                yield LLMEvent("thinking", {"text": event.delta.thinking})
+                        elif event.type == "content_block_start":
+                            block = event.content_block
+                            if block.type == "tool_use":
+                                yield LLMEvent("tool_started", {"name": block.name})
+                    message = await stream.get_final_message()
+            except anthropic.APIError as exc:
+                raise _translate(exc) from exc
+
+            _accumulate(totals, message)
+            if message.stop_reason != "pause_turn":
+                break
+            kwargs["messages"] = [
+                *kwargs["messages"],
+                {"role": "assistant", "content": message.content},
+            ]
 
         response = self._to_response(message, int((time.perf_counter() - started) * 1000))
+        response.usage = totals
+        response.cost_usd_micros = cost_micros(self.spec, totals.as_dict())
         yield LLMEvent("usage", response.usage.as_dict() | {"cost_usd_micros": response.cost_usd_micros})
         yield LLMEvent("done", {"text": response.text, "stop_reason": response.stop_reason})
 
@@ -259,37 +272,6 @@ def _accumulate(totals: Usage, message: Any) -> None:
         written_5m = getattr(usage, "cache_creation_input_tokens", 0) or 0
     totals.cache_write_5m_tokens += written_5m
     totals.cache_write_1h_tokens += written_1h
-
-
-def _anthropic_schema(model: type[Any]) -> dict[str, Any]:
-    """JSON Schema accepted by ``output_config.format``.
-
-    Constraints that are silently stripped rather than honoured - ``minItems``,
-    ``minLength``, ``maximum`` - are removed here so nothing downstream mistakes
-    a schema for enforcement. The real enforcement is the validation registry.
-    """
-    return _strip_unsupported(model.model_json_schema())
-
-
-_UNSUPPORTED_KEYS = {
-    "minItems", "maxItems", "minLength", "maxLength", "minimum", "maximum",
-    "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "pattern", "format",
-    "default", "examples",
-}
-
-
-def _strip_unsupported(node: Any) -> Any:
-    if isinstance(node, dict):
-        out = {k: _strip_unsupported(v) for k, v in node.items() if k not in _UNSUPPORTED_KEYS}
-        if out.get("type") == "object":
-            out.setdefault("additionalProperties", False)
-            # Strict mode requires every property to be listed in `required`.
-            if "properties" in out:
-                out["required"] = list(out["properties"].keys())
-        return out
-    if isinstance(node, list):
-        return [_strip_unsupported(v) for v in node]
-    return node
 
 
 def _translate(exc: anthropic.APIError) -> LLMError:

@@ -1,0 +1,215 @@
+/*
+ * Blush: eggshell and blue slate, with powder blush and icy aqua
+ *
+ * Source colours:
+ * Powder Blush #ffa69e, Eggshell #faf3dd, Icy Aqua #b8f2e6, Light Blue
+ * #aed9e0, Blue Slate #5e6472.
+ * The text, ink and dark-mode surfaces are derived from them so every text
+ * pair clears WCAG AA.
+ * Remote's accent is Powder Blush; Freelancing's is Icy Aqua.
+ *
+ * Selected by data-theme="blush" on <html> (see lib/palettes.ts). How the
+ * four blocks outrank the defaults, and why the portal blocks must set every
+ * accent token, is explained in prussian.css.
+ */
+
+:root[data-theme="blush"] {
+  --shadow-ink: 39 43 54;
+  --background: #faf3dd;
+  --foreground: #272b36;
+  --card: #ffffff;
+  --card-foreground: #272b36;
+  --popover: #ffffff;
+  --popover-foreground: #272b36;
+  --primary: #5e6472;
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff;
+  --secondary-foreground: #272b36;
+  --muted: #fdfaf0;
+  --muted-foreground: #6d6f76;
+  --subtle: #9ea0a5;
+  --accent: #ffd7d3;
+  --accent-foreground: #7b5b5f;
+  --border: #e7e1ce;
+  --input: #fcf9ee;
+  --ring: #cf8b87;
+
+  --brand: #ffa69e;
+  --brand-foreground: #272b36;
+  --brand-soft: #ffd7d3;
+  --brand-ink: #7b5b5f;
+
+  --soft: #fdfaf1;
+  --soft-2: #ebe5d1;
+
+  --panel: #5e6472;
+  --panel-foreground: #ffffff;
+  --panel-raised: #6e7480;
+  --panel-muted: #fafafb;
+
+  --chart-1: #ffa69e;
+  --chart-2: #5e6472;
+  --chart-3: #b8f2e6;
+  --chart-4: #17a05e;
+  --chart-5: #e8a21a;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #272b36;
+  --sidebar-primary: #5e6472;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ffd7d3;
+  --sidebar-accent-foreground: #7b5b5f;
+  --sidebar-border: #e7e1ce;
+  --sidebar-ring: #cf8b87;
+
+  --gradient-brand: #ffd2ce, #ffa69e, #d48d89;
+  --gradient-brand-strong: #ffc1bb, #ffa69e, #e1958f;
+  --gradient-brand-text: #9e6f6f, #825f62, #685055;
+
+  --event-1: #ffa69e;
+  --event-1-foreground: #272b36;
+  --event-1-ink: #7b5b5f;
+  --event-2: #e7e0ff;
+  --event-2-foreground: #3b2790;
+  --event-2-ink: #5a3fc4;
+  --event-3: #d4f2e3;
+  --event-3-foreground: #0b5f37;
+  --event-3-ink: #0c7a43;
+  --event-4: #e5dfcc;
+  --event-4-foreground: #272b36;
+  --event-4-ink: #5d6068;
+  --event-5: #dfeaff;
+  --event-5-foreground: #1d4fb3;
+  --event-5-ink: #1d4fb3;
+  --event-6: #fbefcf;
+  --event-6-foreground: #6f4700;
+  --event-6-ink: #8a5a00;
+}
+
+:root[data-theme="blush"].dark {
+  --background: #181a1e;
+  --foreground: #fcf7e9;
+  --card: #26282e;
+  --card-foreground: #fcf7e9;
+  --popover: #26282e;
+  --popover-foreground: #fcf7e9;
+  --primary: #faf3dd;
+  --primary-foreground: #181a1e;
+  --secondary: #31343b;
+  --secondary-foreground: #fcf7e9;
+  --muted: #31343b;
+  --muted-foreground: #a5a39c;
+  --subtle: #787773;
+  --accent: #4f3c3d;
+  --accent-foreground: #ffc1bb;
+  --border: #373a42;
+  --input: #31343b;
+  --ring: #ffa69e;
+
+  --brand: #ffa69e;
+  --brand-foreground: #181a1e;
+  --brand-soft: #4f3c3d;
+  --brand-ink: #ffc1bb;
+
+  --soft: #2d3037;
+  --soft-2: #3e424b;
+
+  --panel: #444852;
+  --panel-foreground: #fcf7e9;
+  --panel-raised: #686d7a;
+  --panel-muted: #eff0f0;
+
+  --chart-1: #ffa69e;
+  --chart-2: #b8f2e6;
+  --chart-3: #aeb2b8;
+  --chart-4: #3ac787;
+  --chart-5: #f2b94b;
+
+  --sidebar: #26282e;
+  --sidebar-foreground: #fcf7e9;
+  --sidebar-primary: #faf3dd;
+  --sidebar-primary-foreground: #181a1e;
+  --sidebar-accent: #4f3c3d;
+  --sidebar-accent-foreground: #ffc1bb;
+  --sidebar-border: #373a42;
+  --sidebar-ring: #ffa69e;
+
+  --gradient-brand-strong: #ffc1bb, #ffa69e, #db8f88;
+  --gradient-brand-text: #ffcac5, #ffa69e, #db8f88;
+
+  --event-1: #8c605e;
+  --event-1-foreground: #ffe9e7;
+  --event-1-ink: #ffc1bb;
+  --event-2: #443a73;
+  --event-2-foreground: #e4dcff;
+  --event-2-ink: #c4b5fd;
+  --event-3: #1f4a38;
+  --event-3-foreground: #c9f1dc;
+  --event-3-ink: #6ee7b7;
+  --event-4: #464b56;
+  --event-4-foreground: #fcf7e9;
+  --event-4-ink: #bebbb3;
+  --event-5: #22407a;
+  --event-5-foreground: #d3e2ff;
+  --event-5-ink: #93c5fd;
+  --event-6: #5a4515;
+  --event-6-foreground: #fbe8b4;
+  --event-6-ink: #fcd34d;
+}
+
+:is(:root[data-theme="blush"][data-portal="freelancing"], :root[data-theme="blush"] [data-portal="freelancing"]) {
+  --ring: #98c6bf;
+  --accent: #dff9f4;
+  --accent-foreground: #5c7275;
+
+  --brand: #b8f2e6;
+  --brand-foreground: #272b36;
+  --brand-soft: #dff9f4;
+  --brand-ink: #5c7275;
+
+  --chart-1: #b8f2e6;
+  --chart-2: #5e6472;
+  --chart-3: #ffa69e;
+  --chart-4: #17a05e;
+  --chart-5: #e8a21a;
+
+  --sidebar-accent: #dff9f4;
+  --sidebar-accent-foreground: #5c7275;
+  --sidebar-ring: #98c6bf;
+
+  --gradient-brand: #dcf8f2, #b8f2e6, #9bcac3;
+  --gradient-brand-strong: #cdf6ee, #b8f2e6, #a4d6cd;
+  --gradient-brand-text: #779897, #647f80, #52676b;
+
+  --event-1: #b8f2e6;
+  --event-1-foreground: #272b36;
+  --event-1-ink: #5c7275;
+}
+
+:is(:root[data-theme="blush"].dark[data-portal="freelancing"], :root[data-theme="blush"].dark [data-portal="freelancing"]) {
+  --ring: #b8f2e6;
+  --accent: #3e4e4e;
+  --accent-foreground: #cdf6ee;
+
+  --brand: #b8f2e6;
+  --brand-foreground: #181a1e;
+  --brand-soft: #3e4e4e;
+  --brand-ink: #cdf6ee;
+
+  --chart-1: #b8f2e6;
+  --chart-2: #ffa69e;
+  --chart-3: #aeb2b8;
+  --chart-4: #3ac787;
+  --chart-5: #f2b94b;
+
+  --sidebar-accent: #3e4e4e;
+  --sidebar-accent-foreground: #cdf6ee;
+  --sidebar-ring: #b8f2e6;
+
+  --gradient-brand-strong: #cdf6ee, #b8f2e6, #9ed0c6;
+  --gradient-brand-text: #d4f7f0, #b8f2e6, #9ed0c6;
+
+  --event-1: #688682;
+  --event-1-foreground: #edfcf9;
+  --event-1-ink: #cdf6ee;
+}

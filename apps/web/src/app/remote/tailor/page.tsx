@@ -2,10 +2,6 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
-  ArrowRight,
-  ArrowUpRight,
-  Briefcase,
-  Check,
   ClipboardPaste,
   FilePenLine,
   FilePlus2,
@@ -19,16 +15,17 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 
 import { ErrorAlert } from "@/components/error-alert";
 import { FormField } from "@/components/form-field";
 import { GenerationProgress } from "@/components/remote/generation-progress";
 import { PageHero } from "@/components/page-hero";
-import { TipsPanel } from "@/components/remote/tailor/side-panels";
+import { Panel, PanelHead } from "@/components/panel";
 import { ResultPanel } from "@/components/remote/tailor/result-panel";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
 import { FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,9 +38,9 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Tile } from "@/components/tile";
 import { useGeneration } from "@/hooks/use-generation";
 import { request } from "@/lib/api";
+import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /** The API's own bounds, so the counter cannot promise something it will reject. */
@@ -58,6 +55,15 @@ interface ResumeOption {
   id: string;
   display_name: string;
   target_title: string;
+}
+
+interface RecentTailored {
+  id: string;
+  display_name: string;
+  company_name: string | null;
+  job_title: string | null;
+  must_have_coverage_percent: number | null;
+  created_at: string;
 }
 
 interface ApplicationPrefill {
@@ -79,7 +85,7 @@ export default function TailorPage() {
 
 function TailorForm() {
   const [mode, setMode] = useState<Mode>("job");
-  const { state, start, reset } = useGeneration();
+  const { state, start, stop, reset } = useGeneration();
 
   const { data: resumes, isLoading: resumesLoading } = useQuery({
     queryKey: ["resumes", ""],
@@ -87,8 +93,9 @@ function TailorForm() {
   });
 
   const { data: tailored } = useQuery({
-    queryKey: ["tailored-resumes", "count"],
-    queryFn: () => request<{ total: number }>("/api/v1/remote/tailored-resumes?limit=1"),
+    queryKey: ["tailored-resumes", "recent"],
+    queryFn: () =>
+      request<{ items: RecentTailored[]; total: number }>("/api/v1/remote/tailored-resumes?limit=12"),
   });
 
   const [baseId, setBaseId] = useState("");
@@ -164,12 +171,12 @@ function TailorForm() {
       : undefined;
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-3">
       <PageHero
         title="Tailor"
         stats={stats}
         actions={
-          <Button asChild variant="secondary" size="lg">
+          <Button asChild variant="outline">
             <Link href="/remote/resumes/new">
               <FilePlus2 />
               New resume
@@ -178,36 +185,28 @@ function TailorForm() {
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">
-        <div className="min-w-0 space-y-6">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start">
+        <div className="min-w-0 space-y-3">
           {application && (
-            <Card
-              tone="accent"
-              className="flex-row flex-wrap items-center gap-4 rounded-[1.75rem] py-[18px] pr-5 pl-6"
-            >
-              <Tile icon={Briefcase} tone="ink" />
-              <div className="min-w-[14rem] flex-1">
-                <p className="text-base font-bold">
-                  Tailoring for {application.company_name} · {application.role_title}
-                </p>
-                <p className="text-brand-foreground/65 mt-0.5 text-[0.84rem] font-medium">
-                  The result is linked to that application.
-                  {!application.job_description_text?.trim() &&
-                    " No job description is saved with it — paste one below."}
-                </p>
-              </div>
-              <Button asChild variant="secondary" size="sm" className="shadow-none">
-                <Link href={`/remote/applications/${application.id}`}>
-                  Back to the application
-                  <ArrowUpRight />
-                </Link>
+            <Panel className="flex flex-wrap items-center gap-2 px-3 py-1.5">
+              <span className="min-w-0 flex-1 truncate text-[13px]">
+                Tailoring for{" "}
+                <span className="font-semibold">
+                  {application.company_name} · {application.role_title}
+                </span>
+                {!application.job_description_text?.trim() && (
+                  <span className="text-muted-foreground"> · no job description saved, paste one below</span>
+                )}
+              </span>
+              <Button asChild variant="outline" size="xs">
+                <Link href={`/remote/applications/${application.id}`}>Back to the application</Link>
               </Button>
-            </Card>
+            </Panel>
           )}
 
-          <Card className="gap-0 rounded-[2.25rem] p-5 md:p-[30px]">
+          <Panel className="p-3">
             <form onSubmit={submit}>
-              <FieldGroup className="gap-6">
+              <FieldGroup className="gap-3">
                 <BaseResumePicker
                   value={baseId}
                   onChange={setBaseId}
@@ -215,34 +214,26 @@ function TailorForm() {
                   loading={resumesLoading}
                 />
 
-                <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="gap-6">
-                  <TabsList className="bg-soft h-[3.375rem] w-full p-[5px] shadow-none">
-                    <TabsTrigger
-                      value="job"
-                      className="gap-2.5 text-[0.9375rem] data-active:[&_svg]:text-brand"
-                    >
-                      <ClipboardPaste className="hidden size-[18px] sm:block" />
-                      <span className="sm:hidden">Job description</span>
-                      <span className="hidden sm:inline">Paste job description</span>
+                <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="gap-3">
+                  <TabsList>
+                    <TabsTrigger value="job" className="gap-1.5">
+                      <ClipboardPaste />
+                      Paste job description
                     </TabsTrigger>
-                    <TabsTrigger
-                      value="instruction"
-                      className="gap-2.5 text-[0.9375rem] data-active:[&_svg]:text-brand"
-                    >
-                      <FilePenLine className="hidden size-[18px] sm:block" />
-                      <span className="sm:hidden">Instruction</span>
-                      <span className="hidden sm:inline">Edit by instruction</span>
+                    <TabsTrigger value="instruction" className="gap-1.5">
+                      <FilePenLine />
+                      Edit by instruction
                     </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="job">
-                    <FieldGroup className="gap-6">
+                    <FieldGroup className="gap-3">
                       <StrategyPicker value={strategy} onChange={setStrategy} />
 
                       <JobDescriptionInput value={jobDescription} onChange={setJobDescription} />
 
-                      <div className="grid gap-3.5 sm:grid-cols-3">
-                        <FormField label={<FieldLabelText small>Company</FieldLabelText>}>
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        <FormField label="Company">
                           {(control) => (
                             <Input
                               {...control}
@@ -252,7 +243,7 @@ function TailorForm() {
                             />
                           )}
                         </FormField>
-                        <FormField label={<FieldLabelText small>Role title</FieldLabelText>}>
+                        <FormField label="Role title">
                           {(control) => (
                             <Input
                               {...control}
@@ -262,7 +253,7 @@ function TailorForm() {
                             />
                           )}
                         </FormField>
-                        <FormField label={<FieldLabelText small>Job URL</FieldLabelText>}>
+                        <FormField label="Job URL">
                           {(control) => (
                             <Input
                               {...control}
@@ -278,10 +269,7 @@ function TailorForm() {
                   </TabsContent>
 
                   <TabsContent value="instruction">
-                    <FormField
-                      label="What should change?"
-                      hint="Only what you ask for changes; everything else stays identical. This saves back as a base resume."
-                    >
+                    <FormField label="What should change?">
                       {(control) => (
                         <>
                           <Textarea
@@ -290,7 +278,7 @@ function TailorForm() {
                             maxLength={INSTRUCTION_MAX}
                             value={instructions}
                             onChange={(e) => setInstructions(e.target.value)}
-                            className="field-sizing-fixed min-h-44 rounded-[22px] px-[22px] py-5"
+                            className="field-sizing-fixed min-h-40"
                             placeholder="Lead with the RAG work. Cut the KBTG role to two bullets. Retitle for a platform role."
                           />
                           <Counter value={instructions.length} max={INSTRUCTION_MAX} />
@@ -300,13 +288,7 @@ function TailorForm() {
                   </TabsContent>
                 </Tabs>
 
-                <Button
-                  type="submit"
-                  variant="brand"
-                  size="lg"
-                  className="h-[3.75rem] w-full text-[1.0313rem]"
-                  disabled={!canSubmit}
-                >
+                <Button type="submit" variant="brand" className="w-full" disabled={!canSubmit}>
                   {state.running ? (
                     <>
                       <Spinner />
@@ -320,39 +302,79 @@ function TailorForm() {
                         : strategy === "full"
                           ? "Build a new resume for this job"
                           : "Generate tailored resume"}
-                      <ArrowRight data-icon="inline-end" />
                     </>
                   )}
                 </Button>
-
-                {!baseId && !resumesLoading && options.length > 0 && (
-                  <p className="text-subtle -mt-2 text-center text-xs">
-                    Choose a base resume to continue.
-                  </p>
-                )}
               </FieldGroup>
             </form>
-          </Card>
+          </Panel>
+        </div>
 
+        <div className="min-w-0 space-y-3">
           {state.error && (
             <ErrorAlert title="We couldn’t generate your tailored resume.">
               <span className="block">{state.error}</span>
-              <Button variant="outline" size="sm" className="mt-3" onClick={reset}>
+              <Button variant="outline" size="sm" className="mt-2" onClick={reset}>
                 Try again
               </Button>
             </ErrorAlert>
           )}
 
-          {state.running && <GenerationProgress state={state} />}
+          {state.running && <GenerationProgress state={state} onStop={stop} />}
+
+          {!state.running && !state.error && state.resultId ? (
+            <ResultPanel state={state} />
+          ) : (
+            !state.running && <RecentTailoredList rows={tailored?.items ?? []} total={tailored?.total ?? 0} />
+          )}
         </div>
-
-        <aside className="lg:sticky lg:top-24">
-          <TipsPanel />
-        </aside>
       </div>
-
-      {!state.running && !state.error && state.resultId && <ResultPanel state={state} />}
     </div>
+  );
+}
+
+/** What was tailored last, so the next one can start from the same place. */
+function RecentTailoredList({ rows, total }: { rows: RecentTailored[]; total: number }) {
+  return (
+    <Panel>
+      <PanelHead title="Recently tailored" count={total}>
+        <Button asChild variant="ghost" size="xs">
+          <Link href="/remote/resumes">View all</Link>
+        </Button>
+      </PanelHead>
+      {!rows.length ? (
+        <p className="text-muted-foreground px-3 py-3 text-xs">Nothing tailored yet.</p>
+      ) : (
+        <ul className="divide-y">
+          {rows.map((t) => (
+            <li key={t.id}>
+              <Link
+                href={`/remote/resumes/tailored/${t.id}`}
+                className="hover:bg-muted/50 flex items-center gap-2 px-3 py-1.5"
+              >
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="font-medium">{t.job_title ?? t.display_name}</span>
+                  {t.company_name && (
+                    <span className="text-muted-foreground text-xs"> · {t.company_name}</span>
+                  )}
+                </span>
+                {t.must_have_coverage_percent != null && (
+                  <Badge variant="secondary" className="tabular-nums">
+                    {Math.round(t.must_have_coverage_percent)}%
+                  </Badge>
+                )}
+                <time
+                  dateTime={t.created_at}
+                  className="text-subtle w-12 shrink-0 text-right text-xs tabular-nums"
+                >
+                  {formatDateTime(t.created_at, "d MMM")}
+                </time>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
   );
 }
 
@@ -384,59 +406,21 @@ function StrategyPicker({
   onChange: (next: Strategy) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label="How to tailor" className="grid gap-3.5 sm:grid-cols-2">
-      {STRATEGIES.map(({ value: option, title, body, icon }) => {
-        const selected = value === option;
-        return (
-          <button
-            key={option}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => onChange(option)}
-            className={cn(
-              "focus-visible:ring-ring/40 relative flex items-start gap-3.5 rounded-3xl px-5 py-[18px] text-left outline-none transition-colors focus-visible:ring-3",
-              selected ? "bg-accent ring-primary ring-2 ring-inset" : "bg-soft hover:bg-soft-2",
-            )}
-          >
-            <Tile icon={icon} tone={selected ? "brand" : "soft"} />
-            <span className="min-w-0">
-              <span className="block pr-8 text-base font-bold">{title}</span>
-              <span className="text-muted-foreground mt-[3px] block text-[0.8125rem] leading-normal font-medium">
-                {body}
-              </span>
-            </span>
-            <span
-              aria-hidden
-              className={cn(
-                "absolute top-[18px] right-[18px] grid size-[22px] place-items-center rounded-full",
-                selected
-                  ? "bg-primary text-brand"
-                  : "bg-card shadow-[inset_0_0_0_1.8px_color-mix(in_oklab,var(--foreground)_22%,transparent)]",
-              )}
-            >
-              {selected && <Check className="size-3 stroke-[3]" />}
-            </span>
-          </button>
-        );
-      })}
+    <div role="radiogroup" aria-label="How to tailor" className="flex flex-wrap gap-1.5">
+      {STRATEGIES.map(({ value: option, title, body, icon: Icon }) => (
+        <Chip
+          key={option}
+          role="radio"
+          aria-checked={value === option}
+          active={value === option}
+          title={body}
+          onClick={() => onChange(option)}
+        >
+          <Icon />
+          {title}
+        </Chip>
+      ))}
     </div>
-  );
-}
-
-function FieldLabelText({ small, children }: { small?: boolean; children: ReactNode }) {
-  return (
-    <span className={cn("font-bold", small ? "text-[0.8125rem]" : "text-[0.9375rem]")}>
-      {children}
-    </span>
-  );
-}
-
-function Hint({ id, children }: { id: string; children: ReactNode }) {
-  return (
-    <p id={id} className="text-muted-foreground -mt-1 text-[0.8125rem] leading-snug font-medium">
-      {children}
-    </p>
   );
 }
 
@@ -445,7 +429,7 @@ function Counter({ value, max }: { value: number; max: number }) {
   return (
     <p
       className={cn(
-        "text-right text-[0.8125rem] font-semibold tabular-nums",
+        "text-right text-xs tabular-nums",
         near ? "text-warning" : "text-muted-foreground",
       )}
     >
@@ -467,10 +451,9 @@ function BaseResumePicker({
 }) {
   if (!loading && !options.length) {
     return (
-      <div className="bg-accent flex flex-wrap items-center gap-3 rounded-3xl p-4">
-        <Tile icon={FileText} tone="brand" size="sm" />
-        <p className="text-accent-foreground min-w-0 flex-1 text-sm font-medium">
-          You need a base resume first — tailoring reframes one you already have.
+      <div className="bg-accent flex flex-wrap items-center gap-2 rounded-md px-3 py-2">
+        <p className="text-accent-foreground min-w-0 flex-1 text-[13px]">
+          You need a base resume first: tailoring reframes one you already have.
         </p>
         <Button asChild size="sm">
           <Link href="/remote/resumes/new">
@@ -483,42 +466,32 @@ function BaseResumePicker({
   }
 
   return (
-    <FormField label={<FieldLabelText>Base resume</FieldLabelText>}>
+    <FormField label="Base resume">
       {(control) => (
-        <>
-          <Hint id={`${control.id}-hint`}>
-            Employers, titles and dates are carried across unchanged — this reframes, it does not
-            invent.
-          </Hint>
-          <div className="flex items-center gap-2.5">
-            <Select value={value} onValueChange={onChange} disabled={loading}>
-              <SelectTrigger
-                {...control}
-                aria-describedby={`${control.id}-hint`}
-                className="h-[3.25rem] min-w-0 flex-1 pl-4"
-              >
-                <FileText className="text-accent-foreground size-[18px]" />
-                <SelectValue
-                  className="flex-1 text-left"
-                  placeholder={loading ? "Loading…" : "Choose a resume…"}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {options.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.display_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button asChild variant="outline" size="lg" className="h-[3.25rem]">
-              <Link href="/remote/resumes/new">
-                <Plus />
-                New
-              </Link>
-            </Button>
-          </div>
-        </>
+        <div className="flex items-center gap-1.5">
+          <Select value={value} onValueChange={onChange} disabled={loading}>
+            <SelectTrigger {...control} className="min-w-0 flex-1 text-left">
+              <FileText className="text-muted-foreground size-3.5" />
+              <SelectValue
+                className="flex-1 text-left"
+                placeholder={loading ? "Loading…" : "Choose a resume…"}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((r) => (
+                <SelectItem key={r.id} value={r.id}>
+                  {r.display_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button asChild variant="outline">
+            <Link href="/remote/resumes/new">
+              <Plus />
+              New
+            </Link>
+          </Button>
+        </div>
       )}
     </FormField>
   );
@@ -559,13 +532,9 @@ function JobDescriptionInput({
   }
 
   return (
-    <FormField label={<FieldLabelText>Job description</FieldLabelText>}>
+    <FormField label="Job description">
       {(control) => (
-        <div className="space-y-3">
-          <Hint id={`${control.id}-hint`}>
-            Include the role, company, key responsibilities, required skills, and any other relevant
-            details.
-          </Hint>
+        <div className="space-y-2">
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -578,19 +547,18 @@ function JobDescriptionInput({
               void accept(e.dataTransfer.files[0]);
             }}
             className={cn(
-              "relative rounded-[22px] transition-colors",
+              "relative rounded-md transition-colors",
               dragging && "ring-primary bg-accent/60 ring-2",
             )}
           >
             <Textarea
               {...control}
-              aria-describedby={`${control.id}-hint`}
               required
               rows={12}
               maxLength={JD_MAX}
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              className="field-sizing-fixed min-h-80 resize-y rounded-[22px] px-[22px] py-5 leading-relaxed lg:h-[25.5rem]"
+              className="field-sizing-fixed min-h-64 resize-y lg:h-80"
               placeholder="Paste the job description here…"
             />
             {dragging && (
@@ -646,7 +614,7 @@ function JobDescriptionInput({
           {fileError && <p className="text-destructive text-xs">{fileError}</p>}
           {value.length > 0 && value.trim().length < JD_MIN && (
             <p className="text-warning text-xs">
-              At least {JD_MIN} characters — paste the whole posting for a useful result.
+              At least {JD_MIN} characters. Paste the whole posting.
             </p>
           )}
         </div>

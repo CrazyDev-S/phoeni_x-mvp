@@ -11,6 +11,7 @@ import { api, getSettings, saveSettings } from "@/lib/api";
 import { DEFAULT_API_BASE, DEFAULT_PORTAL_URL } from "@/lib/constants";
 import { Section } from "../chrome-shell";
 import { ErrorNote, PanelField } from "../components";
+import { ResumeProfileSection } from "./settings/ResumeProfile";
 
 export function SettingsTab({ onSaved }: { onSaved: () => void }) {
   const [apiBase, setApiBase] = useState(DEFAULT_API_BASE);
@@ -100,6 +101,9 @@ export function SettingsTab({ onSaved }: { onSaved: () => void }) {
           </CardContent>
         </Card>
       </Section>
+
+      {/* Remounted once connected, so a fresh token loads the profile. */}
+      <ResumeProfileSection key={status ?? "unconnected"} />
 
       <Section title="Getting a token">
         <Card className="py-3">

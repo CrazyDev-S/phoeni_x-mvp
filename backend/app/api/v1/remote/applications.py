@@ -20,21 +20,24 @@ from app.models.application import (
 from app.models.calendar import Meeting
 from app.models.enums import ApplicationStatus, MeetingStatus, StageStatus
 from app.models.resume import BaseResume, TailoredResume
-from app.remote.services.links import link_resume, suggest_resume
+from app.remote.orchestration import ats_report
+from app.remote.services.links import link_application_posting, link_resume, suggest_resume
 from app.schemas.common import Page
+from app.schemas.extension import ResumeRef
 from app.schemas.tracking import (
     ApplicationCreate,
     ApplicationDetail,
     ApplicationPatch,
     ApplicationRow,
     NextStepSuggestion,
+    ResumeBrief,
+    ResumeOption,
     StageCreate,
     StageOut,
     StagePatch,
     StageUpdated,
-    TailoredResumeBrief,
-    TailoredResumeOption,
 )
+from app.services.generation import job_description_hash
 from app.shared.calendar.tracking import load_stage_meetings, stage_out
 
 router = APIRouter(tags=["applications"])
@@ -64,18 +67,36 @@ async def _owned(session: Session, user: CurrentUser, app_id: uuid.UUID) -> JobA
     return row
 
 
-async def _require_tailored(
-    session: Session, user: CurrentUser, resume_id: uuid.UUID
-) -> None:
+async def _require_resume(session: Session, user: CurrentUser, ref: ResumeRef) -> None:
+    model = TailoredResume if ref.kind == "tailored" else BaseResume
     owns = await session.scalar(
-        select(TailoredResume.id).where(
-            TailoredResume.id == resume_id, TailoredResume.user_id == user.id
-        )
+        select(model.id).where(model.id == ref.id, model.user_id == user.id)
     )
     if owns is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Tailored resume not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tailored resume not found" if ref.kind == "tailored" else "Resume not found",
         )
+
+
+def _resume_ref(body: ApplicationCreate | ApplicationPatch) -> ResumeRef | None:
+    """The resume a request names, in either spelling."""
+    if body.resume is not None:
+        return body.resume
+    if body.tailored_resume_id:
+        return ResumeRef(kind="tailored", id=body.tailored_resume_id)
+    return None
+
+
+async def _link(session: Session, row: JobApplication, ref: ResumeRef | None) -> None:
+    """Link an application's resume, and give its posting in the side panel the same one."""
+    if ref is None:
+        await link_resume(session, row)
+    elif ref.kind == "tailored":
+        await link_resume(session, row, tailored_id=ref.id)
+    else:
+        await link_resume(session, row, base_id=ref.id)
+    await link_application_posting(session, row)
 
 
 async def _detail(session: Session, row: JobApplication) -> ApplicationDetail:
@@ -83,7 +104,17 @@ async def _detail(session: Session, row: JobApplication) -> ApplicationDetail:
     stages = sorted(row.stages, key=lambda s: s.seq)
     meetings = await load_stage_meetings(session, (s.id for s in stages))
 
-    brief = None
+    return ApplicationDetail(
+        **ApplicationDetail.model_validate(row).model_dump(
+            exclude={"stages", "resume", "suggested_resume"}
+        ),
+        stages=[stage_out(s, meetings[s.id]) for s in stages],
+        resume=await _brief(session, row),
+        suggested_resume=await _suggestion(session, row),
+    )
+
+
+async def _brief(session: Session, row: JobApplication) -> ResumeBrief | None:
     if row.tailored_resume_id:
         found = (
             await session.execute(
@@ -92,47 +123,95 @@ async def _detail(session: Session, row: JobApplication) -> ApplicationDetail:
                 .where(TailoredResume.id == row.tailored_resume_id)
             )
         ).first()
-        if found:
-            resume, base_name = found
-            brief = TailoredResumeBrief(
-                id=resume.id,
-                display_name=resume.display_name,
-                base_resume_id=resume.base_resume_id,
-                base_resume_name=base_name,
-                status=resume.status.value,
-                job_url=resume.job_url,
-                job_source=resume.job_source,
-                must_have_covered=resume.must_have_covered,
-                must_have_total=resume.must_have_total,
-                must_have_coverage_percent=_float(resume.must_have_coverage_percent),
-                nice_to_have_coverage_percent=_float(resume.nice_to_have_coverage_percent),
-                years_required=resume.years_required,
-                years_shown=_float(resume.years_shown),
-                content_markdown=resume.content_markdown,
-                flags=resume.flags,
-                created_at=resume.created_at,
-            )
+        if found is None:
+            return None
+        resume, base_name = found
+        return ResumeBrief(
+            kind="tailored",
+            id=resume.id,
+            display_name=resume.display_name,
+            base_resume_id=resume.base_resume_id,
+            base_resume_name=base_name,
+            status=resume.status.value,
+            job_url=resume.job_url,
+            job_source=resume.job_source,
+            must_have_covered=resume.must_have_covered,
+            must_have_total=resume.must_have_total,
+            must_have_coverage_percent=_float(resume.must_have_coverage_percent),
+            nice_to_have_coverage_percent=_float(resume.nice_to_have_coverage_percent),
+            years_required=resume.years_required,
+            years_shown=_float(resume.years_shown),
+            content_markdown=resume.content_markdown,
+            flags=resume.flags,
+            created_at=resume.created_at,
+            updated_at=resume.updated_at,
+        )
 
-    return ApplicationDetail(
-        **ApplicationDetail.model_validate(row).model_dump(
-            exclude={"stages", "tailored_resume", "suggested_tailored_resume"}
-        ),
-        stages=[stage_out(s, meetings[s.id]) for s in stages],
-        tailored_resume=brief,
-        suggested_tailored_resume=await _suggestion(session, row),
+    if not row.base_resume_id:
+        return None
+    base = await session.get(BaseResume, row.base_resume_id)
+    if base is None:
+        return None
+    # Its report and gaps describe the description it was last generated or
+    # tailored against. Shown for another job, they would be about the wrong one.
+    scored = bool(
+        base.ats_report
+        and (base.job_description_text or "").strip()
+        and (row.job_description_text or "").strip()
+        and job_description_hash(base.job_description_text)
+        == job_description_hash(row.job_description_text)
+    )
+    figures = ats_report.coverage_columns(base.ats_report) if scored and base.ats_report else {}
+    flags = base.flags
+    if flags and not scored:
+        flags = {k: v for k, v in flags.items() if k != "uncovered_requirements"}
+    shared_with = await session.scalar(
+        select(func.count()).where(
+            JobApplication.base_resume_id == base.id, JobApplication.id != row.id
+        )
+    )
+    return ResumeBrief(
+        kind="base",
+        id=base.id,
+        display_name=base.display_name,
+        base_resume_id=base.id,
+        status=base.status.value,
+        must_have_covered=figures.get("must_have_covered"),
+        must_have_total=figures.get("must_have_total"),
+        must_have_coverage_percent=_float(figures.get("must_have_coverage_percent")),
+        nice_to_have_coverage_percent=_float(figures.get("nice_to_have_coverage_percent")),
+        years_required=figures.get("years_required"),
+        years_shown=_float(figures.get("years_shown")),
+        content_markdown=base.content_markdown,
+        flags=flags,
+        shared_with=shared_with or 0,
+        created_at=base.created_at,
+        updated_at=base.updated_at,
     )
 
 
-async def _suggestion(session: Session, row: JobApplication) -> TailoredResumeOption | None:
+async def _suggestion(session: Session, row: JobApplication) -> ResumeOption | None:
     found = await suggest_resume(session, row)
     if found is None:
         return None
-    return TailoredResumeOption(
-        id=found.id,
-        display_name=found.display_name,
-        base_resume_id=found.base_resume_id,
-        must_have_coverage_percent=_float(found.must_have_coverage_percent),
-        created_at=found.created_at,
+    resume, reason = found
+    if isinstance(resume, TailoredResume):
+        return ResumeOption(
+            kind="tailored",
+            id=resume.id,
+            display_name=resume.display_name,
+            base_resume_id=resume.base_resume_id,
+            must_have_coverage_percent=_float(resume.must_have_coverage_percent),
+            reason=reason,
+            created_at=resume.created_at,
+        )
+    return ResumeOption(
+        kind="base",
+        id=resume.id,
+        display_name=resume.display_name,
+        base_resume_id=resume.id,
+        reason=reason,
+        created_at=resume.created_at,
     )
 
 
@@ -147,19 +226,20 @@ async def create_application(
     body: ApplicationCreate, user: CurrentUser, session: Session
 ) -> ApplicationDetail:
     """Create an application and seed its pipeline from a stage template."""
-    if body.tailored_resume_id:
-        await _require_tailored(session, user, body.tailored_resume_id)
+    ref = _resume_ref(body)
+    if ref:
+        await _require_resume(session, user, ref)
 
     row = JobApplication(
         user_id=user.id,
-        **body.model_dump(exclude={"stage_template_id"}),
+        **body.model_dump(exclude={"stage_template_id", "resume", "tailored_resume_id"}),
     )
     if row.status is not ApplicationStatus.SAVED and row.applied_at is None:
         row.applied_at = utc_now()
     session.add(row)
     await session.flush()
-    if row.tailored_resume_id:
-        await link_resume(session, row, row.tailored_resume_id)
+    if ref:
+        await _link(session, row, ref)
 
     template = await session.scalar(
         select(StageTemplate)
@@ -277,16 +357,21 @@ async def update_application(
 ) -> ApplicationDetail:
     row = await _owned(session, user, application_id)
     data = body.model_dump(exclude_unset=True)
-    if data.get("tailored_resume_id"):
-        await _require_tailored(session, user, data["tailored_resume_id"])
+    relink = "resume" in data or "tailored_resume_id" in data
+    ref = _resume_ref(body)
+    if ref:
+        await _require_resume(session, user, ref)
+    data.pop("resume", None)
+    data.pop("tailored_resume_id", None)
     for field in ("company_name", "role_title", "status"):
         # These columns are NOT NULL; an explicit null means "leave it".
         if field in data and data[field] is None:
             del data[field]
-    if "tailored_resume_id" in data:
-        await link_resume(session, row, data.pop("tailored_resume_id"))
     for field, value in data.items():
         setattr(row, field, value)
+    if relink:
+        # After the other fields, so a changed job link is the posting updated.
+        await _link(session, row, ref)
     if "status" in data and row.status is not ApplicationStatus.SAVED and row.applied_at is None:
         row.applied_at = utc_now()
     await session.flush()

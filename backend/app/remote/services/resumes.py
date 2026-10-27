@@ -6,10 +6,11 @@ import re
 import uuid
 
 from fastapi import HTTPException, status
-from pydantic import ValidationError
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.llm.schemas import ScenarioLedger
+from app.core.timezone import utc_now
+from app.llm.schemas import SCENARIO_LEDGER, shape
 from app.models.enums import ResumeSource, ResumeStatus
 from app.models.resume import CURRENT_MARKDOWN_VERSION, BaseResume, TailoredResume
 from app.remote.orchestration import ats_report
@@ -54,14 +55,11 @@ def rescore_tailored(row: TailoredResume, resume: Resume) -> list[Finding]:
     describing the version before it, and deleting a must-have keyword went
     unnoticed.
     """
-    try:
-        ledger = ScenarioLedger.model_validate(row.ledger) if row.ledger else None
-    except ValidationError:
-        ledger = None
+    ledger = shape(SCENARIO_LEDGER, row.ledger) if row.ledger else None
     findings = validate(
         Context(
             resume=resume,
-            claimed_years=(ledger.total_years if ledger and ledger.total_years else None)
+            claimed_years=(ledger["total_years"] if ledger and ledger["total_years"] else None)
             or claimed_years(resume),
             jd_keywords={"must": ats_report.must_keywords(ledger)},
         )
@@ -94,10 +92,11 @@ async def create_base_resume(
     source: ResumeSource,
     stack_label: str | None = None,
     stack_tags: list[str] | None = None,
+    imported: bool = False,
     **extra,
 ) -> tuple[BaseResume, list[Finding]]:
     ast = parse_or_422(content_markdown)
-    findings = run_validation(ast)
+    findings = run_validation(ast, imported=imported)
 
     row = BaseResume(
         user_id=user_id,
@@ -120,3 +119,27 @@ async def create_base_resume(
     session.add(row)
     await session.flush()
     return row, findings
+
+
+async def free_display_name(session, user_id, wanted: str) -> str:
+    """Find a name no existing resume is using.
+
+    Display names are unique per user, and regenerating for the same target
+    title produces the same auto-generated name every time. Without this, a
+    re-run fails on the unique index at the very last step - after the whole
+    generation has been paid for.
+    """
+    taken = set(
+        await session.scalars(
+            select(func.lower(BaseResume.display_name)).where(
+                BaseResume.user_id == user_id, BaseResume.is_archived.is_(False)
+            )
+        )
+    )
+    if wanted.lower() not in taken:
+        return wanted
+    for suffix in range(2, 100):
+        candidate = f"{wanted} ({suffix})"
+        if candidate.lower() not in taken:
+            return candidate
+    return f"{wanted} ({utc_now():%Y-%m-%d %H:%M:%S})"

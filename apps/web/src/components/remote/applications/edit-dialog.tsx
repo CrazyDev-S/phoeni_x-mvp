@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -105,7 +104,7 @@ function EditForm({
 
   return (
     <form
-      className="space-y-5"
+      className="space-y-3"
       onSubmit={(event) => {
         event.preventDefault();
         if (invalid) return;
@@ -125,11 +124,10 @@ function EditForm({
     >
       <DialogHeader>
         <DialogTitle>Edit details</DialogTitle>
-        <DialogDescription>The company and the job, as you know them now.</DialogDescription>
       </DialogHeader>
 
-      <FieldGroup className="gap-4">
-        <div className="grid gap-3 sm:grid-cols-2">
+      <FieldGroup className="gap-3">
+        <div className="grid gap-2 sm:grid-cols-2">
           <FormField label="Company">
             {(control) => (
               <Input {...control} value={form.company_name} onChange={set("company_name")} />
@@ -187,7 +185,7 @@ function EditForm({
           </FormField>
         </div>
 
-        <div className="grid grid-cols-[1fr_1fr_6rem] gap-3">
+        <div className="grid grid-cols-[1fr_1fr_6rem] gap-2">
           <FormField label="Salary from">
             {(control) => (
               <Input
@@ -235,7 +233,7 @@ function EditForm({
         </FormField>
       </FieldGroup>
 
-      {error && <p className="text-destructive text-sm">{error.message}</p>}
+      {error && <p className="text-destructive text-xs">{error.message}</p>}
 
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>

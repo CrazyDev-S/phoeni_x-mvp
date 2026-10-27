@@ -44,10 +44,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (!ready) {
     return (
-      <div className="mx-auto w-full max-w-[1560px] space-y-5 p-6" aria-busy>
-        <Skeleton className="h-[68px] w-full rounded-full" />
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-72 w-full" />
+      <div className="flex min-h-svh" aria-busy>
+        <Skeleton className="hidden w-[200px] rounded-none md:block" />
+        <div className="flex-1 space-y-3">
+          <Skeleton className="h-11 w-full rounded-none" />
+          <div className="space-y-3 p-4">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-72 w-full" />
+          </div>
+        </div>
       </div>
     );
   }

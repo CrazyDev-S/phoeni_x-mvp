@@ -30,7 +30,7 @@ import { formatDay } from "@/lib/format";
 import { humanize, meetingStatus } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
 
-const MARGIN = 12;
+const MARGIN = 8;
 // A scheduled meeting reads blue here, as in every calendar; the brand pill is for actions.
 const STATUS_VARIANT = {
   brand: "info",
@@ -39,7 +39,7 @@ const STATUS_VARIANT = {
   bad: "destructive",
   neutral: "secondary",
 } as const;
-const WIDTH = 352;
+const WIDTH = 300;
 
 /**
  * The quick look, anchored to whichever block was clicked.
@@ -117,7 +117,7 @@ export function EventPopover({
         role="dialog"
         aria-label={meeting.title}
         className={cn(
-          "bg-popover text-popover-foreground fixed z-50 max-h-[85vh] overflow-y-auto rounded-[28px] p-5 shadow-[0_40px_80px_-24px_rgb(10_10_20/0.45),0_0_0_1px_rgb(0_0_0/0.05)]",
+          "bg-popover text-popover-foreground fixed z-50 max-h-[85vh] overflow-y-auto rounded-lg border p-3 shadow-lg",
           !position && "invisible",
         )}
         style={{
@@ -127,15 +127,15 @@ export function EventPopover({
           left: position?.left ?? 0,
         }}
       >
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-2">
           <span
-            className="mt-1.5 size-3.5 shrink-0 rounded-[5px]"
+            className="mt-1 size-3 shrink-0 rounded-[3px]"
             style={{ backgroundColor: color.fill }}
           />
           <div className="min-w-0 flex-1">
             <p
               className={cn(
-                "text-xl leading-tight font-semibold tracking-tight break-words",
+                "text-sm leading-tight font-semibold break-words",
                 meeting.status === "cancelled" && "line-through",
               )}
             >
@@ -144,30 +144,28 @@ export function EventPopover({
           </div>
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="icon-xs"
             aria-label="Edit"
             onClick={onEdit}
-            className="bg-foreground/6 -mt-1 size-9 shrink-0 rounded-full"
           >
             <Pencil />
           </Button>
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="icon-xs"
             aria-label="Close"
             onClick={onClose}
-            className="bg-foreground/6 -mt-1 -ml-1 size-9 shrink-0 rounded-full"
           >
             <X />
           </Button>
         </div>
 
-        <p className="text-muted-foreground mt-1 ml-[26px] text-[0.84rem] font-medium tabular-nums">
+        <p className="text-muted-foreground mt-0.5 ml-5 text-xs tabular-nums">
           {dayLabel(day, "EEEE d MMMM")} · {spanLabel(start, start + duration)}{" "}
           {zoneAbbreviation(day)}
         </p>
 
-        <div className="mt-3 mb-3.5 flex flex-wrap items-center gap-1.5">
+        <div className="my-2 flex flex-wrap items-center gap-1">
           <Badge variant={STATUS_VARIANT[status.tone]}>
             {status.label}
           </Badge>
@@ -180,10 +178,10 @@ export function EventPopover({
           {pending && <Spinner className="text-muted-foreground" />}
         </div>
 
-        <div className="space-y-2.5 text-sm">
+        <div className="space-y-1.5 text-[13px]">
           {meeting.company_name && (
-            <p className="flex items-start gap-2.5">
-              <Briefcase className="text-muted-foreground mt-0.5 size-[17px] shrink-0" />
+            <p className="flex items-start gap-2">
+              <Briefcase className="text-muted-foreground mt-0.5 size-3.5 shrink-0" />
               <span className="min-w-0">
                 <span className="font-semibold">{meeting.company_name}</span>
                 {meeting.role_title && (
@@ -192,7 +190,7 @@ export function EventPopover({
                 {meeting.application_id && (
                   <Link
                     href={`/remote/applications/${meeting.application_id}`}
-                    className="text-brand-ink mt-0.5 block text-[0.8rem] font-bold hover:underline"
+                    className="text-brand-ink block text-xs font-medium hover:underline"
                   >
                     Open application
                   </Link>
@@ -200,7 +198,7 @@ export function EventPopover({
                 {meeting.track_id && (
                   <Link
                     href={`/freelancing/tracking?open=${meeting.track_id}`}
-                    className="text-brand-ink mt-0.5 block text-[0.8rem] font-bold hover:underline"
+                    className="text-brand-ink block text-xs font-medium hover:underline"
                   >
                     Open the bid
                   </Link>
@@ -209,13 +207,13 @@ export function EventPopover({
             </p>
           )}
           {meeting.location && (
-            <p className="text-muted-foreground flex items-start gap-2.5">
-              <MapPin className="mt-0.5 size-[17px] shrink-0" />
+            <p className="text-muted-foreground flex items-start gap-2">
+              <MapPin className="mt-0.5 size-3.5 shrink-0" />
               <span className="min-w-0 break-words">{meeting.location}</span>
             </p>
           )}
           {meeting.conferencing_url && meeting.status === "scheduled" && (
-            <Button asChild className="mt-0.5 h-11 w-full">
+            <Button asChild className="w-full">
               <a href={meeting.conferencing_url} target="_blank" rel="noreferrer">
                 <Video className="text-brand" />
                 Join call
@@ -225,7 +223,7 @@ export function EventPopover({
         </div>
 
         {(meeting.agenda || meeting.preparation_notes || meeting.notes) && (
-          <div className="mt-3.5 space-y-2">
+          <div className="mt-2 space-y-1.5">
             {(
               [
                 ["Agenda", meeting.agenda],
@@ -235,11 +233,11 @@ export function EventPopover({
             ).map(
               ([label, text]) =>
                 text && (
-                  <div key={label} className="bg-soft rounded-2xl px-3.5 py-2.5">
-                    <p className="text-muted-foreground mb-1 text-[10.5px] font-bold tracking-[0.08em] uppercase">
+                  <div key={label} className="bg-soft rounded-md px-2.5 py-1.5">
+                    <p className="text-muted-foreground mb-0.5 text-[10px] font-semibold tracking-wide uppercase">
                       {label}
                     </p>
-                    <p className="line-clamp-5 text-[0.8rem] leading-normal whitespace-pre-wrap">
+                    <p className="line-clamp-5 text-xs leading-snug whitespace-pre-wrap">
                       {text}
                     </p>
                   </div>
@@ -248,7 +246,7 @@ export function EventPopover({
           </div>
         )}
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
           {meeting.status === "scheduled" ? (
             <>
               <Button
@@ -293,10 +291,10 @@ export function EventPopover({
             </Button>
           ) : (
             <Button
-              size="icon-sm"
+              size="icon-xs"
               variant="ghost"
               aria-label="Delete"
-              className="bg-foreground/6 text-muted-foreground hover:text-destructive ml-auto size-9 rounded-full"
+              className="text-muted-foreground hover:text-destructive ml-auto"
               onClick={() => setConfirmDelete(true)}
             >
               <Trash2 />

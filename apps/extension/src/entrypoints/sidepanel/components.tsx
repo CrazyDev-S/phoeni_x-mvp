@@ -33,14 +33,6 @@ export function formatDateTime(iso: string): string {
   });
 }
 
-export function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    timeZone: DISPLAY_TIME_ZONE,
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export function relative(minutes: number): string {
   if (minutes <= 0) return "now";
   if (minutes < 60) return `in ${minutes}m`;

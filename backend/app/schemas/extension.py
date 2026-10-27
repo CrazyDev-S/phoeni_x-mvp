@@ -40,6 +40,17 @@ class ExtensionTailorRequest(BaseModel):
     strategy: Literal["existing", "full"] = "existing"
 
 
+class ExtensionGenerateRequest(BaseModel):
+    target_title: str = Field(min_length=2, max_length=160)
+    # Given: generate from this job description. Not given: from the career story.
+    job_description: str | None = Field(default=None, min_length=40, max_length=60_000)
+    skill_count: int | None = Field(default=None, ge=4, le=40)
+    extra_instructions: str | None = Field(default=None, max_length=8000)
+    # The tab it was generated for: the new resume becomes its posting's resume.
+    job_url: str | None = Field(default=None, max_length=4000)
+    job: ScrapedJob | None = None
+
+
 class FormOption(BaseModel):
     label: str
     value: str = ""
@@ -155,6 +166,9 @@ class AutofillResponse(BaseModel):
 
 
 class SaveApplicationRequest(BaseModel):
+    # Either kind. Neither given: the resume the posting has in the panel.
+    resume: ResumeRef | None = None
+    # The older spelling of a tailored ``resume``.
     tailored_resume_id: uuid.UUID | None = None
     company_name: str = Field(min_length=1, max_length=160)
     role_title: str = Field(min_length=1, max_length=160)
@@ -184,6 +198,8 @@ class JobLinkOut(BaseModel):
     base_resume_id: uuid.UUID | None = None
     resume: LinkedResume | None = None
     generation: LinkGeneration | None = None
+    # The application tracking this posting, once it is saved as one.
+    application_id: uuid.UUID | None = None
 
 
 class JobLinkLookup(BaseModel):
@@ -198,6 +214,15 @@ class JobLinkIn(BaseModel):
     url: str = Field(min_length=1, max_length=4000)
     # None unlinks the posting's resume.
     resume: ResumeRef | None = None
+    job: ScrapedJob | None = None
+
+
+class JobLinkUpgrade(BaseModel):
+    """Tailor the posting's resume to it in place, rather than adding another."""
+
+    url: str = Field(min_length=1, max_length=4000)
+    resume: ResumeRef
+    strategy: Literal["existing", "full"] = "existing"
     job: ScrapedJob | None = None
 
 
