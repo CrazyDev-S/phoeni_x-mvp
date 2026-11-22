@@ -1,361 +1,171 @@
-# Freelancing: job sources, snapshots, tracking and proposals
+# Freelancing: the shared Upwork job list, tracking and proposals
 
-How the Freelancing category finds Upwork jobs, what it stores, and where the
-proposal generator plugs in. Job search goes through a pluggable source: by
-default the Apify actor `upwork-vibe/upwork-job-scraper`, optionally another
-Apify actor or Upwork's own API.
+How Upwork jobs reach the product, what it stores, and where the proposal
+generator plugs in. There is no job-search provider: the browser extension
+registers every Upwork posting its users see into **one list shared by
+everyone**, keyed by Upwork's own job id, and the job view reads that list.
 
-## Job sources
+## How a posting gets in
 
-Searches go to whichever `JobSource` is in service, chosen by
-`FREELANCING_JOB_SOURCE` (`app/freelancing/sources/registry.py`):
+The extension reads Upwork pages as people browse them, and only the
+job-browsing pages (search, the find-work feeds, saved jobs, a job's own
+page). Proposals, messages, contracts and account pages are never read. It
+reads what is on screen; the one thing it does to a page is refresh a list
+left open every 5 minutes (below), as the user would with F5.
 
-| Value | Source | Needs |
+| Piece | File | Does |
 |---|---|---|
-| `apify` (default) | an Apify actor that scrapes Upwork, `upwork-vibe~upwork-job-scraper` by default | an Apify API token |
-| `upwork` | Upwork's own GraphQL API | an Upwork API key and each user's OAuth sign-in |
+| Harvester | `apps/extension/src/lib/upwork.ts` | Finds each posting on the page and lifts it as it is shown |
+| Content script | `apps/extension/src/entrypoints/upwork.content.ts` | Runs on `www.upwork.com`, panel open or not; re-reads when the page changes, and refreshes a list left open every 5 min |
+| Background | `apps/extension/src/lib/upwork-capture.ts` | Posts captures to the API; keeps today's tally and what each tab holds |
+| Panel | `apps/extension/src/entrypoints/sidepanel/tabs/Upwork.tsx` | Collecting / paused, this page's postings, the next check, today's count, recent captures |
 
-`GET /api/v1/freelancing/source` says which one is in service, which filters
-it honours, and whether this user is ready to search (with the setup step if
-not). Settings -> Integrations shows the card for that source only. The
-service layer, the snapshots, focus, proposals, tracking and the calendar
-never speak a provider's own vocabulary; they see `SourcePage`s of snapshot
-dicts and a `SourceCapabilities` saying which `JobSearchParams` fields the
-provider honours. The search form renders only those controls, and the
-catalogue's `source` field says which provider answered.
+**Where a posting is.** A tile is the largest block around a job link that
+holds links to that one job and no other, which finds tiles in a search list,
+a feed and the "similar jobs" rail without knowing how any of them is built.
+On a job's own page (or a search's slide-over) the open posting is a
+**detail**, and every link to it is part of it, not a tile: Apply and Save,
+and on a search the paging and sorting links, which carry the open
+slide-over in their address. A link names a posting by its path alone - a
+freelancer profile's `?referrer` can carry a job's address. The client's
+past contracts (the block Upwork heads `data-test="work-history-title"`)
+are never tiles: they link to closed jobs and to freelancers, not to
+anything open for bids.
 
-Adding a provider is one file under `app/freelancing/sources/`:
+**What is sent.** Per posting: the job key, the link, the title, the
+description, the skill tokens, every element Upwork names with
+`data-test`/`data-qa`/`data-cy` (name -> visible text), and the block's
+visible text line by line. The extension knows nothing of Upwork's wording;
+the backend reads it (below). When Upwork changes its pages, the fix is a
+server change, and every stored capture can be re-read.
 
-1. A class with `key`, `label`, `capabilities`, and `search`, `detail`,
-   `categories`, `suggest_skills`. `search` returns snapshot dicts: the
-   `FreelanceJob` columns (`upwork_id` is the provider's own posting id,
-   `raw` the response as received) - see `normalize.snapshot_from_search_node`
-   for the full key set.
-2. Raise `app.freelancing.errors.JobSourceError` (with the HTTP status the
-   API should answer with) for anything that fails; the app maps it to
-   `{"detail": {"code", "message"}}`.
-3. `registry.register(YourSource, factory, readiness)` where
-   `factory(session, user_id)` builds an instance - from a deployment key in
-   `Settings`, or from a per-user credential - and `readiness` says whether
-   that user can search without calling the provider.
-4. A search that takes longer than a request should block returns
-   `SourcePage(pending=True, end_cursor=...)`; the portal shows progress and
-   asks again with the cursor until the page arrives.
+**When.** A `MutationObserver` settles for 1.2 s (4 s at most) after the page
+changes - a feed loading more, a search paging, a posting opening - then the
+page is read again and only postings whose content changed are sent. "Posted 3
+minutes ago" ticking over is not a change. A capture that was not saved
+(paused, signed out, offline) is sent again on the next read. Upwork tabs open
+when the extension installs get the content script injected.
 
-`tests/test_freelancing.py::test_a_third_party_source_plugs_in_without_an_upwork_connection`
-is the template: a fake source with three filters and no details runs the
-whole product without an Upwork key pair.
+**Refreshing a list left open.** A search or feed does not update itself, so
+a tab left on one is refreshed - reloaded, exactly as with F5 - every 5
+minutes (plus up to 30 s of jitter), and the page that comes back is read like
+any other, so new postings appear on screen and in the shared list together.
+Background tabs are read too, or a refresh nobody watches would be lost. A
+refresh never lands on someone using the tab: there is none while a posting is
+open over the list (a slide-over), and if the user clicked, typed or scrolled
+in the last minute it waits until a minute after they stopped. A tab that
+moves to another list waits a full interval; a job's own page is never
+refreshed (the client watch covers it). Paused, or with no token, nothing is
+refreshed. The page marks a refresh in `sessionStorage` before reloading, so
+the page that comes back reports its first read as the refresh's result. The
+panel counts down to the next refresh, says what the last one brought in, and
+its button refreshes a list (or reads any other page) on demand.
 
-## The Apify source
+`POST /api/v1/freelancing/jobs/capture` takes up to 100 captures
+(`CaptureIn`) and answers which postings it created and which it refreshed.
 
-Runs an Apify actor that scrapes Upwork, so no Upwork account or key is
-involved. Which actor is `APIFY_UPWORK_ACTOR_ID`; each supported actor has an
-input mapping, an `ActorProfile` in `app/freelancing/apify/`:
+## One row per posting
 
-| Actor | Profile | Status |
+`freelance_jobs.upwork_id` is the key every Upwork job URL carries
+(`~021858964253717283346`, or `~01` and hex for older postings), unique and
+lower-cased. Registering a batch (`services/jobs.register`) is race-free by
+construction:
+
+1. `INSERT ... ON CONFLICT (upwork_id) DO NOTHING` makes every posting exist
+   exactly once; what it returns is what this batch created.
+2. The rows are selected `FOR UPDATE`, in key order (so two batches never
+   deadlock), and each view captured is stored under `raw`.
+3. Every column is re-derived from all the views `raw` holds.
+
+So two people capturing the same posting at the same moment land on one row,
+and a later tile never blanks out what only the detail page showed.
+`captured_by_id` remembers who saw it first, `last_seen_at` when anyone last
+saw it, `detail_captured_at` when anyone last had its own page open.
+
+What one user thinks of a shared posting is theirs alone:
+`freelance_job_marks` holds their focus (the star, a timestamp so the
+focused list has an order) and hidden flag, one row per `(user, job)` while
+either is set. Tracks and proposals were per user already and point at the
+shared row. Nothing is pruned: the list is the team's.
+
+## Reading Upwork's wording
+
+`app/freelancing/capture.py` is the only place Upwork's vocabulary lives. A
+posting is seen as a **tile**, a **detail**, and - while its client is watched
+(see "Client watch and team alerts") - as the **store** Upwork renders the
+page from. The columns take the most precise view first; a tile shows least.
+
+Before reading terms, the detail's text is cut where the page starts on
+other postings ("Similar jobs", "Other open jobs by this client", "Client's
+recent history"), the description's own lines are removed (so "budget is
+$500" in the text is never the posting's budget), and lines about the viewer
+- "Available Connects: 140" - are never stored, because the row is shared.
+
+| Read | From | Into |
 |---|---|---|
-| [`upwork-vibe/upwork-job-scraper`](https://apify.com/upwork-vibe/upwork-job-scraper) | `vibe_scraper.py` | default |
-| [`neatrat/upwork-job-scraper`](https://apify.com/neatrat/upwork-job-scraper) | `neatrat_scraper.py` | alternative |
+| `Hourly: $40.00 - $70.00`, `$40.00 - $70.00 Hourly` | the earliest statement of pay | `job_type`, `hourly_min`, `hourly_max` |
+| `Est. budget: $300`, `$300.00 Fixed-price` | the same; a type label may precede its figure | `job_type`, `budget_amount` |
+| `Entry level` / `Intermediate` / `Expert` | | `experience_level` (`ENTRY_LEVEL`, ...) |
+| `1 to 3 months`, `Less than 30 hrs/week` | | `duration_label`, `workload` |
+| `Posted 2 hours ago` | the freshest reading, which is the most precise | `published_at` |
+| `Proposals: 10 to 15` | the tier's top, so "at most 15" never admits a busier posting | `total_applicants`; the wording in `raw.extras.proposals_label` |
+| `Only freelancers located in the U.S. may apply`, `U.S. only` | | `preferred_freelancer_location` |
+| `Payment method verified`, `4.95 of 23 reviews`, `$52K total spent`, `30 hires`, `80% hire rate`, `45 jobs posted`, `$35.00 /hr avg hourly rate paid`, `Member since ...`, the country line and the city before the local time | the client part of the page | `client` |
+| `You will be asked to answer the following questions...` and the list after it | | `raw.extras.screening_questions` |
+| `Send a proposal for: 16 Connects` | | `raw.extras.connects_required`, which the proposal template bids |
+| `Interviewing: 2`, `Invites sent: 5`, `Last viewed by client: 20 minutes ago` | | `raw.extras.activity` |
 
-The source (`sources/apify_upwork.py`) does what every actor needs - start a
-run, poll it, page through its dataset - and the profile says what to ask for
-and how to read the answer. An actor id with no profile is refused with
-`APIFY_ACTOR_UNSUPPORTED` naming the supported ones. Adding an actor is one
-profile module listed in `profiles.PROFILES`.
+The title comes from the tile's link when there is one (Upwork renders it);
+the description and skills from whichever view has more.
 
-### Configuration
+## Browsing the list
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `APIFY_TOKEN` | empty | Deployment-wide token; a user's own (Settings -> Integrations) wins |
-| `APIFY_UPWORK_ACTOR_ID` | `upwork-vibe~upwork-job-scraper` | The actor to run |
-| `APIFY_CLIENT_ACTIVITY_ADDON` | false | upwork-vibe: proposal counts, interviews, last client activity (billed per job) |
-| `APIFY_CLIENT_DETAILS_ADDON` | false | upwork-vibe: client company name and work history (billed per job) |
-| `APIFY_PAGES_PER_RUN` | 1 | Pages of results fetched per run |
-| `APIFY_WAIT_SECONDS` | 25 | How long one search request long-polls a run (Apify caps it at 60) |
-| `APIFY_RUN_TIMEOUT_SECONDS` | 300 | Apify stops a run that has not finished by then |
-| `APIFY_MAX_CHARGE_USD` | unset | Optional ceiling on one run's charge |
-| `APIFY_REUSE_MINUTES` | 30 | An identical search inside this window reuses its run |
+`POST /api/v1/freelancing/jobs/search` takes a `JobFilter` and answers a page
+of `JobCard`s from the database: instant, free, and the same for every user
+apart from their own marks. The portal asks as you type (250 ms debounce) and
+re-reads every minute, so postings teammates collect appear on their own.
 
-Tokens are sealed with the same AES-GCM envelope as LLM keys
-(`apify_connections`). `POST /api/v1/freelancing/apify/test` checks the token
-(`GET /v2/users/me`) and the actor (`GET /v2/acts/{actor}`), reports the
-actor's current price per job from its live pricing record, and starts nothing.
+**Refresh** goes one step further: every Upwork search or feed open in the
+user's browser is refreshed at once, the extension waits (30 s at most) for
+what each reloaded page brings in, then the list is read again and a toast
+says what came in (or why nothing could: no Upwork search open, collecting
+paused, extension not connected). The page reaches the
+extension through a relay the extension registers at runtime for the portal
+URL in its Settings (`portal-bridge.content.ts`, `lib/portal-bridge.ts`;
+both loopback names when it is local), so no other site can reach it and the
+page needs no extension id. They exchange window messages - `upwork:check`,
+answered `upwork:check:started` at once and `upwork:check:done` with the
+tally - and a portal without the extension just re-reads the list.
 
-### How a search runs
-
-A run takes tens of seconds, so the opaque cursor carries a small state
-machine:
-
-1. No cursor: start a run for the profile's first step
-   (`POST /v2/acts/{actor}/runs` with `waitForFinish`, `maxItems`, `timeout`)
-   and wait on it briefly.
-2. Still running: answer `pending: true` with a cursor naming the run. The
-   portal asks again at once; each ask long-polls
-   `GET /v2/actor-runs/{id}?waitForFinish=`.
-3. Finished: read our page from the run's dataset by offset
-   (`GET /v2/datasets/{id}/items?offset=&limit=`), with the total from
-   `X-Apify-Pagination-Total`.
-4. The dataset is used up but was full: the profile says where the next run
-   starts, and asking for it starts one more run. A dataset that was not full
-   means there is no more.
-
-Every run is billed per job returned, so "load more" never starts a run while
-the dataset has rows left, `maxItems` caps each run at the size it was asked
-for, and an identical search within `APIFY_REUSE_MINUTES` reuses its run (the
-reuse key is the search itself, so a date window computed from "now" still
-matches).
-
-A run that fails with nothing to show is `APIFY_RUN_FAILED` (502) with the
-actor's own message; a run that exits cleanly with a message and no jobs (an
-exhausted free quota, say) shows the message instead of "nothing matched". A
-rejected token is `APIFY_TOKEN_REJECTED` (409, never 401, which the portal
-reads as its own session ending) and marks the token invalid in Settings. Out
-of credit is `APIFY_OUT_OF_CREDIT` (402).
-
-## The upwork-vibe actor (default)
-
-The actor searches its own index of Upwork jobs - newest first, up to 10,000
-a run, with no cookies or proxies involved. Its field names live in
-`app/freelancing/apify/vibe_scraper.py`, taken from its published input schema
-and README (build 0.0.40, July 2026). Its category list is read live from the
-actor's default build, with a bundled copy as the fallback.
-
-### Cost
-
-About $0.0105 per job returned on Apify's free plan, less on paid tiers (from
-$0.0045), platform usage included and no minimum per run. A 20-job search
-costs about 21 cents on the free plan. The client-activity and client-details
-add-ons each add about $0.009 per job on the free plan, and are off by
-default. The Settings test shows the actor's current price.
-
-### Paging
-
-The actor takes a `limit` and a posted-date window, not a page number. A
-search's first run asks for `page_size` jobs (times `APIFY_PAGES_PER_RUN`),
-from `now - posted_within_hours` when that is set. The next run asks for the
-jobs posted before the oldest one already returned, one second earlier so it
-is not fetched and billed twice, keeping the same lower bound.
-
-### Input mapping
-
-The input is flat with dotted keys, money is sent as strings, and locations
-are `{"type", "value"}` objects.
-
-| This API | Actor input | Notes |
-|---|---|---|
-| `query`, `or_terms`, `exact_terms` | `includeKeywords.keywords`, matched in title, description and skills | the search box is split on commas; any keyword matches |
-| `exclude_terms` | `excludeKeywords.keywords`, matched everywhere | |
-| `category_ids`, `subcategory_ids` | `jobCategories` | names from the actor's enum; "All - X" is a whole group |
-| `workload` | `budget.hourlyWorkloads` | full time -> `MORE_THAN_30_HOURS`; part time and as needed -> `LESS_THAN_30_HOURS` |
-| `durations` | `budget.jobDurations` | week and month -> `UP_TO_ONE_MONTH`, quarter -> `UP_TO_THREE_MONTHS`, semester -> `UP_TO_SIX_MONTHS`, ongoing -> `MORE_THAN_SIX_MONTHS` |
-| `experience_level` | `vendor.experienceLevel` | `BEGINNER`, `INTERMEDIATE`, `EXPERT` |
-| `budget_min` / `budget_max` | `budget.fixedPrice.min` / `.max` | strings |
-| `hourly_rate_min` / `hourly_rate_max` | `budget.hourlyRate.min` / `.max` | strings |
-| `connects_min` / `connects_max` | `budget.connectsPrice.min` / `.max` | |
-| `client_min_hire_rate` | `budget.minClientHireRate` | percent |
-| `client_hires_min` / `client_hires_max` | `client.hireHistory` | the buckets `NONE`, `UP_TO` (1-10), `MORE_THAN` (11+) the range overlaps |
-| `verified_payment_only` | `client.paymentMethodVerified` | |
-| `phone_verified_only` | `client.phoneNumberVerified` | |
-| `client_locations` / `exclude_client_locations` | `client.includeLocations` / `client.excludeLocations` | country names or ISO codes, regions (Europe), subregions (Northern America); anything else is refused with `UNKNOWN_LOCATION` (422) before a run starts |
-| `client_timezone` | `client.timezones` | IANA name |
-| `client_min_rating` | `client.minFeedbackScore` | string |
-| `client_min_spent` / `client_max_spent` | `client.totalSpent.min` / `.max` | strings |
-| `english_level` | `vendor.englishProficiency` | |
-| `contractor_type` | `vendor.type` | `FREELANCER`, `AGENCY` |
-| `featured_only` | `vendor.includeFeatured` | |
-| `exclude_with_questions` | `vendor.excludeWithQuestions` | |
-| `open_to_country` | `vendor.includeLocations` + `vendor.includeWithoutCountryPreference` | postings open to the country or to anyone; also checked on this side |
-| `posted_within_hours` | `fromDate` | computed once, kept for every later page |
-| `page_size` | `limit` | times `APIFY_PAGES_PER_RUN` |
-
-Not offered, because the actor cannot express them: "all of these words",
-words in the title only, skills only, job type, proposal counts, occupations,
-enterprise clients, talent clouds, area, and any sort but newest first. The
-search form hides those controls for this actor.
-
-### Output mapping
-
-Each dataset item becomes a snapshot (`snapshot_from_item`): `uid` is the
-posting id; `budget.hourlyRate.min/max` or `budget.fixedBudget` gives the job
-type and money; `createdAt` is the published time; `skills`, `category` and
-`externalLink` (or the `ciphertext`) map across. The client block comes from
-`client.countryCode` (as a country name), `timezone`, `industry`,
-`paymentMethodVerified`, `phoneNumberVerified`, and `client.stats`
-(`totalSpent`, `totalHires`, `hireRate`, `avgRate`, `feedbackRate`,
-`feedbackCount`); `enterprise` is the enterprise flag; `companyName` arrives
-with the client-details add-on. `vendor.countryCodes` become the countries a
-posting is restricted to. `applicationCost` (connects to apply), `featured` and
-`customJobScore` show on the card, and the proposal template bids the real
-connects cost. Screening questions, the English level and contractor type
-asked for, and the add-on's activity figures (`totalApplicants` becomes the
-proposal count) go into `raw.extras`, where the job page reads them.
-
-## The neatrat actor
-
-Selected with `APIFY_UPWORK_ACTOR_ID=neatrat~upwork-job-scraper`. It reads
-Upwork's search pages with its own cookies, proxies and CAPTCHA handling, and
-pages by Upwork result page. Its field names live in
-`app/freelancing/apify/neatrat_scraper.py`, from its published input and
-dataset schemas (build 0.0.86, September 2026). It bills about $0.0035 per job
-on Apify's free plan with a minimum of ten jobs per run, plus platform usage;
-Apify's free plan allows it 10 runs and 100 results in total.
-
-#### Input mapping
-
-| This API | Actor input | Notes |
-|---|---|---|
-| `query`, `and_terms`, `exact_terms`, `or_terms` | `query` | terms appended in Upwork's boolean syntax: `a b "exact" (x OR y)` |
-| `title` | `customFilters: title includes` | |
-| `skills` | `customFilters: tags includes [...]` | any of them; skill names as Upwork shows them |
-| `exclude_terms` | `customFilters: title / description notIncludes [...]` | |
-| `job_type` | `jobType: ["hourly"\|"fixed"]` | |
-| `experience_level` | `experienceLevel: ["entry"\|"intermediate"\|"expert"]` | |
-| `budget_min` / `budget_max` | `fixedPriceRange: [min, max]` | open ends become 0 and 1,000,000 |
-| `hourly_rate_min` / `hourly_rate_max` | `hourlyRateRange: [min, max]` | open ends become 0 and 1,000 |
-| `client_hires_min` / `client_hires_max` | `clientHistory` | the buckets `noHires`, `1to9Hires`, `10+Hires` the range overlaps |
-| `verified_payment_only` | `paymentVerified: true` | |
-| `client_locations` | `location` | regions, subregions or countries, spelled as Upwork does |
-| `posted_within_hours` | `maxJobAge: {value, unit: "hours"}` | only this source offers it |
-| `sort` | `sort` | `recency` -> `newest`, `relevance` -> `relevance` |
-| `page_size` | `perPage` | rounded up to Upwork's 10 / 20 / 50 |
-
-Not offered, because the actor cannot apply them: categories, occupations,
-ontology skill ids, workload, duration, proposal counts, enterprise and talent
-clouds, timezone, area. The search form hides those controls for this source.
-
-`open_to_country` works with every source and is applied on this side: it
-drops postings whose `allowedApplicantCountries` excludes the country.
-
-#### Output mapping
-
-Each dataset item becomes a snapshot (`snapshot_from_item`): `id` is the
-posting id, `budget` ("$25.00 - $50.00", "$1,500.00") is parsed into the
-hourly range or the fixed amount by `jobType`, `absoluteDate` is the published
-time, `tags` are the skills, `proposals` the applicant count, and the client
-figures (`clientLocation`, `paymentVerified` - which can be "unknown" -
-`clientTotalSpent`, `clientRating`, `clientHireRatePercent`,
-`clientAvgHourlyRate`) fill the client block. `clientName` is kept only when
-`clientNameConfidence` is at least 0.6; the proposal template greets the
-client by it. Screening questions (`questions`) and `hasHired` go into
-`raw.extras`, so the job page and the proposal engine read them the same way
-they read Upwork's own aggregate. There is no separate detail fetch: the
-dataset item is already the whole posting.
-
-## The Upwork API source
-
-Used when `FREELANCING_JOB_SOURCE=upwork`. Upwork's field names live in
-`app/freelancing/upwork/`, from its GraphQL schema reference as of August 2026.
-
-### Authentication
-
-| Item | Value |
+| Filter | Meaning |
 |---|---|
-| Authorize | `GET https://www.upwork.com/ab/account-security/oauth2/authorize` |
-| Token | `POST https://www.upwork.com/api/v3/oauth2/token` (form-encoded) |
-| GraphQL | `POST https://api.upwork.com/graphql` |
-| Grant | authorization code (client credentials is enterprise-only) |
-| Access token | 24 hours |
-| Refresh token | expires after two weeks unused; every refresh returns a new one |
-| Organisation | `X-Upwork-API-TenantId: <organizationId>`, from `companySelector` |
+| `query` | every word, in the title, description or skills |
+| `skills` | any of these skills, case-blind |
+| `exclude_terms` | none of these words in the title or description |
+| `job_type`, `experience_level` | |
+| `hourly_rate_min` | hourly postings paying at least this; fixed-price ones are left alone |
+| `budget_min` / `budget_max` | fixed-price budget; hourly ones are left alone |
+| `posted_within_hours` | by Upwork's posting time, or when it was added if that was not shown |
+| `verified_payment_only`, `client_min_spent`, `client_min_rating` | |
+| `client_locations` / `exclude_client_locations` | country names or ISO codes |
+| `proposals_max` | at most this many proposals so far |
+| `open_to_country` | drops postings that only accept applicants from elsewhere |
+| `hide_hidden` | the user's hidden postings stay out (default on) |
+| `sort` | `recency` (newest posted) or `captured` (newest added) |
 
-The round trip lives in `app/api/v1/freelancing/upwork.py`. `POST /authorize`
-returns the Upwork sign-in URL with a signed `state` (a 15-minute JWT naming
-the user, `typ = upwork_oauth`); the browser goes there and comes back to
-`GET /callback`, which is the one unauthenticated endpoint in the category.
-The callback exchanges the code, seals both tokens with the same AES-GCM
-envelope as LLM keys, fetches who the token belongs to, and redirects the
-browser to `PORTAL_URL/settings?tab=integrations&upwork=connected|error`.
+`GET /api/v1/freelancing/jobs?focused=true` is the user's focused list.
+Saved searches store a `JobFilter` by name, create-or-replace.
 
-`services/connection.py` refreshes a token five minutes before it expires. A
-refresh Upwork refuses marks the connection **expired** in its own
-transaction, because the request that discovered it is about to fail and
-would roll the status back with it.
+## Upgrading a database from the job-source era
 
-Credentials come from the user's row in `upwork_connections` first and the
-environment (`UPWORK_CLIENT_ID` / `UPWORK_CLIENT_SECRET`) second.
-
-#### Scopes the key needs
-
-Scopes are chosen when the key is created on upwork.com; a missing one comes
-back as HTTP 200 with an `errors` entry mentioning "oauth2 permissions", which
-the client turns into `UPWORK_MISSING_SCOPE` (403).
-
-- Common Entities - Read-Only Access (always required)
-- Read marketplace Job Postings (`marketplaceJobPostingsSearch`, `marketplaceJobPosting`)
-- Ontology - Read-Only Access (`ontologyCategories`, skill autocomplete)
-
-Upwork approves keys for accounts in good standing with a verified identity
-and payment method and at least $25,000 lifetime earnings or spend; a
-freelancer also needs a job success score of 90% or better.
-
-#### Limits
-
-300 requests a minute per IP address (a 429 with `Retry-After` is mapped to
-`UPWORK_RATE_LIMITED`, 429, and the header is forwarded). A key is granted for
-40,000 requests a day. Upwork's terms allow caching a posting for **24 hours**;
-see "Snapshots" below.
-
-### Search
-
-`POST /api/v1/freelancing/jobs/search` takes `JobSearchParams`; the Upwork
-source sends one `marketplaceJobPostingsSearch` query (`queries.JOB_SEARCH`).
-The mapping in `filters.to_search_filter` is:
-
-| This API | Upwork filter field | Notes |
-|---|---|---|
-| `query` | `searchExpression_eq` | Lucene-style; makes `searchTerm_eq` ignored |
-| `and_terms` / `or_terms` / `exact_terms` / `exclude_terms` | `searchTerm_eq.{andTerms_all, orTerms_any, exactTerms_any, excludeTerms_any}` | only sent when `query` is empty |
-| `title` | `titleExpression_eq` | |
-| `skills` | `skillExpression_eq` | comma-joined slugs, OR |
-| `category_ids` / `subcategory_ids` / `occupation_ids` | `categoryIds_any` / `subcategoryIds_any` / `occupationIds_any` | ids from `ontologyCategories` |
-| `ontology_skill_ids` | `ontologySkillIds_all` | AND |
-| `job_type` | `jobType_eq` | `HOURLY`, `FIXED` |
-| `workload` | `workload_eq` | `FULL_TIME`, `PART_TIME`, `AS_NEEDED`, `NOT_SURE` |
-| `durations` | `duration_any` | `WEEK`, `MONTH`, `QUARTER`, `SEMESTER`, `ONGOING` |
-| `experience_level` | `experienceLevel_eq` | `ENTRY_LEVEL`, `INTERMEDIATE`, `EXPERT` |
-| `budget_min` / `budget_max` | `budgetRange_eq {rangeStart, rangeEnd}` | hourly jobs are returned regardless |
-| `hourly_rate_min` / `hourly_rate_max` | `hourlyRate_eq {rangeStart, rangeEnd}` | fixed jobs are returned regardless |
-| `client_hires_min` / `client_hires_max` | `clientHiresRange_eq` | |
-| `proposals_min` / `proposals_max` | `proposalRange_eq` | |
-| `verified_payment_only` | `verifiedPaymentOnly_eq` | |
-| `previous_clients_only` | `previousClients_eq` | |
-| `client_locations` | `locations_any` | country or city |
-| `client_timezone` | `timezone_eq` | |
-| `enterprise_only` | `enterpriseOnly_eq` | |
-| `talent_cloud_only` / `talent_cloud_ids` | `ptcOnly_eq` / `ptcIds_any` | |
-| `user_location_match` | `userLocationMatch_eq` | |
-| `visitor_country` | `visitorCountry_eq` | upper-cased |
-| `area` | `area_eq {latitude, longitude, radius}` | miles |
-| `page_size`, `cursor` | `pagination_eq {first, after}` | `after` starts at `"0"`; pass back `pageInfo.endCursor` |
-| `sort` | `sortAttributes: [{field}]` | `RECENCY`, `RELEVANCE`, `CLIENT_TOTAL_CHARGE`, `CLIENT_RATING` |
-
-`searchType` is always `USER_JOBS_SEARCH`; Upwork ignores anything else.
-"Posted within N days" is deliberately absent: `daysPosted_eq` exists only on
-the deprecated `MarketplaceJobFilter` type and the public search, not on the
-filter the current search accepts.
-
-`hide_hidden` and `hide_applied` are applied on this side after Upwork
-answers, and the response's `hidden_count` says how many of the page went.
-
-## Snapshots
-
-Every node Upwork returns is upserted into `freelance_jobs` keyed by
-`(user_id, upwork_id)`, with the columns the cards and the tracker need and
-the whole node under `raw`. Opening a job fetches the deeper
-`marketplaceJobPosting` aggregate (`queries.JOB_DETAIL`: screening questions,
-bid statistics, activity, the public client company) and folds it in
-(`normalize.merge_detail`), keeping it under `raw.detail`; a refetch happens
-when the last one is more than six hours old.
-
-Focus, proposals and tracking all hang off the snapshot row rather than
-anything positional in a result set, because Upwork re-ranks and re-pages on
-every call.
-
-Because Upwork's terms allow caching for 24 hours, `prune_stale` runs after
-every search and deletes snapshots that have not been seen for a day and are
-not focused, hidden, tracked or the subject of a proposal. A focused job is
-the user's own list - the same as a bookmark - and stays.
+Until November 2026 jobs came from an Apify actor or Upwork's GraphQL API and
+`freelance_jobs` held one 24-hour snapshot per user. `python -m app.db.schema`
+converts such a database in place (`SHARE_FREELANCE_JOBS` in
+`app/db/schema.py`, which runs only while the old shape is there): rows are
+re-keyed to the `~0...` key, the copies of one posting collapse into the most
+recently seen, every user's focus and hidden flag become their marks on it,
+and their tracks and proposals are pointed at it. The `apify_connections` and
+`upwork_connections` tables - stored tokens nothing uses any more - are dropped.
 
 ## Tracking
 
@@ -374,32 +184,192 @@ The shared tools know about tracks: a meeting can be owned by a track
 (`meetings.freelance_track_id`, the third leg of the exactly-one-owner check),
 and `POST /tracks/{id}/promote` turns a won bid into a maintained job.
 
+## Filling a profile from its link
+
+The profile form fills itself from the freelancer's Upwork link: pasting a
+profile link (`/freelancers/~01…`, `/freelancers/<name>`, `/fl/<name>`) fills
+at once, and **Fill from link** runs it again. Nothing is saved until Save,
+and the profile's name is only filled when it is blank.
+
+1. The portal asks the extension over the relay (`upwork:profile`, the same
+   started/done exchange as Refresh; `lib/extension-bridge.ts`).
+2. The extension (`lib/upwork-profile.ts`) opens the link in a background tab
+   beside the portal, so the page is read signed in, as the user sees it. It
+   opens "more" toggles, reads the page's visible text, then reads every other
+   view of the same freelancer the page links to (same path, another query:
+   the specialized profiles), up to six pages or 75 s. The tab is closed
+   whatever happens. A sign-in redirect, a bot check or a page that is not a
+   profile comes back as a reason, and the portal says what to do.
+3. `POST /freelancing/profiles/import` hands the pages to the user's fast-tier
+   model (`app/freelancing/profile_import.py`), which copies the title,
+   overview, rate, skills, portfolio and specialized profiles verbatim and
+   puts stats, employment, education, languages and client feedback in the
+   notes. The reply is clipped to the form's limits so it always saves.
+
+A model reads the pages rather than selectors, for the same reason captures
+are read on the server: an Upwork redesign changes the markup, not the words.
+
+## Writing a profile
+
+The **Profile writer** panel writes the profile from an instruction and
+revises it from the next one. The method is the user's own prompt,
+`backend/prompts/profile_architect_v3.md` (Elite Profile Architect v3),
+loaded verbatim as a byte-frozen system block. A second frozen block,
+`CONTRACT` in `app/freelancing/profile_writer.py`, adapts its chat
+turn-taking to the editor: the intake is the instructions plus the form, a
+missing required field becomes a question in `questions` instead of a pause,
+the brief is not confirmed first, and every reply is the complete profile as
+JSON (`DOCUMENT`). The prefix (~15k tokens) carries one 1-hour cache mark.
+
+Versions count toward the next save:
+
+| Action | Version |
+|---|---|
+| First instruction | 1.1 |
+| Each instruction after it | 1.2, 1.3, ... |
+| Save profile | 1 |
+| Instructions after that save | 2.1, 2.2, ... then Save is 2 |
+
+- `freelancer_profile_versions` holds both kinds (`minor` 0 is a save). A
+  version's `document` is the whole written profile: the form's fields
+  (`title`, `summary`, `skills`, `hourly_rate`) and what the form has no
+  field for (three annotated titles, work history, education, portfolio
+  direction, cert roadmap, the intelligence brief, questions, a change note).
+- `POST /freelancing/profile-versions` queues a `GenerationKind.PROFILE` run
+  with the instruction, the version it revises and the form as it is now
+  (`material`, so unsaved edits and a fresh link fill count). It is refused
+  while another run for the same profile is going, and answers
+  `NO_PROVIDER_KEY` at once rather than a minute into the run. The worker
+  streams the heavy tier's turn (reasoning shows in the progress panel) and
+  stores the draft; the portal puts it in the form.
+- A revision sends the instructions that led to its base (the intake as it
+  was given) and the base document with the form's fields as they are now,
+  so a hand edit is kept unless the instruction changes it.
+- `POST`/`PATCH /freelancing/profiles` take `version_id`, the version the form
+  was built from. The save records the next whole version: that version's
+  document under the saved fields. An unchanged save records nothing. A
+  profile created from the New profile form adopts the drafts written before
+  it existed (they had no `profile_id`). Profiles report `version`, their
+  latest save.
+- Clicking a version chip puts that version in the form; the next instruction
+  revises it, so an older draft can be taken in another direction.
+
 ## Proposals
 
 `freelancer_profiles` holds the freelancer as presented on Upwork; `proposals`
-holds one draft per bid with the cover letter (markdown), screening answers,
-bid, connects estimate and `engine_version`.
+holds one bid per posting with the cover letter, screening answers, bid,
+connects estimate and `engine_version`.
 
-`POST /proposals/generate` queues a `GenerationKind.PROPOSAL` job. The worker
-branches before resolving an LLM provider (`app/worker/runner.py`) and runs
-`app/freelancing/proposals/run.py`, which calls whatever `get_engine()`
-returns. Today that is `TemplateProposalEngine`: a deterministic scaffold
-(greeting by tone, a hook from the posting, the profile's matched skills as
-bullets, the unmatched required skills as a comment, portfolio evidence, the
-screening questions with empty answers, and a bid inside the posting's
-range). It labels itself `template-v0`, and the portal says so.
+### Writing a proposal
 
-### Plugging in the real generator
+The **Proposal writer** panel on a proposal's page writes the letter and the
+screening answers from the posting and the profile, and revises them from the
+next instruction. The method is the user's own prompt,
+`backend/prompts/proposal_generator_v1.md` (the Proposal Agent Instruction),
+loaded verbatim as a byte-frozen system block. Edit the prompt there; change
+how it runs here through `CONTRACT` in `app/freelancing/proposals/engine.py`.
 
-1. Replace `backend/prompts/proposal_generator_v1.md` with the prompt. Delete
-   the placeholder marker at its top; `prompt_is_supplied()` reads that.
-2. Implement `PromptedProposalEngine.draft` in `engine.py`: a byte-frozen
-   system prefix from the file with a cache breakpoint, one user turn with the
-   posting (`job` columns plus `raw`), the profile, the screening questions
-   and the instructions, and a JSON reply validated into `ProposalDraft`. Use
-   `app.llm.factory.get_provider(session, user_id, tier)`; the worker step
-   already has the session and the user.
-3. Return it from `get_engine()`.
+`CONTRACT` adapts the method to the editor:
 
-Nothing else changes: the queue, the events, the API and the pages only know
-the `ProposalEngine` protocol.
+- The method's four detective answers come back in `read` (fear, anchor,
+  outcome, mirror) and show on the page as **The read**. The letter never
+  states them.
+- **The experience spike is true.** Where the method asks for a fictional
+  project brief, the contract has the spike built from the freelancer's real
+  work instead: their portfolio, overview, notes, the work history the
+  profile writer last saved, or a project the instruction names or links.
+  When nothing fits, the spike is written as the plan for the client's build,
+  never as shipped work, and the writer asks for a real project in
+  `questions`. `spike.basis` (`profile`, `instructions`, `plan`) says which,
+  and the page badges it. The letter goes to a real client who hires on it.
+- A link in the instruction is the method's "project URL". The worker reads
+  it first (`proposals/research.py`: http(s) only, at most 3 links, every
+  redirect hop checked to resolve to a public address so a link cannot reach
+  the metadata service or the VPC) and passes the page text in
+  `<researched_pages>`. The version lists what was read in `researched`.
+- Screening questions are answered in the same voice; a fact the profile
+  lacks becomes a bracketed placeholder (`[link to the repo]`), never an
+  invention. Answers are matched back to the posting's questions by their
+  words, else by position.
+- `**bold**` from the model becomes Unicode bold (`upwork_text.from_markdown`),
+  which Upwork's plain-text box shows as bold.
+- The bid is not the model's: `engine.bid` keeps the profile's rate inside
+  the posting's range (or takes the fixed budget) and `engine.connects` reads
+  the posting's price. Both only fill fields that are empty, so a bid the
+  freelancer set survives every revision.
+
+Versions are numbered like the profile writer's:
+
+| Action | Version |
+|---|---|
+| First draft | 1.1 |
+| Each instruction after it | 1.2, 1.3, ... |
+| Save | 1 |
+| Instructions after that save | 2.1, 2.2, ... then Save is 2 |
+
+- `proposal_versions` holds both kinds (`minor` 0 is a save). `document` is
+  the letter and answers plus the writer's notes: `read`, `spike`,
+  `questions`, `change_note`, `researched`.
+- `proposals.version_id` is the version the row's letter and answers came
+  from. A landed draft writes the row and points at itself; a save points at
+  the version it recorded. A new instruction revises it.
+- `POST /proposals/generate` queues a `GenerationKind.PROPOSAL` run with the
+  instruction, the version it revises (`based_on_id`) and the editor's text
+  now (`current`, so hand edits are revised rather than lost). With no
+  `proposal_id` it creates the proposal and focuses the posting. It answers
+  `NO_PROVIDER_KEY` at once, and is refused while another run for the same
+  proposal is going. The worker streams the heavy tier's turn.
+- `PATCH /proposals/{id}` takes `version_id`, the version the editor was
+  built from. When the letter or answers are in the patch, the save records
+  the next whole version; an unchanged save records nothing.
+- `GET /proposals/{id}/versions` lists them with `running_generation_id`, so
+  a page opened mid-run follows it. `DELETE /proposals/{id}/versions/{vid}`
+  removes one; if the row held it, the row goes back to the newest version
+  left. Numbers are never reused.
+- `DELETE /proposals/{id}` removes the proposal and its versions. When it was
+  the posting's only proposal, the job leaves the pipeline with it
+  (`tracking.untrack`: the track and the focus go, the shared posting stays);
+  otherwise the track points at the newest proposal left.
+
+## Client watch and team alerts
+
+While a posting is open on Upwork (its own page, or the slide-over a search
+opens), the extension watches its client and tells the team the moment the
+client comes back to the posting or starts interviewing.
+
+- **Reading.** `apps/extension/src/lib/upwork-store.ts` reads Upwork's own
+  job-details store in the page (the one MAIN-world script in the extension) and
+  sends `{job, buyer, sands}` as a `store` capture. The backend reads it in
+  `capture.read_state`: exact proposal and interview counts, and
+  `lastBuyerActivity`, the moment the client was last on the posting. It goes
+  through `jobs.register`, so the shared list updates as the client acts.
+- **Cadence.** The open page is read once (no request to Upwork). After that,
+  every ~2 minutes, a watch with alerts on reloads the posting in a hidden
+  frame of the same tab; a watch with alerts off only sends a heartbeat.
+- **Whose alert.** Each user's watch (`freelance_job_watches`) keeps its own
+  baseline, so their extension announces only what *their* watch saw. Of the
+  live watches with alerts on, the earliest started is the **relay**. Only the
+  relay's findings become team alerts (`freelance_job_alerts`), and whoever was
+  already told by their own watch is marked `local` on it. When the relay
+  leaves or misses three heartbeats (6 minutes), the next earliest takes over.
+- **Default.** Opening a posting someone is already relaying starts that watch
+  with alerts off; the relay tells them anyway. The switch on the on-page card
+  (`PATCH /watches/{job_id}`) turns their own checking on.
+- **What counts.** A client visit is announced once when first seen within 5
+  minutes of happening; activity less than 5 minutes after the last seen visit
+  is the same visit. Every rise in the interview count is announced. The team
+  feed keeps one alert per visit and per count, across relay handovers.
+- **Delivery.** The extension polls `GET /alerts` every 30 seconds and shows an
+  OS notification for each new alert that is not `local`. The portal's
+  Freelancing bell lists recent alerts and toasts new ones. Postings a user hid
+  never alert them.
+- **Ending.** A watch ends when no tab in that browser still has the posting
+  open: the background sees in-app navigation and tab closes, so a reload keeps
+  the watch, its alerts and its place as relay.
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/v1/freelancing/watches` | Heartbeat, with a fresh `state` when there is one; answers alerts on/off, relay, watchers, this watch's events |
+| `PATCH /api/v1/freelancing/watches/{job_id}` | `{notify}`: this user's alerts for the posting |
+| `DELETE /api/v1/freelancing/watches/{job_id}` | The posting is no longer open in this browser |
+| `GET /api/v1/freelancing/alerts?after=&limit=` | The team feed, newest first, with a `cursor` for the next poll |

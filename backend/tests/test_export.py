@@ -11,6 +11,7 @@ import pytest
 
 from app.remote.export.docx_renderer import render_docx
 from app.remote.export.profiles import ExportOptions, RenderProfile
+from app.remote.export.templates import TEMPLATES
 from app.remote.resume.parser import parse
 
 # ECMA-376 CT_TblPr child sequence.
@@ -47,34 +48,52 @@ def ats(resume) -> bytes:
     return render_docx(resume, ExportOptions(profile=RenderProfile.ATS_PLAIN))
 
 
-def test_tblpr_children_are_in_schema_order(designed: bytes) -> None:
+def _every_part(data: bytes) -> str:
+    z = zipfile.ZipFile(io.BytesIO(data))
+    return "".join(
+        z.read(n).decode() for n in z.namelist() if re.match(r"word/(document|header\d*)\.xml", n)
+    )
+
+
+@pytest.mark.parametrize("template", list(TEMPLATES))
+def test_tblpr_children_are_in_schema_order(resume, template: str) -> None:
     """Regression: appending w:tblLayout put w:tblBorders after w:tblLook.
 
     Word tolerates that; LibreOffice silently DROPS the borders, so the bug is
-    invisible until someone looks at a PDF.
+    invisible until someone looks at a PDF. Checked for every table of every
+    template, the header band's included.
     """
-    doc, _ = _parts(designed)
-    tblpr = re.search(r"<w:tblPr>.*?</w:tblPr>", doc, re.DOTALL).group(0)
-    found = re.findall(r"<w:(\w+)", tblpr)[1:]  # skip the tblPr element itself
-    idx = [TBLPR_SCHEMA_ORDER.index(t) for t in found if t in TBLPR_SCHEMA_ORDER]
-    assert idx == sorted(idx), f"tblPr out of schema order: {found}"
+    data = render_docx(resume, ExportOptions(template=template))
+    tables = re.findall(r"<w:tblPr>.*?</w:tblPr>", _every_part(data), re.DOTALL)
+    assert tables
+    for tblpr in tables:
+        found = re.findall(r"<w:(\w+)", tblpr)[1:]  # skip the tblPr element itself
+        idx = [TBLPR_SCHEMA_ORDER.index(t) for t in found if t in TBLPR_SCHEMA_ORDER]
+        assert idx == sorted(idx), f"tblPr out of schema order: {found}"
 
 
-def test_section_heading_border_precedes_spacing(designed: bytes) -> None:
-    _, styles = _parts(designed)
-    style = re.search(
-        r'<w:style [^>]*w:styleId="ResumeSection".*?</w:style>', styles, re.DOTALL
+@pytest.mark.parametrize("template", list(TEMPLATES))
+def test_heading_border_and_shading_precede_spacing(resume, template: str) -> None:
+    _, styles = _parts(render_docx(resume, ExportOptions(template=template)))
+    for name in ("ResumeSection", "ResumeBar"):
+        style = re.search(
+            rf'<w:style [^>]*w:styleId="{name}".*?</w:style>', styles, re.DOTALL
+        ).group(0)
+        ppr = re.search(r"<w:pPr>.*?</w:pPr>", style, re.DOTALL).group(0)
+        found = re.findall(r"<w:(\w+)", ppr)[1:]
+        idx = [PPR_SCHEMA_ORDER.index(t) for t in found if t in PPR_SCHEMA_ORDER]
+        assert idx == sorted(idx), f"{name} pPr out of schema order: {found}"
+    assert "<w:pBdr>" in re.search(
+        r'<w:style [^>]*w:styleId="ResumeBar".*?</w:style>', styles, re.DOTALL
     ).group(0)
-    ppr = re.search(r"<w:pPr>.*?</w:pPr>", style, re.DOTALL).group(0)
-    found = re.findall(r"<w:(\w+)", ppr)[1:]
-    idx = [PPR_SCHEMA_ORDER.index(t) for t in found if t in PPR_SCHEMA_ORDER]
-    assert idx == sorted(idx), f"pPr out of schema order: {found}"
-    assert "<w:pBdr>" in ppr
 
 
 def test_skills_table_has_inner_horizontal_borders_only(designed: bytes) -> None:
     doc, _ = _parts(designed)
-    tblpr = re.search(r"<w:tblPr>.*?</w:tblPr>", doc, re.DOTALL).group(0)
+    # The skills table is the one with row rules; the contact grid has none.
+    tblpr = next(
+        t for t in re.findall(r"<w:tblPr>.*?</w:tblPr>", doc, re.DOTALL) if "insideH" in t
+    )
     assert 'w:insideH w:val="single"' in tblpr
     assert tblpr.count('w:val="none"') == 5  # top/left/bottom/right/insideV
     assert 'w:tblLayout w:type="fixed"' in tblpr
@@ -107,9 +126,14 @@ def test_bullets_are_literal_glyphs_with_hanging_indent(designed: bytes) -> None
     assert re.search(r'<w:ind [^/]*w:hanging="\d+"', style)
 
 
-def test_no_content_in_headers_or_footers(designed: bytes) -> None:
-    """Many parsers drop header/footer content entirely."""
-    names = zipfile.ZipFile(io.BytesIO(designed)).namelist()
+def test_ats_has_no_content_in_headers_or_footers(ats: bytes) -> None:
+    """Many parsers drop header/footer content entirely.
+
+    The templates with a colour band put the candidate's name in the first-page
+    header, which is fine for a document a person reads and exactly why the ATS
+    profile exists: it never has a header, and never a template.
+    """
+    names = zipfile.ZipFile(io.BytesIO(ats)).namelist()
     assert not [n for n in names if re.match(r"word/(header|footer)\d*\.xml", n)]
 
 
@@ -141,10 +165,8 @@ def test_ats_profile_removes_the_only_table(ats: bytes, designed: bytes) -> None
     assert "<w:tbl>" not in ats_doc
 
 
-def test_ats_profile_does_not_justify(ats: bytes, designed: bytes) -> None:
+def test_ats_profile_does_not_justify(ats: bytes) -> None:
     _, ats_styles = _parts(ats)
-    _, designed_styles = _parts(designed)
-    assert 'w:val="both"' in designed_styles   # justified
     assert 'w:val="both"' not in ats_styles
 
 

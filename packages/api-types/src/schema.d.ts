@@ -710,6 +710,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/remote/export/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Templates
+         * @description The looks a designed resume can take, and the colours offered for each.
+         */
+        get: operations["export_templates_api_v1_remote_export_templates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/remote/export/docx": {
         parameters: {
             query?: never;
@@ -1045,62 +1065,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/freelancing/source": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Read Source
-         * @description The source in service, the controls it honours, and what to set up if it is not ready.
-         */
-        get: operations["read_source_api_v1_freelancing_source_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/freelancing/apify/connection": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read Connection */
-        get: operations["read_connection_api_v1_freelancing_apify_connection_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/freelancing/apify/token": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Put Token */
-        put: operations["put_token_api_v1_freelancing_apify_token_put"];
-        post?: never;
-        /** Delete Token */
-        delete: operations["delete_token_api_v1_freelancing_apify_token_delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/freelancing/apify/test": {
+    "/api/v1/freelancing/jobs/capture": {
         parameters: {
             query?: never;
             header?: never;
@@ -1110,156 +1075,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Test Token
-         * @description Who the token belongs to, and whether the actor answers. Costs nothing.
+         * Capture
+         * @description Register postings the extension saw on Upwork, one shared row per Upwork job id.
          */
-        post: operations["test_token_api_v1_freelancing_apify_test_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/freelancing/upwork/connection": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read Connection */
-        get: operations["read_connection_api_v1_freelancing_upwork_connection_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/freelancing/upwork/credentials": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Put Credentials */
-        put: operations["put_credentials_api_v1_freelancing_upwork_credentials_put"];
-        post?: never;
-        /** Delete Credentials */
-        delete: operations["delete_credentials_api_v1_freelancing_upwork_credentials_delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/freelancing/upwork/authorize": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Authorize
-         * @description The URL to send the browser to. The state carries the user for the way back.
-         */
-        post: operations["authorize_api_v1_freelancing_upwork_authorize_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/freelancing/upwork/disconnect": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Disconnect */
-        post: operations["disconnect_api_v1_freelancing_upwork_disconnect_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/freelancing/upwork/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Test Connection
-         * @description One real call, recorded on the connection so the UI can show the outcome.
-         */
-        post: operations["test_connection_api_v1_freelancing_upwork_test_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/freelancing/upwork/tenant": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Put Tenant */
-        put: operations["put_tenant_api_v1_freelancing_upwork_tenant_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/freelancing/jobs/filters": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Filters
-         * @description Every control the search form renders, and which of them the source honours.
-         */
-        get: operations["filters_api_v1_freelancing_jobs_filters_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/freelancing/jobs/skills": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Skills */
-        get: operations["skills_api_v1_freelancing_jobs_skills_get"];
-        put?: never;
-        post?: never;
+        post: operations["capture_api_v1_freelancing_jobs_capture_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1277,7 +1096,7 @@ export interface paths {
         put?: never;
         /**
          * Search
-         * @description Run a search on Upwork and snapshot what comes back.
+         * @description The shared list, filtered. Answered from the database: instant, and free.
          */
         post: operations["search_api_v1_freelancing_jobs_search_post"];
         delete?: never;
@@ -1293,11 +1112,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * List Snapshots
-         * @description Jobs already seen: the focused list, or everything still in the 24-hour window.
-         */
-        get: operations["list_snapshots_api_v1_freelancing_jobs_get"];
+        /** List Jobs */
+        get: operations["list_jobs_api_v1_freelancing_jobs_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1361,7 +1177,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/freelancing/jobs/{job_id}": {
+    "/api/v1/freelancing/jobs/upwork/{upwork_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1369,12 +1185,26 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Job
-         * @description The posting, with its deeper aggregate fetched when stale.
-         *
-         *     A failed fetch is not an error here: the snapshot is still the posting as
-         *     last seen, and the card says how old it is.
+         * Get Job By Key
+         * @description The posting a browser has open, by the key in its Upwork address; 404 until it is in the list.
          */
+        get: operations["get_job_by_key_api_v1_freelancing_jobs_upwork__upwork_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job */
         get: operations["get_job_api_v1_freelancing_jobs__job_id__get"];
         put?: never;
         post?: never;
@@ -1395,7 +1225,7 @@ export interface paths {
         put?: never;
         /**
          * Focus Job
-         * @description Focus: the posting joins the tracker at its first stage.
+         * @description Focus: the posting joins this user's tracker at its first stage.
          */
         post: operations["focus_job_api_v1_freelancing_jobs__job_id__focus_post"];
         /** Unfocus Job */
@@ -1414,7 +1244,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Hide Job */
+        /**
+         * Hide Job
+         * @description Hidden for this user only; everyone else still sees it.
+         */
         post: operations["hide_job_api_v1_freelancing_jobs__job_id__hide_post"];
         /** Unhide Job */
         delete: operations["unhide_job_api_v1_freelancing_jobs__job_id__hide_delete"];
@@ -1441,6 +1274,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/freelancing/profiles/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Profile
+         * @description The form's fields, read from the Upwork pages the extension opened. Nothing is saved.
+         */
+        post: operations["import_profile_api_v1_freelancing_profiles_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/freelancing/profiles/{profile_id}": {
         parameters: {
             query?: never;
@@ -1458,6 +1311,27 @@ export interface paths {
         head?: never;
         /** Update Profile */
         patch: operations["update_profile_api_v1_freelancing_profiles__profile_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/freelancing/profile-versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Versions */
+        get: operations["list_versions_api_v1_freelancing_profile_versions_get"];
+        put?: never;
+        /**
+         * Write Version
+         * @description Queue the next draft: the first from the material, or a revision of ``based_on_id``.
+         */
+        post: operations["write_version_api_v1_freelancing_profile_versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/freelancing/proposals": {
@@ -1492,13 +1366,47 @@ export interface paths {
         put?: never;
         /**
          * Generate Proposal
-         * @description Queue a draft. The generation's events say when the proposal is ready.
-         *
-         *     The engine in service today is the template engine; ``engine_version``
-         *     in the response says which one will write the draft.
+         * @description Queue the next draft: the first from the posting and profile, or a revision of ``based_on_id``.
          */
         post: operations["generate_proposal_api_v1_freelancing_proposals_generate_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/proposals/{proposal_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Versions */
+        get: operations["list_versions_api_v1_freelancing_proposals__proposal_id__versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/proposals/{proposal_id}/versions/{version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Version
+         * @description Delete one version. When the proposal holds it, the proposal goes back to the newest one left.
+         */
+        delete: operations["remove_version_api_v1_freelancing_proposals__proposal_id__versions__version_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1515,7 +1423,13 @@ export interface paths {
         get: operations["get_proposal_api_v1_freelancing_proposals__proposal_id__get"];
         put?: never;
         post?: never;
-        /** Delete Proposal */
+        /**
+         * Delete Proposal
+         * @description Delete a proposal and its versions, and take it out of the pipeline.
+         *
+         *     The job's track only stays when another proposal for the same job is still
+         *     there to carry it; otherwise the job leaves the pipeline with its proposal.
+         */
         delete: operations["delete_proposal_api_v1_freelancing_proposals__proposal_id__delete"];
         options?: never;
         head?: never;
@@ -1593,7 +1507,7 @@ export interface paths {
         post?: never;
         /**
          * Delete Track
-         * @description Stop tracking. The job snapshot stays, unfocused; proposals stay with it.
+         * @description Stop tracking. The shared posting stays, unfocused for this user; proposals stay too.
          */
         delete: operations["delete_track_api_v1_freelancing_tracks__track_id__delete"];
         options?: never;
@@ -1616,6 +1530,68 @@ export interface paths {
          * @description A won bid becomes a maintained job in the shared Job Maintenance tool.
          */
         post: operations["promote_to_maintenance_api_v1_freelancing_tracks__track_id__promote_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/watches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report
+         * @description A heartbeat for a posting open in this user's browser, with a fresh reading when there is one.
+         *
+         *     The reading updates the shared row. The answer says whether this user's
+         *     alerts are on, who else is watching and who relays, and what this user's
+         *     own watch just saw, for the extension to announce.
+         */
+        post: operations["report_api_v1_freelancing_watches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freelancing/watches/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Leave */
+        delete: operations["leave_api_v1_freelancing_watches__job_id__delete"];
+        options?: never;
+        head?: never;
+        /** Set Notify */
+        patch: operations["set_notify_api_v1_freelancing_watches__job_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/freelancing/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Alerts
+         * @description What the team's relays reported, newest first. ``local`` marks the ones this user's own watch saw.
+         */
+        get: operations["alerts_api_v1_freelancing_alerts_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1820,6 +1796,43 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AlertFeed */
+        AlertFeed: {
+            /** Items */
+            items: components["schemas"]["AlertOut"][];
+            /** Cursor */
+            cursor: number;
+        };
+        /** AlertOut */
+        AlertOut: {
+            /** Id */
+            id: number;
+            kind: components["schemas"]["FreelanceAlertKind"];
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string | null;
+            /** Relay Name */
+            relay_name: string | null;
+            /** Local */
+            local: boolean;
+            /** Client Activity At */
+            client_activity_at: string | null;
+            /** Interviewing */
+            interviewing: number | null;
+            /** Previous Interviewing */
+            previous_interviewing: number | null;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+        };
         /** ApiKeyIn */
         ApiKeyIn: {
             provider: components["schemas"]["LLMProvider"];
@@ -1875,56 +1888,6 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-        };
-        /** ApifyConnectionOut */
-        ApifyConnectionOut: {
-            /** Configured */
-            configured: boolean;
-            /**
-             * Token Source
-             * @enum {string}
-             */
-            token_source: "user" | "environment" | "none";
-            /** Masked Token */
-            masked_token?: string | null;
-            /** Status */
-            status: string;
-            /** Apify Username */
-            apify_username?: string | null;
-            /** Actor Id */
-            actor_id: string;
-            /** Actor Label */
-            actor_label?: string | null;
-            /** Cost Note */
-            cost_note?: string | null;
-            /** Last Verified At */
-            last_verified_at?: string | null;
-            /** Last Error */
-            last_error?: string | null;
-            /** Last Run Id */
-            last_run_id?: string | null;
-            /** Last Run At */
-            last_run_at?: string | null;
-        };
-        /** ApifyTestOut */
-        ApifyTestOut: {
-            /** Ok */
-            ok: boolean;
-            /** Detail */
-            detail: string;
-            /** Apify Username */
-            apify_username?: string | null;
-            /** Plan */
-            plan?: string | null;
-            /** Actor Title */
-            actor_title?: string | null;
-            /** Price Per Job Usd */
-            price_per_job_usd?: number | null;
-        };
-        /** ApifyTokenIn */
-        ApifyTokenIn: {
-            /** Token */
-            token: string;
         };
         /** ApplicationCreate */
         ApplicationCreate: {
@@ -2108,15 +2071,6 @@ export interface components {
          * @enum {string}
          */
         ApplicationStatus: "saved" | "applied" | "in_process" | "offer" | "hired" | "rejected" | "withdrawn" | "ghosted";
-        /** AreaParam */
-        AreaParam: {
-            /** Latitude */
-            latitude: number;
-            /** Longitude */
-            longitude: number;
-            /** Radius Miles */
-            radius_miles: number;
-        };
         /** AutofillAnswer */
         AutofillAnswer: {
             /** Id */
@@ -2305,14 +2259,74 @@ export interface components {
             /** Stage Kind */
             stage_kind?: string | null;
         };
-        /** CategoryOption */
-        CategoryOption: {
-            /** Id */
+        /** CaptureIn */
+        CaptureIn: {
+            /** Jobs */
+            jobs: components["schemas"]["CapturedJob"][];
+        };
+        /** CaptureOut */
+        CaptureOut: {
+            /** Received */
+            received: number;
+            /** Created */
+            created: number;
+            /** Jobs */
+            jobs: components["schemas"]["CapturedRef"][];
+        };
+        /**
+         * CapturedJob
+         * @description One posting as the extension harvested it from an Upwork page.
+         *
+         *     Raw on purpose: the backend reads Upwork's vocabulary out of it
+         *     (``app.freelancing.capture``), so a change to Upwork's pages is fixed there.
+         */
+        CapturedJob: {
+            /**
+             * Upwork Id
+             * @description The ~0... key in every job URL
+             */
+            upwork_id: string;
+            /**
+             * View
+             * @description A search/feed tile, the posting's own page, or the page's own app state
+             * @enum {string}
+             */
+            view: "tile" | "detail" | "store";
+            /** Url */
+            url?: string | null;
+            /** State */
+            state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Title */
+            title?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Skills */
+            skills?: string[];
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            };
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+        };
+        /** CapturedRef */
+        CapturedRef: {
+            /** Upwork Id */
+            upwork_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
             id: string;
-            /** Label */
-            label: string;
-            /** Subcategories */
-            subcategories?: components["schemas"]["FilterOption"][];
+            /** Title */
+            title: string;
+            /** Created */
+            created: boolean;
         };
         /** ConnectionTest */
         ConnectionTest: {
@@ -2367,6 +2381,10 @@ export interface components {
              * @default letter
              */
             page: string;
+            /** Template */
+            template?: string | null;
+            /** Accent */
+            accent?: string | null;
             /** Filename */
             filename?: string | null;
         };
@@ -2376,8 +2394,11 @@ export interface components {
             target_title: string;
             /** Job Description */
             job_description?: string | null;
-            /** Skill Count */
-            skill_count?: number | null;
+            /**
+             * Skill Count
+             * @default 60
+             */
+            skill_count: number;
             /** Extra Instructions */
             extra_instructions?: string | null;
             /** Job Url */
@@ -2411,38 +2432,6 @@ export interface components {
             label: string;
             /** Value */
             value: string;
-        };
-        /**
-         * FilterCatalogue
-         * @description Everything the search form needs to render its controls.
-         */
-        FilterCatalogue: {
-            source: components["schemas"]["JobSourceInfo"];
-            /** Job Types */
-            job_types: components["schemas"]["FilterOption"][];
-            /** Workloads */
-            workloads: components["schemas"]["FilterOption"][];
-            /** Durations */
-            durations: components["schemas"]["FilterOption"][];
-            /** Experience Levels */
-            experience_levels: components["schemas"]["FilterOption"][];
-            /** Sorts */
-            sorts: components["schemas"]["FilterOption"][];
-            /** Page Sizes */
-            page_sizes: number[];
-            /** Categories */
-            categories?: components["schemas"]["CategoryOption"][];
-            /** Categories Error */
-            categories_error?: string | null;
-        };
-        /** FilterOption */
-        FilterOption: {
-            /** Value */
-            value: string;
-            /** Label */
-            label: string;
-            /** Hint */
-            hint?: string | null;
         };
         /** FormFieldIn */
         FormFieldIn: {
@@ -2527,6 +2516,12 @@ export interface components {
             value: string;
         };
         /**
+         * FreelanceAlertKind
+         * @description What a watched posting's client just did, as the team is told it.
+         * @enum {string}
+         */
+        FreelanceAlertKind: "client_viewed" | "interview_started";
+        /**
          * FreelanceJobType
          * @enum {string}
          */
@@ -2540,6 +2535,28 @@ export interface components {
          * @enum {string}
          */
         FreelanceTrackStage: "focused" | "proposal_drafted" | "submitted" | "viewed" | "interviewing" | "hired" | "declined" | "withdrawn" | "closed";
+        /**
+         * FreelancerProfileDraft
+         * @description A profile read from its Upwork pages: what the form fills in, not saved.
+         */
+        FreelancerProfileDraft: {
+            /** Name */
+            name: string | null;
+            /** Title */
+            title: string | null;
+            /** Overview */
+            overview: string | null;
+            /** Hourly Rate */
+            hourly_rate: number | null;
+            /** Skills */
+            skills: string[];
+            /** Portfolio */
+            portfolio: components["schemas"]["PortfolioItem"][];
+            /** Specialized Profiles */
+            specialized_profiles: components["schemas"]["SpecializedProfile"][];
+            /** Raw Profile Markdown */
+            raw_profile_markdown: string | null;
+        };
         /** FreelancerProfileIn */
         FreelancerProfileIn: {
             /** Name */
@@ -2565,6 +2582,8 @@ export interface components {
             upwork_profile_url?: string | null;
             /** Raw Profile Markdown */
             raw_profile_markdown?: string | null;
+            /** Version Id */
+            version_id?: string | null;
         };
         /** FreelancerProfileOut */
         FreelancerProfileOut: {
@@ -2593,6 +2612,8 @@ export interface components {
             upwork_profile_url: string | null;
             /** Raw Profile Markdown */
             raw_profile_markdown: string | null;
+            /** Version */
+            version?: number | null;
             /**
              * Created At
              * Format: date-time
@@ -2626,6 +2647,8 @@ export interface components {
             upwork_profile_url?: string | null;
             /** Raw Profile Markdown */
             raw_profile_markdown?: string | null;
+            /** Version Id */
+            version_id?: string | null;
         };
         /** GenerateFromJob */
         GenerateFromJob: {
@@ -2646,8 +2669,11 @@ export interface components {
         GenerateFromStory: {
             /** Target Title */
             target_title: string;
-            /** Skill Count */
-            skill_count?: number | null;
+            /**
+             * Skill Count
+             * @default 60
+             */
+            skill_count: number;
             /** Extra Instructions */
             extra_instructions?: string | null;
             /** Mode */
@@ -2696,7 +2722,7 @@ export interface components {
          * GenerationKind
          * @enum {string}
          */
-        GenerationKind: "resume_story" | "resume_job" | "tailor_job" | "tailor_instruction" | "resume_repair" | "resume_import" | "resume_prep" | "form_answer" | "jd_parse" | "proposal";
+        GenerationKind: "resume_story" | "resume_job" | "tailor_job" | "tailor_instruction" | "resume_repair" | "resume_import" | "resume_prep" | "form_answer" | "jd_parse" | "proposal" | "profile";
         /** GenerationOut */
         GenerationOut: {
             /**
@@ -2830,8 +2856,6 @@ export interface components {
             id: string;
             /** Upwork Id */
             upwork_id: string;
-            /** Ciphertext */
-            ciphertext: string | null;
             /** Url */
             url: string | null;
             /** Title */
@@ -2864,72 +2888,61 @@ export interface components {
             total_applicants: number | null;
             /** Freelancers To Hire */
             freelancers_to_hire: number | null;
-            /** Is Premium */
-            is_premium: boolean;
-            /** Is Enterprise */
-            is_enterprise: boolean;
             /** Preferred Freelancer Location */
             preferred_freelancer_location: string[];
             /** Published At */
             published_at: string | null;
-            /** Renewed At */
-            renewed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
             /**
              * Last Seen At
              * Format: date-time
              */
             last_seen_at: string;
             /** Focused At */
-            focused_at: string | null;
+            focused_at?: string | null;
             /** Hidden At */
-            hidden_at: string | null;
-            /**
-             * Applied
-             * @default false
-             */
-            applied: boolean;
+            hidden_at?: string | null;
             track_stage?: components["schemas"]["FreelanceTrackStage"] | null;
             /**
              * Proposal Count
              * @default 0
              */
             proposal_count: number;
+            /** Proposals Label */
+            proposals_label?: string | null;
             /** Connects Required */
             connects_required?: number | null;
-            /**
-             * Featured
-             * @default false
-             */
-            featured: boolean;
-            /** Job Score */
-            job_score?: number | null;
+            /** Client Activity At */
+            client_activity_at?: string | null;
+            /** Interviewing */
+            interviewing?: number | null;
+            /** Watchers */
+            watchers?: components["schemas"]["Watcher"][];
         };
         /** JobClient */
         JobClient: {
             /** Company Name */
             company_name?: string | null;
-            /** Contact Name */
-            contact_name?: string | null;
             /** Hire Rate Percent */
             hire_rate_percent?: number | null;
             /** Avg Hourly Rate */
             avg_hourly_rate?: number | null;
             /** Industry */
             industry?: string | null;
+            /** Company Size */
+            company_size?: string | null;
             /** Phone Verified */
             phone_verified?: boolean | null;
             /** Country */
             country?: string | null;
             /** City */
             city?: string | null;
-            /** State */
-            state?: string | null;
-            /** Timezone */
-            timezone?: string | null;
             /** Payment Verified */
             payment_verified?: boolean | null;
-            /** Verification Status */
-            verification_status?: string | null;
             /** Total Spent */
             total_spent?: number | null;
             /** Total Spent Display */
@@ -2942,10 +2955,8 @@ export interface components {
             total_reviews?: number | null;
             /** Feedback */
             feedback?: number | null;
-            /** Last Contract Platform */
-            last_contract_platform?: string | null;
-            /** Has Financial Privacy */
-            has_financial_privacy?: boolean | null;
+            /** Member Since */
+            member_since?: string | null;
         };
         /** JobDetail */
         JobDetail: {
@@ -2956,8 +2967,6 @@ export interface components {
             id: string;
             /** Upwork Id */
             upwork_id: string;
-            /** Ciphertext */
-            ciphertext: string | null;
             /** Url */
             url: string | null;
             /** Title */
@@ -2990,71 +2999,120 @@ export interface components {
             total_applicants: number | null;
             /** Freelancers To Hire */
             freelancers_to_hire: number | null;
-            /** Is Premium */
-            is_premium: boolean;
-            /** Is Enterprise */
-            is_enterprise: boolean;
             /** Preferred Freelancer Location */
             preferred_freelancer_location: string[];
             /** Published At */
             published_at: string | null;
-            /** Renewed At */
-            renewed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
             /**
              * Last Seen At
              * Format: date-time
              */
             last_seen_at: string;
             /** Focused At */
-            focused_at: string | null;
+            focused_at?: string | null;
             /** Hidden At */
-            hidden_at: string | null;
-            /**
-             * Applied
-             * @default false
-             */
-            applied: boolean;
+            hidden_at?: string | null;
             track_stage?: components["schemas"]["FreelanceTrackStage"] | null;
             /**
              * Proposal Count
              * @default 0
              */
             proposal_count: number;
+            /** Proposals Label */
+            proposals_label?: string | null;
             /** Connects Required */
             connects_required?: number | null;
-            /**
-             * Featured
-             * @default false
-             */
-            featured: boolean;
-            /** Job Score */
-            job_score?: number | null;
-            /** Detail Fetched At */
-            detail_fetched_at?: string | null;
+            /** Client Activity At */
+            client_activity_at?: string | null;
+            /** Interviewing */
+            interviewing?: number | null;
+            /** Watchers */
+            watchers?: components["schemas"]["Watcher"][];
+            /** Detail Captured At */
+            detail_captured_at?: string | null;
             /** Screening Questions */
             screening_questions?: string[];
-            /** Cover Letter Required */
-            cover_letter_required?: boolean | null;
             /** Activity */
             activity?: {
                 [key: string]: unknown;
             };
-            /** Qualification */
-            qualification?: {
-                [key: string]: unknown;
-            };
-            /** Location Preference */
-            location_preference?: {
-                [key: string]: unknown;
-            };
-            /** Attachments */
-            attachments?: {
-                [key: string]: unknown;
-            }[];
-            /** On Site Type */
-            on_site_type?: string | null;
-            /** Status */
-            status?: string | null;
+            posted_by?: components["schemas"]["Teammate"] | null;
+        };
+        /**
+         * JobFilter
+         * @description What the job view can ask of the shared list: every filter is answered from it.
+         *
+         *     Pay filters each constrain their own kind of job, as on Upwork: an hourly
+         *     floor leaves fixed-price postings alone, and the other way round.
+         */
+        JobFilter: {
+            /**
+             * Query
+             * @description Every word, in the title, description or skills
+             */
+            query?: string | null;
+            /**
+             * Skills
+             * @description Any of these
+             */
+            skills?: string[];
+            /** Exclude Terms */
+            exclude_terms?: string[];
+            /** Job Type */
+            job_type?: ("hourly" | "fixed") | null;
+            /** Experience Level */
+            experience_level?: ("entry_level" | "intermediate" | "expert") | null;
+            /** Hourly Rate Min */
+            hourly_rate_min?: number | null;
+            /** Budget Min */
+            budget_min?: number | null;
+            /** Budget Max */
+            budget_max?: number | null;
+            /** Posted Within Hours */
+            posted_within_hours?: number | null;
+            /**
+             * Verified Payment Only
+             * @default false
+             */
+            verified_payment_only: boolean;
+            /** Client Min Spent */
+            client_min_spent?: number | null;
+            /** Client Min Rating */
+            client_min_rating?: number | null;
+            /** Client Locations */
+            client_locations?: string[];
+            /** Exclude Client Locations */
+            exclude_client_locations?: string[];
+            /** Proposals Max */
+            proposals_max?: number | null;
+            /** Open To Country */
+            open_to_country?: string | null;
+            /**
+             * Hide Hidden
+             * @default true
+             */
+            hide_hidden: boolean;
+            /**
+             * Sort
+             * @default recency
+             * @enum {string}
+             */
+            sort: "recency" | "captured";
+            /**
+             * Limit
+             * @default 50
+             */
+            limit: number;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
         };
         /** JobLinkIn */
         JobLinkIn: {
@@ -3110,220 +3168,6 @@ export interface components {
              */
             strategy: "existing" | "full";
             job?: components["schemas"]["ScrapedJob"] | null;
-        };
-        /** JobSearchPage */
-        JobSearchPage: {
-            /** Items */
-            items: components["schemas"]["JobCard"][];
-            /** Total */
-            total?: number | null;
-            /**
-             * Has Next Page
-             * @default false
-             */
-            has_next_page: boolean;
-            /** End Cursor */
-            end_cursor?: string | null;
-            /**
-             * Hidden Count
-             * @default 0
-             */
-            hidden_count: number;
-            /**
-             * Pending
-             * @default false
-             */
-            pending: boolean;
-            /** Progress Note */
-            progress_note?: string | null;
-            /** Notice */
-            notice?: string | null;
-        };
-        /**
-         * JobSearchParams
-         * @description Every filter Upwork's job search accepts, in this API's own words.
-         *
-         *     Each field maps to exactly one entry of ``MarketplaceJobPostingsSearchFilter``
-         *     (see ``app.freelancing.upwork.filters``). Nothing here is invented: a
-         *     filter Upwork does not offer, such as "posted in the last N days", is not
-         *     offered either.
-         */
-        JobSearchParams: {
-            /**
-             * Query
-             * @description Lucene-style search
-             */
-            query?: string | null;
-            /**
-             * Title
-             * @description Words in the title
-             */
-            title?: string | null;
-            /**
-             * Skills
-             * @description Skill slugs, OR
-             */
-            skills?: string[];
-            /** And Terms */
-            and_terms?: string[];
-            /** Or Terms */
-            or_terms?: string[];
-            /** Exact Terms */
-            exact_terms?: string[];
-            /** Exclude Terms */
-            exclude_terms?: string[];
-            /** Category Ids */
-            category_ids?: string[];
-            /** Subcategory Ids */
-            subcategory_ids?: string[];
-            /** Occupation Ids */
-            occupation_ids?: string[];
-            /**
-             * Ontology Skill Ids
-             * @description AND
-             */
-            ontology_skill_ids?: string[];
-            /** Job Type */
-            job_type?: ("hourly" | "fixed") | null;
-            /** Workload */
-            workload?: ("full_time" | "part_time" | "as_needed" | "not_sure") | null;
-            /** Durations */
-            durations?: ("week" | "month" | "quarter" | "semester" | "ongoing")[];
-            /** Experience Level */
-            experience_level?: ("entry_level" | "intermediate" | "expert") | null;
-            /** Budget Min */
-            budget_min?: number | null;
-            /** Budget Max */
-            budget_max?: number | null;
-            /** Hourly Rate Min */
-            hourly_rate_min?: number | null;
-            /** Hourly Rate Max */
-            hourly_rate_max?: number | null;
-            /** Client Hires Min */
-            client_hires_min?: number | null;
-            /** Client Hires Max */
-            client_hires_max?: number | null;
-            /** Proposals Min */
-            proposals_min?: number | null;
-            /** Proposals Max */
-            proposals_max?: number | null;
-            /** Verified Payment Only */
-            verified_payment_only?: boolean | null;
-            /** Previous Clients Only */
-            previous_clients_only?: boolean | null;
-            /** Client Locations */
-            client_locations?: string[];
-            /** Client Timezone */
-            client_timezone?: string | null;
-            /** Enterprise Only */
-            enterprise_only?: boolean | null;
-            /** Talent Cloud Only */
-            talent_cloud_only?: boolean | null;
-            /** Talent Cloud Ids */
-            talent_cloud_ids?: string[];
-            /** User Location Match */
-            user_location_match?: boolean | null;
-            /** Visitor Country */
-            visitor_country?: string | null;
-            area?: components["schemas"]["AreaParam"] | null;
-            /** Posted Within Hours */
-            posted_within_hours?: number | null;
-            /** Client Min Rating */
-            client_min_rating?: number | null;
-            /** Client Min Spent */
-            client_min_spent?: number | null;
-            /** Client Max Spent */
-            client_max_spent?: number | null;
-            /** Client Min Hire Rate */
-            client_min_hire_rate?: number | null;
-            /** Phone Verified Only */
-            phone_verified_only?: boolean | null;
-            /** Exclude Client Locations */
-            exclude_client_locations?: string[];
-            /** Connects Min */
-            connects_min?: number | null;
-            /** Connects Max */
-            connects_max?: number | null;
-            /** English Level */
-            english_level?: ("basic" | "conversational" | "fluent" | "native") | null;
-            /** Contractor Type */
-            contractor_type?: ("freelancer" | "agency") | null;
-            /** Featured Only */
-            featured_only?: boolean | null;
-            /** Exclude With Questions */
-            exclude_with_questions?: boolean | null;
-            /**
-             * Sort
-             * @default recency
-             * @enum {string}
-             */
-            sort: "recency" | "relevance" | "client_total_charge" | "client_rating";
-            /**
-             * Page Size
-             * @default 20
-             */
-            page_size: number;
-            /**
-             * Cursor
-             * @description pageInfo.end_cursor of the previous page
-             */
-            cursor?: string | null;
-            /**
-             * Hide Hidden
-             * @default true
-             */
-            hide_hidden: boolean;
-            /**
-             * Hide Applied
-             * @default false
-             */
-            hide_applied: boolean;
-            /** Open To Country */
-            open_to_country?: string | null;
-        };
-        /**
-         * JobSourceInfo
-         * @description Which provider answers searches, and which controls it honours.
-         */
-        JobSourceInfo: {
-            /** Key */
-            key: string;
-            /** Label */
-            label: string;
-            /** Filters */
-            filters: string[];
-            /** Sorts */
-            sorts: string[];
-            /** Detail */
-            detail: boolean;
-            /** Categories */
-            categories: boolean;
-            /** Skills */
-            skills: boolean;
-        };
-        /**
-         * JobSourceStatus
-         * @description The source, and whether this user can search with it right now.
-         */
-        JobSourceStatus: {
-            /** Key */
-            key: string;
-            /** Label */
-            label: string;
-            /** Filters */
-            filters: string[];
-            /** Sorts */
-            sorts: string[];
-            /** Detail */
-            detail: boolean;
-            /** Categories */
-            categories: boolean;
-            /** Skills */
-            skills: boolean;
-            /** Ready */
-            ready: boolean;
-            /** Setup Hint */
-            setup_hint?: string | null;
         };
         /**
          * LLMProvider
@@ -3685,7 +3529,7 @@ export interface components {
         };
         /**
          * PreviewBlock
-         * @description One paragraph of the .docx, or the skills table.
+         * @description One paragraph of the .docx, or a table.
          */
         PreviewBlock: {
             /** Kind */
@@ -3697,12 +3541,23 @@ export interface components {
              * @default
              */
             text: string;
+            /** Rest */
+            rest?: string | null;
             /** Right */
             right?: string | null;
             /** Label */
             label?: string | null;
+            /** Icon */
+            icon?: string | null;
+            /** Items */
+            items?: components["schemas"]["PreviewContactItem"][] | null;
             /** Rows */
             rows?: components["schemas"]["PreviewSkillRow"][] | null;
+            /**
+             * Region
+             * @default body
+             */
+            region: string;
         };
         /** PreviewBorder */
         PreviewBorder: {
@@ -3712,6 +3567,22 @@ export interface components {
             width_pt: number;
             /** Space Pt */
             space_pt: number;
+        };
+        /** PreviewContactItem */
+        PreviewContactItem: {
+            /** Icon */
+            icon: string;
+            /** Text */
+            text: string;
+        };
+        /** PreviewIconLook */
+        PreviewIconLook: {
+            /** Style */
+            style: string;
+            /** Fg */
+            fg: string;
+            /** Bg */
+            bg?: string | null;
         };
         /** PreviewLayout */
         PreviewLayout: {
@@ -3739,6 +3610,26 @@ export interface components {
             table_rule_color: string;
             /** Table Rule Pt */
             table_rule_pt: number;
+            /** Bullet */
+            bullet: string;
+            /** Date Italic */
+            date_italic: boolean;
+            /** Rest Italic */
+            rest_italic: boolean;
+            /** Skills Cols */
+            skills_cols: number;
+            /** Contact Cols */
+            contact_cols: number;
+            /** Contact Hang Pt */
+            contact_hang_pt: number;
+            contact_icon: components["schemas"]["PreviewIconLook"] | null;
+            heading_icon: components["schemas"]["PreviewIconLook"] | null;
+            /** Band Fill */
+            band_fill: string | null;
+            /** Band Pad Top Pt */
+            band_pad_top_pt: number;
+            /** Band Pad Bottom Pt */
+            band_pad_bottom_pt: number;
         };
         /** PreviewOut */
         PreviewOut: {
@@ -3782,13 +3673,115 @@ export interface components {
             line_spacing: number;
             /** Justify */
             justify: boolean;
+            /** Center */
+            center: boolean;
             /** Left Indent Pt */
             left_indent_pt: number;
+            /** Right Indent Pt */
+            right_indent_pt: number;
             /** First Line Indent Pt */
             first_line_indent_pt: number;
             /** Keep With Next */
             keep_with_next: boolean;
+            /** Shading */
+            shading: string | null;
+            border_top: components["schemas"]["PreviewBorder"] | null;
             border_bottom: components["schemas"]["PreviewBorder"] | null;
+        };
+        /** ProfileImportIn */
+        ProfileImportIn: {
+            /** Url */
+            url: string;
+            /** Views */
+            views: components["schemas"]["ProfilePageView"][];
+        };
+        /**
+         * ProfileMaterial
+         * @description The profile form as it is when the writer is asked: what it writes from.
+         */
+        ProfileMaterial: {
+            /** Title */
+            title?: string | null;
+            /** Overview */
+            overview?: string | null;
+            /** Hourly Rate */
+            hourly_rate?: number | null;
+            /** Skills */
+            skills?: string[];
+            /** Portfolio */
+            portfolio?: components["schemas"]["PortfolioItem"][];
+            /** Specialized Profiles */
+            specialized_profiles?: components["schemas"]["SpecializedProfile"][];
+            /** Raw Profile Markdown */
+            raw_profile_markdown?: string | null;
+        };
+        /**
+         * ProfilePageView
+         * @description One Upwork page of the freelancer, as the extension read it in the user's browser.
+         */
+        ProfilePageView: {
+            /** Url */
+            url: string;
+            /** Title */
+            title?: string | null;
+            /** Text */
+            text: string;
+        };
+        /** ProfileVersionOut */
+        ProfileVersionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Profile Id */
+            profile_id: string | null;
+            /** Major */
+            major: number;
+            /** Minor */
+            minor: number;
+            /** Instruction */
+            instruction: string | null;
+            /** Document */
+            document: {
+                [key: string]: unknown;
+            };
+            /** Based On Id */
+            based_on_id: string | null;
+            /** Generation Id */
+            generation_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ProfileVersions */
+        ProfileVersions: {
+            /** Items */
+            items: components["schemas"]["ProfileVersionOut"][];
+            /** Running Generation Id */
+            running_generation_id: string | null;
+        };
+        /** ProfileWriteAccepted */
+        ProfileWriteAccepted: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Status */
+            status: string;
+        };
+        /** ProfileWriteIn */
+        ProfileWriteIn: {
+            /** Profile Id */
+            profile_id?: string | null;
+            /** Based On Id */
+            based_on_id?: string | null;
+            /** Instruction */
+            instruction: string;
+            material?: components["schemas"]["ProfileMaterial"];
         };
         /** ProposalAnswer */
         ProposalAnswer: {
@@ -3840,7 +3833,7 @@ export interface components {
         };
         /**
          * ProposalGenerateIn
-         * @description Ask the engine for a draft. Returns the queued generation, not the proposal.
+         * @description Ask the writer for the next draft. Returns the queued generation, not the proposal.
          */
         ProposalGenerateIn: {
             /**
@@ -3852,14 +3845,11 @@ export interface components {
             profile_id?: string | null;
             /** Proposal Id */
             proposal_id?: string | null;
-            /** Instructions */
-            instructions?: string | null;
-            /**
-             * Tone
-             * @default direct
-             * @enum {string}
-             */
-            tone: "direct" | "warm" | "formal";
+            /** Based On Id */
+            based_on_id?: string | null;
+            current?: components["schemas"]["ProposalWriting"] | null;
+            /** Instruction */
+            instruction?: string | null;
         };
         /** ProposalGenerated */
         ProposalGenerated: {
@@ -3919,6 +3909,8 @@ export interface components {
             };
             /** Submitted At */
             submitted_at: string | null;
+            /** Version Id */
+            version_id: string | null;
             /**
              * Created At
              * Format: date-time
@@ -3947,12 +3939,66 @@ export interface components {
             cover_letter_markdown?: string | null;
             /** Answers */
             answers?: components["schemas"]["ProposalAnswer"][] | null;
+            /** Version Id */
+            version_id?: string | null;
         };
         /**
          * ProposalStatus
          * @enum {string}
          */
         ProposalStatus: "draft" | "ready" | "submitted" | "archived";
+        /** ProposalVersionOut */
+        ProposalVersionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Proposal Id
+             * Format: uuid
+             */
+            proposal_id: string;
+            /** Major */
+            major: number;
+            /** Minor */
+            minor: number;
+            /** Instruction */
+            instruction: string | null;
+            /** Document */
+            document: {
+                [key: string]: unknown;
+            };
+            /** Based On Id */
+            based_on_id: string | null;
+            /** Generation Id */
+            generation_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ProposalVersions */
+        ProposalVersions: {
+            /** Items */
+            items: components["schemas"]["ProposalVersionOut"][];
+            /** Running Generation Id */
+            running_generation_id: string | null;
+        };
+        /**
+         * ProposalWriting
+         * @description The letter and answers as the editor holds them, hand edits included.
+         */
+        ProposalWriting: {
+            /**
+             * Cover Letter Markdown
+             * @default
+             */
+            cover_letter_markdown: string;
+            /** Answers */
+            answers?: components["schemas"]["ProposalAnswer"][];
+        };
         /** RefreshRequest */
         RefreshRequest: {
             /** Refresh Token */
@@ -4401,7 +4447,7 @@ export interface components {
         SavedSearchIn: {
             /** Name */
             name: string;
-            params: components["schemas"]["JobSearchParams"];
+            params: components["schemas"]["JobFilter"];
         };
         /** SavedSearchOut */
         SavedSearchOut: {
@@ -4557,13 +4603,6 @@ export interface components {
             /** Display Timezone */
             display_timezone?: string | null;
         };
-        /** SkillSuggestion */
-        SkillSuggestion: {
-            /** Id */
-            id: string;
-            /** Label */
-            label: string;
-        };
         /** SpecializedProfile */
         SpecializedProfile: {
             /** Name */
@@ -4632,6 +4671,13 @@ export interface components {
             stage: components["schemas"]["StageOut"];
             application_status: components["schemas"]["ApplicationStatus"];
             suggested_next_stage?: components["schemas"]["NextStepSuggestion"] | null;
+        };
+        /** SwatchOut */
+        SwatchOut: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: string;
         };
         /** TailorApplication */
         TailorApplication: {
@@ -4817,6 +4863,34 @@ export interface components {
             updated_at: string;
             /** Linked Jobs */
             linked_jobs?: components["schemas"]["LinkedJobOut"][];
+        };
+        /** Teammate */
+        Teammate: {
+            /** Name */
+            name: string;
+            /**
+             * You
+             * @default false
+             */
+            you: boolean;
+        };
+        /** TemplateOut */
+        TemplateOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Accent */
+            accent: string;
+        };
+        /** TemplatesOut */
+        TemplatesOut: {
+            /** Default */
+            default: string;
+            /** Templates */
+            templates: components["schemas"]["TemplateOut"][];
+            /** Palette */
+            palette: components["schemas"]["SwatchOut"][];
         };
         /** TokenPair */
         TokenPair: {
@@ -5070,86 +5144,6 @@ export interface components {
              */
             strategy: "existing" | "full";
         };
-        /** UpworkAuthorizeOut */
-        UpworkAuthorizeOut: {
-            /** Url */
-            url: string;
-        };
-        /** UpworkConnectionOut */
-        UpworkConnectionOut: {
-            status: components["schemas"]["UpworkConnectionStatus"];
-            /** Configured */
-            configured: boolean;
-            /**
-             * Credentials Source
-             * @enum {string}
-             */
-            credentials_source: "user" | "environment" | "none";
-            /** Client Id */
-            client_id?: string | null;
-            /** Masked Client Secret */
-            masked_client_secret?: string | null;
-            /** Connected */
-            connected: boolean;
-            /** Upwork User Name */
-            upwork_user_name?: string | null;
-            /** Upwork User Id */
-            upwork_user_id?: string | null;
-            /** Tenant Id */
-            tenant_id?: string | null;
-            /** Redirect Uri */
-            redirect_uri: string;
-            /** Access Token Expires At */
-            access_token_expires_at?: string | null;
-            /** Connected At */
-            connected_at?: string | null;
-            /** Last Used At */
-            last_used_at?: string | null;
-            /** Last Error */
-            last_error?: string | null;
-        };
-        /**
-         * UpworkConnectionStatus
-         * @description Where a user's Upwork link is.
-         *
-         *     ``not_configured`` has no API key pair; ``pending_authorization`` has one
-         *     and is waiting on the OAuth round trip; ``expired`` means the refresh
-         *     token stopped working and the user has to authorize again.
-         * @enum {string}
-         */
-        UpworkConnectionStatus: "not_configured" | "pending_authorization" | "connected" | "expired" | "error";
-        /** UpworkCredentialsIn */
-        UpworkCredentialsIn: {
-            /** Client Id */
-            client_id: string;
-            /** Client Secret */
-            client_secret: string;
-        };
-        /** UpworkOrganization */
-        UpworkOrganization: {
-            /** Organization Id */
-            organization_id: string;
-            /** Title */
-            title: string;
-            /** Type Title */
-            type_title?: string | null;
-        };
-        /** UpworkTenantIn */
-        UpworkTenantIn: {
-            /** Tenant Id */
-            tenant_id?: string | null;
-        };
-        /** UpworkTestOut */
-        UpworkTestOut: {
-            /** Ok */
-            ok: boolean;
-            /** Detail */
-            detail: string;
-            /** Upwork User Name */
-            upwork_user_name?: string | null;
-            /** Organizations */
-            organizations?: components["schemas"]["UpworkOrganization"][];
-        };
         /** UserOut */
         UserOut: {
             /**
@@ -5207,6 +5201,87 @@ export interface components {
              * @default
              */
             suggested_fix: string;
+        };
+        /**
+         * WatchEvent
+         * @description Something this user's own watch just saw, for their extension to announce.
+         */
+        WatchEvent: {
+            kind: components["schemas"]["FreelanceAlertKind"];
+            /** Client Activity At */
+            client_activity_at?: string | null;
+            /** Interviewing */
+            interviewing?: number | null;
+            /** Previous Interviewing */
+            previous_interviewing?: number | null;
+        };
+        /** WatchOut */
+        WatchOut: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Upwork Id */
+            upwork_id: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string | null;
+            /** Notify */
+            notify: boolean;
+            /** Relay */
+            relay: boolean;
+            /** Watchers */
+            watchers: components["schemas"]["Watcher"][];
+            /** Total Applicants */
+            total_applicants: number | null;
+            /** Activity */
+            activity: {
+                [key: string]: unknown;
+            };
+            /** Events */
+            events?: components["schemas"]["WatchEvent"][];
+        };
+        /** WatchPatch */
+        WatchPatch: {
+            /** Notify */
+            notify: boolean;
+        };
+        /**
+         * WatchReport
+         * @description A heartbeat from the extension for a posting open in this user's browser.
+         *
+         *     With ``state`` it is also a fresh reading of the posting (the page just
+         *     loaded, or a background refresh), which updates the shared row and is
+         *     checked for client activity. Without it, it only says "still watching".
+         */
+        WatchReport: {
+            /** Upwork Id */
+            upwork_id: string;
+            /** Url */
+            url?: string | null;
+            /** State */
+            state?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * Watcher
+         * @description Someone whose extension has the posting open right now.
+         */
+        Watcher: {
+            /** Name */
+            name: string;
+            /**
+             * You
+             * @default false
+             */
+            you: boolean;
+            /** Notify */
+            notify: boolean;
+            /** Relay */
+            relay: boolean;
         };
         /**
          * WorkMode
@@ -6566,6 +6641,26 @@ export interface operations {
             };
         };
     };
+    export_templates_api_v1_remote_export_templates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplatesOut"];
+                };
+            };
+        };
+    };
     export_docx_api_v1_remote_export_docx_post: {
         parameters: {
             query?: never;
@@ -7161,47 +7256,7 @@ export interface operations {
             };
         };
     };
-    read_source_api_v1_freelancing_source_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["JobSourceStatus"];
-                };
-            };
-        };
-    };
-    read_connection_api_v1_freelancing_apify_connection_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApifyConnectionOut"];
-                };
-            };
-        };
-    };
-    put_token_api_v1_freelancing_apify_token_put: {
+    capture_api_v1_freelancing_jobs_capture_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -7210,7 +7265,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ApifyTokenIn"];
+                "application/json": components["schemas"]["CaptureIn"];
             };
         };
         responses: {
@@ -7220,265 +7275,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApifyConnectionOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_token_api_v1_freelancing_apify_token_delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApifyConnectionOut"];
-                };
-            };
-        };
-    };
-    test_token_api_v1_freelancing_apify_test_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApifyTestOut"];
-                };
-            };
-        };
-    };
-    read_connection_api_v1_freelancing_upwork_connection_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UpworkConnectionOut"];
-                };
-            };
-        };
-    };
-    put_credentials_api_v1_freelancing_upwork_credentials_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpworkCredentialsIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UpworkConnectionOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_credentials_api_v1_freelancing_upwork_credentials_delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UpworkConnectionOut"];
-                };
-            };
-        };
-    };
-    authorize_api_v1_freelancing_upwork_authorize_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UpworkAuthorizeOut"];
-                };
-            };
-        };
-    };
-    disconnect_api_v1_freelancing_upwork_disconnect_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UpworkConnectionOut"];
-                };
-            };
-        };
-    };
-    test_connection_api_v1_freelancing_upwork_test_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UpworkTestOut"];
-                };
-            };
-        };
-    };
-    put_tenant_api_v1_freelancing_upwork_tenant_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpworkTenantIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UpworkConnectionOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    filters_api_v1_freelancing_jobs_filters_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FilterCatalogue"];
-                };
-            };
-        };
-    };
-    skills_api_v1_freelancing_jobs_skills_get: {
-        parameters: {
-            query: {
-                q: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SkillSuggestion"][];
+                    "application/json": components["schemas"]["CaptureOut"];
                 };
             };
             /** @description Validation Error */
@@ -7501,7 +7298,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["JobSearchParams"];
+                "application/json": components["schemas"]["JobFilter"];
             };
         };
         responses: {
@@ -7511,7 +7308,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["JobSearchPage"];
+                    "application/json": components["schemas"]["Page_JobCard_"];
                 };
             };
             /** @description Validation Error */
@@ -7525,11 +7322,11 @@ export interface operations {
             };
         };
     };
-    list_snapshots_api_v1_freelancing_jobs_get: {
+    list_jobs_api_v1_freelancing_jobs_get: {
         parameters: {
             query?: {
-                focused?: boolean | null;
-                include_hidden?: boolean;
+                /** @description Only this user's starred postings */
+                focused?: boolean;
                 q?: string | null;
                 limit?: number;
                 offset?: number;
@@ -7645,7 +7442,7 @@ export interface operations {
     run_saved_search_api_v1_freelancing_jobs_saved_searches__saved_id__run_post: {
         parameters: {
             query?: {
-                cursor?: string | null;
+                offset?: number;
             };
             header?: never;
             path: {
@@ -7661,7 +7458,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["JobSearchPage"];
+                    "application/json": components["schemas"]["Page_JobCard_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job_by_key_api_v1_freelancing_jobs_upwork__upwork_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upwork_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDetail"];
                 };
             };
             /** @description Validation Error */
@@ -7677,9 +7505,7 @@ export interface operations {
     };
     get_job_api_v1_freelancing_jobs__job_id__get: {
         parameters: {
-            query?: {
-                refresh?: boolean;
-            };
+            query?: never;
             header?: never;
             path: {
                 job_id: string;
@@ -7885,6 +7711,39 @@ export interface operations {
             };
         };
     };
+    import_profile_api_v1_freelancing_profiles_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileImportIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreelancerProfileDraft"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_profile_api_v1_freelancing_profiles__profile_id__get: {
         parameters: {
             query?: never;
@@ -7967,6 +7826,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FreelancerProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_versions_api_v1_freelancing_profile_versions_get: {
+        parameters: {
+            query?: {
+                /** @description Omit for a profile not created yet. */
+                profile_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileVersions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_version_api_v1_freelancing_profile_versions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileWriteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileWriteAccepted"];
                 };
             };
             /** @description Validation Error */
@@ -8067,6 +7991,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProposalGenerated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_versions_api_v1_freelancing_proposals__proposal_id__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalVersions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_version_api_v1_freelancing_proposals__proposal_id__versions__version_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalOut"];
                 };
             };
             /** @description Validation Error */
@@ -8371,6 +8358,136 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MaintainedJobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_api_v1_freelancing_watches_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WatchReport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    leave_api_v1_freelancing_watches__job_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_notify_api_v1_freelancing_watches__job_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WatchPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    alerts_api_v1_freelancing_alerts_get: {
+        parameters: {
+            query?: {
+                /** @description Only alerts newer than this cursor */
+                after?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertFeed"];
                 };
             };
             /** @description Validation Error */

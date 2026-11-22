@@ -13,6 +13,8 @@ import functools
 import json
 from pathlib import Path
 
+from app.remote.resume.document import MAX_SKILLS_PER_CATEGORY
+
 PROMPT_VERSION = "v1"
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
 
@@ -235,9 +237,12 @@ def scenario_turn(
             "with their own history."
         )
     if skill_count:
+        per_line = round(skill_count / 4)
         parts.append(
-            f"- The candidate asked for roughly {skill_count} technologies "
-            "overall, still distributed across exactly four categories."
+            f"- The candidate wants about {skill_count} technologies overall, "
+            f"spread evenly across exactly four categories - roughly {per_line} "
+            "per line. This sets the item count for Technical Skills and "
+            "replaces the default per-line guidance there."
         )
     if criteria:
         parts.append("- Leave keyword_plan empty; it is taken from JOB_CRITERIA.")
@@ -701,7 +706,7 @@ FITTING THE FORMAT
   technologies). Never put claims in it that the document does not support.
 - TECHNICAL SKILLS: group the document's own skills into 4 to 6 labelled
   categories that fit them (for example Languages, Frameworks, Cloud & DevOps,
-  Data, Practices). At most 14 items per category. Every item must appear in the
+  Data, Practices). At most """ + str(MAX_SKILLS_PER_CATEGORY) + """ items per category. Every item must appear in the
   document. A document with no skills section still lists skills mentioned in
   its bullets.
 - PROFESSIONAL EXPERIENCE: every employer in the document, newest first, each

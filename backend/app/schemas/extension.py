@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.models.enums import GenerationStatus, ResumeStatus
+from app.remote.resume.document import DEFAULT_SKILL_COUNT, MAX_SKILL_COUNT
 
 FieldType = Literal[
     "text", "email", "tel", "url", "number", "date", "textarea",
@@ -44,7 +45,7 @@ class ExtensionGenerateRequest(BaseModel):
     target_title: str = Field(min_length=2, max_length=160)
     # Given: generate from this job description. Not given: from the career story.
     job_description: str | None = Field(default=None, min_length=40, max_length=60_000)
-    skill_count: int | None = Field(default=None, ge=4, le=40)
+    skill_count: int = Field(default=DEFAULT_SKILL_COUNT, ge=4, le=MAX_SKILL_COUNT)
     extra_instructions: str | None = Field(default=None, max_length=8000)
     # The tab it was generated for: the new resume becomes its posting's resume.
     job_url: str | None = Field(default=None, max_length=4000)

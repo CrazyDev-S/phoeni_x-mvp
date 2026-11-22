@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Bell, CalendarDays } from "lucide-react";
 import Link from "next/link";
 
+import { ClientAlertItems, useClientAlerts } from "@/components/freelancing/client-alerts";
 import type { Upcoming } from "@/components/shared/next-call";
 import {
   DropdownMenu,
@@ -19,15 +20,17 @@ import { formatDateTime, relative, IMMINENT_MINUTES } from "@/lib/format";
 import { portalPath } from "@/lib/portals";
 
 /**
- * What is coming up, rather than a generic notification feed.
+ * What needs acting on now, rather than a generic notification feed.
  *
- * The only thing in this product that is genuinely time-sensitive is the next
- * call, so that is what the bell shows - and the dot only appears when one is
- * close enough to act on.
+ * Two things in this product are genuinely time-sensitive: the next call, and
+ * (in Freelancing) a client coming back to a posting a teammate is watching.
+ * The dot appears only for a call close enough to act on or an alert not yet seen.
  */
 export function NotificationsMenu() {
   const portal = usePortal();
   const calendar = portal ? portalPath(portal, "calendar") : "/";
+  const freelancing = portal === "freelancing";
+  const alerts = useClientAlerts(freelancing);
   const { data } = useQuery({
     queryKey: ["upcoming", portal],
     queryFn: () =>
@@ -39,22 +42,34 @@ export function NotificationsMenu() {
 
   const items = data ?? [];
   const imminent = items.filter((i) => i.starts_in_minutes <= IMMINENT_MINUTES).length;
+  const unread = freelancing ? alerts.unread : 0;
+  const label = [unread && `${unread} new client alerts`, imminent && `${imminent} upcoming calls`]
+    .filter(Boolean)
+    .join(", ");
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={(open) => !open && alerts.markSeen()}>
       <DropdownMenuTrigger asChild>
         <button
           className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring/40 relative grid size-8 shrink-0 place-items-center rounded-md outline-none focus-visible:ring-2"
-          aria-label={imminent ? `${imminent} upcoming calls` : "Upcoming calls"}
+          aria-label={label || "Notifications"}
         >
           <Bell className="size-4" />
-          {imminent > 0 && (
-            <span className="bg-destructive ring-card absolute top-1.5 right-1.5 size-2 rounded-full ring-2" />
+          {(imminent > 0 || unread > 0) && (
+            <span
+              className={`ring-card absolute top-1.5 right-1.5 size-2 rounded-full ring-2 ${imminent ? "bg-destructive" : "bg-brand animate-pulse"}`}
+            />
           )}
         </button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-80">
+        {freelancing && (
+          <>
+            <ClientAlertItems items={alerts.items} seen={alerts.seen} />
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuLabel>Upcoming</DropdownMenuLabel>
         <DropdownMenuSeparator />
 

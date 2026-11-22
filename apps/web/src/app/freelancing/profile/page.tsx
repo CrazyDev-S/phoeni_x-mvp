@@ -57,6 +57,7 @@ export default function ProfilePage() {
               {profiles.map((p) => (
                 <Chip key={p.id} active={active?.id === p.id} onClick={() => setSelected(p.id)}>
                   {p.name}
+                  {p.version != null && <span className="tabular-nums opacity-60">v{p.version}</span>}
                   {p.is_default && <ChipCount>Default</ChipCount>}
                 </Chip>
               ))}

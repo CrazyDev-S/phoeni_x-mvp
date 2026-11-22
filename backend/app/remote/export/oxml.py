@@ -30,6 +30,10 @@ _AFTER_TBLBORDERS = (
     "w:shd", "w:tblLayout", "w:tblCellMar", "w:tblLook", "w:tblCaption",
     "w:tblDescription", "w:tblPrChange",
 )
+_AFTER_TBLIND = (
+    "w:tblBorders", "w:shd", "w:tblLayout", "w:tblCellMar", "w:tblLook",
+    "w:tblCaption", "w:tblDescription", "w:tblPrChange",
+)
 _AFTER_TBLLAYOUT = (
     "w:tblCellMar", "w:tblLook", "w:tblCaption", "w:tblDescription", "w:tblPrChange",
 )
@@ -57,6 +61,70 @@ def set_bottom_border(
     bottom.set(qn("w:color"), color)
     pBdr.append(bottom)
     pPr.insert_element_before(pBdr, *_AFTER_PBDR)
+
+
+def set_box_padding(style, *, fill: str, pad_pt: int = 3) -> None:
+    """Shade a paragraph and pad it above and below.
+
+    Shading only covers the text's own line, so the padding is a pair of
+    borders drawn in the fill colour: they are invisible but take up room
+    inside the shaded area. ``w:shd`` must follow ``w:pBdr``.
+    """
+    pPr = _get_ppr(style)
+    for old in pPr.findall(qn("w:pBdr")) + pPr.findall(qn("w:shd")):
+        pPr.remove(old)
+    pBdr = OxmlElement("w:pBdr")
+    for edge in ("top", "bottom"):  # schema order: top, left, bottom, right
+        el = OxmlElement(f"w:{edge}")
+        el.set(qn("w:val"), "single")
+        el.set(qn("w:sz"), "4")
+        el.set(qn("w:space"), str(pad_pt))
+        el.set(qn("w:color"), fill)
+        pBdr.append(el)
+    pPr.insert_element_before(pBdr, *_AFTER_PBDR)
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), fill)
+    pPr.insert_element_before(shd, *_AFTER_PBDR[1:])
+
+
+def shade_cell(cell, fill: str) -> None:
+    tcPr = cell._tc.get_or_add_tcPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), fill)
+    tcPr.append(shd)
+
+
+def set_cell_padding(cell, *, top: int, left: int, bottom: int, right: int) -> None:
+    """Padding in twentieths of a point (dxa)."""
+    tcPr = cell._tc.get_or_add_tcPr()
+    mar = OxmlElement("w:tcMar")
+    for side, width in (("top", top), ("left", left), ("bottom", bottom), ("right", right)):
+        el = OxmlElement(f"w:{side}")
+        el.set(qn("w:w"), str(width))
+        el.set(qn("w:type"), "dxa")
+        mar.append(el)
+    tcPr.append(mar)
+
+
+def set_table_extent(table, *, width: int, indent: int = 0) -> None:
+    """Table width and left indent in dxa; a negative indent bleeds into the margin."""
+    tblPr = table._tbl.tblPr
+    tbl_w = tblPr.find(qn("w:tblW"))
+    if tbl_w is None:
+        tbl_w = OxmlElement("w:tblW")
+        tblPr.insert_element_before(tbl_w, "w:jc", "w:tblCellSpacing", "w:tblInd", *_AFTER_TBLIND)
+    tbl_w.set(qn("w:w"), str(width))
+    tbl_w.set(qn("w:type"), "dxa")
+    for old in tblPr.findall(qn("w:tblInd")):
+        tblPr.remove(old)
+    ind = OxmlElement("w:tblInd")
+    ind.set(qn("w:w"), str(indent))
+    ind.set(qn("w:type"), "dxa")
+    tblPr.insert_element_before(ind, *_AFTER_TBLIND)
 
 
 def set_inner_horizontal_borders(

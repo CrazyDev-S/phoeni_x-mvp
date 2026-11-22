@@ -1,15 +1,15 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BadgeCheck, ExternalLink, EyeOff, FileSignature, KanbanSquare, Paperclip, RefreshCw } from "lucide-react";
+import { BadgeCheck, ExternalLink, EyeOff, FileSignature, KanbanSquare } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 import { EmptyState } from "@/components/empty-state";
 import { ErrorAlert } from "@/components/error-alert";
+import { ClientActive, watcherNames } from "@/components/freelancing/client-watch";
 import { FocusButton, JobMetaChips } from "@/components/freelancing/job-list";
-import { useJobSource } from "@/components/freelancing/job-source";
 import { NewProposalDialog } from "@/components/freelancing/new-proposal-dialog";
 import { PageHero } from "@/components/page-hero";
 import { Panel, PanelHead } from "@/components/panel";
@@ -18,9 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Spinner } from "@/components/ui/spinner";
 import { request } from "@/lib/api";
-import { formatDateTime } from "@/lib/format";
 import {
   describeEngine,
   formatBudget,
@@ -46,23 +44,18 @@ export default function JobDetailPage() {
   const queryClient = useQueryClient();
   const [drafting, setDrafting] = useState(false);
   const key = ["freelancing", "job", id];
-  const source = useJobSource();
-  // A source whose search results are already complete (Apify) has nothing more to fetch.
-  const canRefresh = source.data?.detail ?? false;
 
   const { data, isLoading, error } = useQuery({
     queryKey: key,
     queryFn: () => request<JobDetail>(`/api/v1/freelancing/jobs/${id}`),
+    // Someone's extension is watching the client: keep the numbers live.
+    refetchInterval: (query) => (query.state.data?.watchers.length ? 30_000 : false),
   });
   const proposals = useQuery({
     queryKey: ["freelancing", "proposals", "job", id],
     queryFn: () => request<{ items: Proposal[] }>(`/api/v1/freelancing/proposals?job_id=${id}`),
   });
 
-  const refresh = useMutation({
-    mutationFn: () => request<JobDetail>(`/api/v1/freelancing/jobs/${id}?refresh=true`),
-    onSuccess: (next) => queryClient.setQueryData(key, next),
-  });
   const hide = useMutation({
     mutationFn: () =>
       request<JobCard>(`/api/v1/freelancing/jobs/${id}/hide`, { method: data?.hidden_at ? "DELETE" : "POST" }),
@@ -140,11 +133,9 @@ export default function JobDetailPage() {
           </span>
         ))}
         <span>
-          · posted {timeAgo(data.published_at)}
-          {data.renewed_at ? ` · renewed ${timeAgo(data.renewed_at)}` : ""}
+          {data.published_at ? `· posted ${timeAgo(data.published_at)}` : `· added ${timeAgo(data.created_at)}`}
           {data.category ? ` · ${data.subcategory ?? data.category}` : ""}
-          {data.detail_fetched_at ? ` · details from ${formatDateTime(data.detail_fetched_at, "d MMM, HH:mm")}` : ""}
-          {data.status === "CLOSED" ? " · closed on Upwork" : ""}
+          {data.detail_captured_at ? ` · page captured ${timeAgo(data.detail_captured_at)}` : ""}
         </span>
       </p>
 
@@ -169,30 +160,11 @@ export default function JobDetailPage() {
                 ))}
               </ul>
             )}
-            {data.attachments.length > 0 && (
-              <ul className="flex flex-wrap gap-1.5">
-                {data.attachments.map((a, index) => {
-                  const name = a.fileName ?? "Attachment";
-                  const inner = (
-                    <>
-                      <Paperclip className="size-3.5" />
-                      {name}
-                    </>
-                  );
-                  const pill = "bg-muted inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium";
-                  return (
-                    <li key={a.id ?? index}>
-                      {a.link ? (
-                        <a href={a.link} target="_blank" rel="noreferrer" className={cn(pill, "hover:bg-soft-2 transition-colors")}>
-                          {inner}
-                        </a>
-                      ) : (
-                        <span className={cn(pill, "text-muted-foreground")}>{inner}</span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
+            {!data.detail_captured_at && (
+              <p className="text-muted-foreground border-t pt-2 text-xs">
+                Seen in a search list so far. Open the posting on Upwork with the extension on to bring in its full
+                description, client history and activity.
+              </p>
             )}
           </Panel>
 
@@ -207,9 +179,6 @@ export default function JobDetailPage() {
                   </li>
                 ))}
               </ol>
-              {data.cover_letter_required === false && (
-                <p className="text-muted-foreground border-t px-3 py-2 text-xs">A cover letter is optional for this posting.</p>
-              )}
             </Panel>
           )}
 
@@ -260,8 +229,7 @@ export default function JobDetailPage() {
             <FactGroup title="Client">
               <Facts
                 items={[
-                  ...(client.contact_name ? [{ label: "Name", value: client.contact_name }] : []),
-                  { label: "Location", value: [client.city, client.state, client.country].filter(Boolean).join(", ") || "-" },
+                  { label: "Location", value: [client.city, client.country].filter(Boolean).join(", ") || "-" },
                   {
                     label: "Payment",
                     value: client.payment_verified ? (
@@ -276,18 +244,23 @@ export default function JobDetailPage() {
                     ),
                   },
                   { label: "Total spent", value: client.total_spent_display ?? money(client.total_spent) },
+                  { label: "Hires", value: client.total_hires ?? "-" },
                   ...(client.hire_rate_percent != null
                     ? [{ label: "Hire rate", value: `${Math.round(client.hire_rate_percent)}%` }]
-                    : [{ label: "Hires", value: client.total_hires ?? "-" }]),
+                    : []),
                   ...(client.avg_hourly_rate != null
                     ? [{ label: "Avg hourly paid", value: `$${client.avg_hourly_rate.toFixed(2)}` }]
                     : []),
                   { label: "Jobs posted", value: client.total_posted_jobs ?? "-" },
                   {
                     label: "Rating",
-                    value: client.feedback != null && client.total_reviews ? `${client.feedback.toFixed(1)}★ · ${client.total_reviews} reviews` : "-",
+                    value:
+                      client.feedback != null
+                        ? `${client.feedback.toFixed(2)}★${client.total_reviews ? ` · ${client.total_reviews} reviews` : ""}`
+                        : "-",
                   },
-                  { label: "Timezone", value: client.timezone ?? "-", muted: true },
+                  ...(client.industry ? [{ label: "Industry", value: client.industry, muted: true }] : []),
+                  { label: "Member since", value: client.member_since ?? "-", muted: true },
                 ]}
               />
             </FactGroup>
@@ -295,37 +268,24 @@ export default function JobDetailPage() {
             <FactGroup title="Activity on this posting">
               <Facts
                 items={[
-                  { label: "Proposals", value: data.total_applicants ?? "-" },
-                  { label: "Average bid", value: money(activity.average_bid) },
-                  { label: "Bid range", value: activity.min_bid != null || activity.max_bid != null ? `${money(activity.min_bid)} – ${money(activity.max_bid)}` : "-" },
-                  { label: "Interviewed at", value: money(activity.average_interviewed_bid) },
+                  { label: "Proposals", value: data.proposals_label ?? data.total_applicants ?? "-" },
+                  { label: "Interviewing", value: activity.total_invited_to_interview ?? "-" },
                   { label: "Invites sent", value: activity.invites_sent ?? "-" },
-                  {
-                    label: "Hired",
-                    value:
-                      activity.total_hired ??
-                      (activity.client_has_hired == null ? "-" : activity.client_has_hired ? "Someone already" : "Nobody yet"),
-                  },
-                  { label: "Last client activity", value: activity.last_client_activity ? timeAgo(activity.last_client_activity) : "-", muted: true },
-                  { label: "Where", value: data.on_site_type ? humanizeEnum(data.on_site_type) : "-", muted: true },
+                  { label: "Unanswered invites", value: activity.total_unanswered_invites ?? "-" },
+                  { label: "Hired", value: activity.total_hired ?? "-" },
+                  { label: "Last client activity", value: <ClientActive job={data} /> },
+                  ...(data.watchers.length ? [{ label: "Watching", value: watcherNames(data.watchers) }] : []),
+                  { label: "Seen on Upwork", value: timeAgo(data.last_seen_at), muted: true },
                 ]}
               />
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {canRefresh && (
-                  <Button size="xs" variant="outline" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
-                    {refresh.isPending ? <Spinner /> : <RefreshCw />}
-                    Refresh from {source.data?.label ?? "the source"}
-                  </Button>
-                )}
                 <Button size="xs" variant="outline" disabled={hide.isPending} onClick={() => hide.mutate()}>
                   <EyeOff />
                   {data.hidden_at ? "Unhide" : "Hide"}
                 </Button>
               </div>
-              {refresh.error && <p className="text-destructive mt-1.5 text-xs">{(refresh.error as Error).message}</p>}
             </FactGroup>
 
-            <Requirements qualification={data.qualification} />
           </Panel>
         </aside>
       </div>
@@ -336,7 +296,7 @@ export default function JobDetailPage() {
 }
 
 /**
- * The posting's text. Upwork sends plain text, so structure is read from its
+ * The posting's text. Upwork shows plain text, so structure is read from its
  * shape: a run of "-" or "•" lines is a list, and a short line with no full
  * stop between paragraphs is a heading.
  */
@@ -398,25 +358,5 @@ function Facts({ items }: { items: { label: string; value: ReactNode; muted?: bo
         </div>
       ))}
     </dl>
-  );
-}
-
-/** What the posting asks of the freelancer, when the source says. */
-function Requirements({ qualification }: { qualification: Record<string, unknown> }) {
-  const english = qualification.englishProficiency as string | undefined;
-  const contractor = qualification.contractorType as string | undefined;
-  const languages = Array.isArray(qualification.languages) ? (qualification.languages as string[]) : [];
-  const success = qualification.jobSuccessScore as number | undefined;
-  const items = [
-    english && english !== "ANY" ? { label: "English", value: humanizeEnum(english) } : null,
-    contractor && contractor !== "ANY" && contractor !== "ALL" ? { label: "Open to", value: humanizeEnum(contractor) } : null,
-    languages.length ? { label: "Languages", value: languages.join(", ") } : null,
-    typeof success === "number" && success > 0 ? { label: "Job success", value: `${success}%+` } : null,
-  ].filter((item): item is { label: string; value: string } => item !== null);
-  if (!items.length) return null;
-  return (
-    <FactGroup title="Requirements">
-      <Facts items={items} />
-    </FactGroup>
   );
 }

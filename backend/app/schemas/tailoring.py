@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.remote.resume.document import DEFAULT_SKILL_COUNT, MAX_SKILL_COUNT
+
 Mode = Literal["grounded", "constructed"]
 # existing: reframe the resume - employers, titles and dates stay.
 # full: build a new resume from the job description, the old one as the profile.
@@ -13,7 +15,7 @@ Strategy = Literal["existing", "full"]
 
 class GenerateFromStory(BaseModel):
     target_title: str = Field(min_length=2, max_length=160)
-    skill_count: int | None = Field(default=None, ge=4, le=40)
+    skill_count: int = Field(default=DEFAULT_SKILL_COUNT, ge=4, le=MAX_SKILL_COUNT)
     extra_instructions: str | None = Field(default=None, max_length=8000)
     mode: Mode | None = None
     display_name: str | None = Field(default=None, max_length=160)

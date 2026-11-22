@@ -125,6 +125,7 @@ export function GenerationProgress({
 
         {state.running && onStop && (
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={onStop}

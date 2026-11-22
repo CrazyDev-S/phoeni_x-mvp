@@ -32,19 +32,12 @@ import {
   type FreelancerProfile,
   type JobCard,
 } from "@/lib/freelancing";
-import { cn } from "@/lib/utils";
-
-const TONES = [
-  ["direct", "Direct"],
-  ["warm", "Warm"],
-  ["formal", "Formal"],
-] as const;
 
 /**
- * Start a draft: pick a focused posting and a profile, say how it should sound.
+ * Start a draft: pick a focused posting and a profile, and optionally say what to lead with.
  *
- * The engine runs in the background; the dialog hands off to the proposal
- * page, which follows the run and shows the draft when it lands.
+ * The writer runs in the background; the dialog hands off to the proposal
+ * page, whose writer panel follows the run and shows draft 1.1 when it lands.
  */
 export function NewProposalDialog({
   open,
@@ -60,8 +53,7 @@ export function NewProposalDialog({
   const queryClient = useQueryClient();
   const [job, setJob] = useState(jobId ?? "");
   const [profile, setProfile] = useState("");
-  const [tone, setTone] = useState<(typeof TONES)[number][0]>("direct");
-  const [instructions, setInstructions] = useState("");
+  const [instruction, setInstruction] = useState("");
 
   const focused = useQuery({
     queryKey: ["freelancing", "jobs", "focused"],
@@ -86,14 +78,13 @@ export function NewProposalDialog({
         body: JSON.stringify({
           job_id: chosenJob,
           profile_id: chosenProfile || null,
-          tone,
-          instructions: instructions.trim() || null,
+          instruction: instruction.trim() || null,
         }),
       }),
-    onSuccess: ({ id, proposal_id }) => {
+    onSuccess: ({ proposal_id }) => {
       invalidateFreelancing(queryClient);
       onClose();
-      router.push(`/freelancing/proposals/${proposal_id}?generation=${id}`);
+      router.push(`/freelancing/proposals/${proposal_id}`);
     },
   });
 
@@ -153,36 +144,14 @@ export function NewProposalDialog({
                 </Select>
               )}
             </FormField>
-            <div className="flex flex-col gap-1.5">
-              <span id="proposal-tone" className="text-xs font-medium">
-                Tone
-              </span>
-              <div role="radiogroup" aria-labelledby="proposal-tone" className="bg-muted flex gap-0.5 rounded-md p-0.5">
-                {TONES.map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={tone === value}
-                    onClick={() => setTone(value)}
-                    className={cn(
-                      "focus-visible:ring-ring/40 h-7 flex-1 rounded-[5px] text-[13px] font-medium transition-colors outline-none focus-visible:ring-2",
-                      tone === value ? "bg-card shadow-sm" : "text-foreground/65 hover:text-foreground",
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <FormField label="Instructions">
+            <FormField label="Lead with" hint="Optional. A link here is read before writing.">
               {(control) => (
                 <Textarea
                   {...control}
                   rows={3}
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                  placeholder="Lead with the payments migration; keep it under 150 words."
+                  value={instruction}
+                  onChange={(e) => setInstruction(e.target.value)}
+                  placeholder="The Stripe Connect payouts I built for a marketplace — https://…"
                   className="min-h-16"
                 />
               )}

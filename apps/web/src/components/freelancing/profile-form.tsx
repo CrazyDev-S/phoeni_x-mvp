@@ -3,9 +3,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { ProfileLinkFill, type FreelancerProfileDraft } from "@/components/freelancing/profile-link-fill";
+import { ProfileWriter, type ProfileMaterial } from "@/components/freelancing/profile-writer";
+import { ProfileWriting } from "@/components/freelancing/profile-writing";
 import { TagInput } from "@/components/freelancing/tag-input";
 import { ErrorAlert } from "@/components/error-alert";
 import { FormField } from "@/components/form-field";
@@ -27,6 +30,8 @@ import {
   type Proposal,
   type SpecializedProfile,
 } from "@/lib/freelancing";
+import { hasWriting, isSaved, versionLabel, type ProfileVersion } from "@/lib/profile-writer";
+import { cn } from "@/lib/utils";
 
 interface Draft {
   name: string;
@@ -57,6 +62,48 @@ function toDraft(profile: FreelancerProfile | null): Draft {
 }
 
 /**
+ * What a fill from the profile's Upwork link writes: every field the link had
+ * an answer for. The name is the user's, so it is only filled when blank.
+ * Nothing is saved until Save.
+ */
+function fromLink(read: FreelancerProfileDraft): Partial<Draft> {
+  const found: Partial<Draft> = {
+    title: read.title ?? undefined,
+    overview: read.overview ?? undefined,
+    hourly_rate: read.hourly_rate == null ? undefined : String(read.hourly_rate),
+    skills: read.skills.length ? read.skills : undefined,
+    portfolio: read.portfolio.length ? read.portfolio : undefined,
+    specialized_profiles: read.specialized_profiles.length ? read.specialized_profiles : undefined,
+    raw_profile_markdown: read.raw_profile_markdown ?? undefined,
+  };
+  return Object.fromEntries(Object.entries(found).filter(([, value]) => value !== undefined));
+}
+
+/** The written profile as the form holds it: what is saved, and what the writer works from. */
+function material(draft: Draft): ProfileMaterial {
+  return {
+    title: draft.title.trim() || null,
+    overview: draft.overview.trim() || null,
+    hourly_rate: draft.hourly_rate.trim() === "" ? null : Number(draft.hourly_rate),
+    skills: draft.skills,
+    portfolio: draft.portfolio.filter((p) => p.title.trim()),
+    specialized_profiles: draft.specialized_profiles.filter((p) => p.name.trim()),
+    raw_profile_markdown: draft.raw_profile_markdown.trim() || null,
+  };
+}
+
+/** What a writer version puts in the form: its fields that have an answer. */
+function fromVersion(version: ProfileVersion): Partial<Draft> {
+  const doc = version.document;
+  const found: Partial<Draft> = {};
+  if (doc.title) found.title = doc.title;
+  if (doc.summary) found.overview = doc.summary;
+  if (doc.skills?.length) found.skills = doc.skills;
+  if (doc.hourly_rate != null) found.hourly_rate = String(doc.hourly_rate);
+  return found;
+}
+
+/**
  * The freelancer profile editor.
  *
  * What a proposal is written from: title, overview, rate, skills, and the
@@ -75,20 +122,35 @@ export function ProfileForm({
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<Draft>(() => toDraft(profile));
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
+  // The fields the last fill from the link wrote, lit briefly so the change is seen.
+  const [filled, setFilled] = useState<(keyof Draft)[]>([]);
+  const glow = (key: keyof Draft) => (filled.includes(key) ? "fill-glow" : undefined);
+  useEffect(() => {
+    if (!filled.length) return;
+    const timer = setTimeout(() => setFilled([]), 1600);
+    return () => clearTimeout(timer);
+  }, [filled]);
+
+  // The writer version the form holds; Save turns it into the next whole version.
+  const [version, setVersion] = useState<ProfileVersion | null>(null);
+  function applyVersion(v: ProfileVersion) {
+    const found = fromVersion(v);
+    // A profile without a name is named after the title's lead keyword.
+    const named = v.document.titles?.[0]?.keyword;
+    if (named && !draft.name.trim()) found.name = named;
+    setDraft((d) => ({ ...d, ...found }));
+    setFilled(Object.keys(found) as (keyof Draft)[]);
+    setVersion(v);
+  }
 
   const save = useMutation({
     mutationFn: () => {
       const body = {
+        ...material(draft),
         name: draft.name.trim(),
         is_default: draft.is_default,
-        title: draft.title.trim() || null,
-        overview: draft.overview.trim() || null,
-        hourly_rate: draft.hourly_rate.trim() === "" ? null : Number(draft.hourly_rate),
-        skills: draft.skills,
-        portfolio: draft.portfolio.filter((p) => p.title.trim()),
-        specialized_profiles: draft.specialized_profiles.filter((p) => p.name.trim()),
         upwork_profile_url: draft.upwork_profile_url.trim() || null,
-        raw_profile_markdown: draft.raw_profile_markdown.trim() || null,
+        version_id: version?.id ?? null,
       };
       return profile
         ? request<FreelancerProfile>(`/api/v1/freelancing/profiles/${profile.id}`, { method: "PATCH", body: JSON.stringify(body) })
@@ -96,7 +158,8 @@ export function ProfileForm({
     },
     onSuccess: (saved) => {
       invalidateFreelancing(queryClient);
-      toast.success(profile ? "Profile saved" : "Profile created");
+      const bumped = saved.version != null && saved.version !== profile?.version;
+      toast.success(bumped ? `Saved as version ${saved.version}` : profile ? "Profile saved" : "Profile created");
       onSaved(saved);
     },
   });
@@ -123,6 +186,11 @@ export function ProfileForm({
     >
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-[13px] font-semibold">{profile ? profile.name : "New profile"}</h2>
+        {version && !isSaved(version) ? (
+          <StatusBadge tone="warn">Draft {versionLabel(version)} · not saved</StatusBadge>
+        ) : (
+          profile?.version != null && <StatusBadge tone="neutral">Version {profile.version}</StatusBadge>
+        )}
         <div className="ml-auto flex items-center gap-2">
           {profile && (
             <Button type="button" variant="destructive" disabled={remove.isPending} onClick={() => remove.mutate()}>
@@ -139,12 +207,33 @@ export function ProfileForm({
 
       {(save.error || remove.error) && <ErrorAlert>{((save.error ?? remove.error) as Error).message}</ErrorAlert>}
 
+      <ProfileLinkFill
+        value={draft.upwork_profile_url}
+        onChange={(v) => set("upwork_profile_url", v)}
+        onFilled={(read, link) => {
+          const found = fromLink(read);
+          const keys = Object.keys(found) as (keyof Draft)[];
+          if (read.name && !draft.name.trim()) keys.push("name");
+          // The read takes a while; merge into the form as it is now, not as it was.
+          setDraft((d) => ({ ...d, ...found, upwork_profile_url: link, name: d.name.trim() ? d.name : (read.name ?? "") }));
+          setFilled(keys);
+        }}
+      />
+
+      <ProfileWriter
+        profileId={profile?.id ?? null}
+        active={version}
+        material={() => material(draft)}
+        onApply={applyVersion}
+        onSettle={setVersion}
+      />
+
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-3 xl:grid-cols-2">
         <div className="min-w-0 space-y-3">
           <Panel className="space-y-2.5 p-3">
             <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1fr)_auto]">
               <FormField label="Profile name">
-                {(control) => <Input {...control} value={draft.name} onChange={(e) => set("name", e.target.value)} />}
+                {(control) => <Input {...control} className={glow("name")} value={draft.name} onChange={(e) => set("name", e.target.value)} />}
               </FormField>
               <div className="flex items-end gap-2 pb-1.5">
                 <Switch id="profile-default" size="sm" checked={draft.is_default} onCheckedChange={(v) => set("is_default", v)} />
@@ -155,14 +244,14 @@ export function ProfileForm({
             <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1fr)_8rem]">
               <FormField label="Title">
                 {(control) => (
-                  <Input {...control} value={draft.title} placeholder="Senior Python & FastAPI engineer" onChange={(e) => set("title", e.target.value)} />
+                  <Input {...control} data-styled="float" className={glow("title")} value={draft.title} placeholder="Senior Python & FastAPI engineer" onChange={(e) => set("title", e.target.value)} />
                 )}
               </FormField>
               <FormField label="Hourly rate (USD)">
                 {(control) => (
                   <div className="relative">
                     <span aria-hidden className="text-muted-foreground absolute top-1/2 left-2.5 -translate-y-1/2 text-[13px]">$</span>
-                    <Input {...control} type="number" min={0} step="1" className="pl-6" value={draft.hourly_rate} onChange={(e) => set("hourly_rate", e.target.value)} />
+                    <Input {...control} type="number" min={0} step="any" className={cn("pl-6", glow("hourly_rate"))} value={draft.hourly_rate} onChange={(e) => set("hourly_rate", e.target.value)} />
                   </div>
                 )}
               </FormField>
@@ -170,29 +259,35 @@ export function ProfileForm({
 
             <FormField label="Overview">
               {(control) => (
-                <Textarea {...control} rows={7} className="min-h-32" value={draft.overview} onChange={(e) => set("overview", e.target.value)} />
+                <Textarea {...control} rows={7} className={cn("min-h-32", glow("overview"))} value={draft.overview} onChange={(e) => set("overview", e.target.value)} />
               )}
             </FormField>
 
             <FormField label="Skills">
-              {(control) => <TagInput {...control} chips="pill" value={draft.skills} onChange={(v) => set("skills", v)} placeholder="Python, FastAPI, PostgreSQL" />}
+              {(control) => <TagInput {...control} chips="pill" className={glow("skills")} value={draft.skills} onChange={(v) => set("skills", v)} placeholder="Python, FastAPI, PostgreSQL" />}
             </FormField>
 
-            <FormField label="Upwork profile URL">
-              {(control) => (
-                <Input {...control} inputMode="url" value={draft.upwork_profile_url} placeholder="https://www.upwork.com/freelancers/~01…" onChange={(e) => set("upwork_profile_url", e.target.value)} />
-              )}
-            </FormField>
           </Panel>
 
           <Panel className="space-y-1.5 p-3">
             <h3 className="text-[13px] font-semibold">Notes</h3>
-            <Textarea rows={6} className="min-h-28 font-mono text-xs" value={draft.raw_profile_markdown} onChange={(e) => set("raw_profile_markdown", e.target.value)} aria-label="Free-form profile notes" />
+            <Textarea rows={6} className={cn("min-h-28 font-mono text-xs", glow("raw_profile_markdown"))} value={draft.raw_profile_markdown} onChange={(e) => set("raw_profile_markdown", e.target.value)} aria-label="Free-form profile notes" />
           </Panel>
         </div>
 
         <div className="min-w-0 space-y-3">
-          <Panel>
+          {version && hasWriting(version.document) && (
+            <ProfileWriting
+              version={version}
+              title={draft.title}
+              onUseTitle={(t) => {
+                set("title", t);
+                setFilled(["title"]);
+              }}
+            />
+          )}
+
+          <Panel className={glow("portfolio")}>
             <PanelHead title="Portfolio" count={draft.portfolio.length}>
               <Button type="button" size="xs" variant="outline" onClick={() => set("portfolio", [...draft.portfolio, { title: "", url: null, summary: null }])}>
                 <Plus />
@@ -205,6 +300,7 @@ export function ProfileForm({
                   <div key={index} className={subBlock}>
                     <div className="grid items-center gap-1.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem]">
                       <Input
+                        data-styled="float"
                         aria-label="Portfolio title"
                         placeholder="Title"
                         value={item.title}
@@ -234,7 +330,7 @@ export function ProfileForm({
             )}
           </Panel>
 
-          <Panel>
+          <Panel className={glow("specialized_profiles")}>
             <PanelHead title="Specialized profiles" count={draft.specialized_profiles.length}>
               <Button type="button" size="xs" variant="outline" onClick={() => set("specialized_profiles", [...draft.specialized_profiles, { name: "", title: null, overview: null }])}>
                 <Plus />
@@ -253,6 +349,7 @@ export function ProfileForm({
                         onChange={(e) => set("specialized_profiles", draft.specialized_profiles.map((p, i) => (i === index ? { ...p, name: e.target.value } : p)))}
                       />
                       <Input
+                        data-styled="float"
                         aria-label="Specialized profile title"
                         placeholder="Title"
                         value={item.title ?? ""}

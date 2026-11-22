@@ -1,7 +1,7 @@
 {
   "name": "phoenix",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -14,7 +14,8 @@
     "types": "npm run generate -w @phoenix/api-types",
     "lint": "npm run lint --workspaces --if-present",
     "zip:ext": "npm run zip -w @phoenix/extension",
-    "brand": "node scripts/brand-assets.mjs"
+    "brand": "node scripts/brand-assets.mjs",
+    "icons": "node scripts/resume-icons.mjs"
   },
   "engines": {
     "node": ">=22"

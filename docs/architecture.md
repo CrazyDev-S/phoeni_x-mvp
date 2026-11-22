@@ -73,50 +73,51 @@ replacing the check constraint on a table with rows in it therefore lives in
 It is a list, newest last, and the alternative - Alembic - is still open once
 the schema stops moving.
 
-## Freelancing: snapshots, not a mirror
+## Freelancing: one shared list, filled by the extension
 
-Upwork's job search is paged by cursor and re-ranked on every call, and its
-terms allow caching a posting for 24 hours. So nothing in the product refers
-to a posting by its position in a result set: every node returned is upserted
-into `freelance_jobs` by `(user, upwork_id)`, and focus, proposals and
-tracking hang off that row. After every search, snapshots not seen for a day
-that nothing refers to are pruned. A focused job is the user's own list and
-stays - that is what makes a tracker possible at all.
+Upwork jobs used to come from a search provider - an Apify actor, or Upwork's
+own API - into a 24-hour snapshot per user, with a pluggable source, cursors,
+pending runs and per-search billing around it. That whole layer is gone. The
+extension registers every posting its users see on Upwork into
+`freelance_jobs`, one row per Upwork job id, and the job view is a plain query
+over that table: instant, free, and the same list for everyone.
 
-Upwork's field names have one home, `app/freelancing/upwork/filters.py`.
-`JobSearchParams` speaks this API's vocabulary, the mapping translates, and
-`tests/test_freelancing.py` asserts the exact filter that reaches the wire
-for every parameter. A field Upwork renames is a one-line change in one file,
-and one failing assertion says whether it reached the request.
+- **The key is Upwork's.** `upwork_id` is the `~0...` key every job URL
+  carries, unique. A batch is registered with `INSERT ... ON CONFLICT DO
+  NOTHING`, then the rows are locked in key order and merged, so simultaneous
+  captures of one posting by different people make one row, with no
+  check-then-insert race and no deadlock between batches.
+- **Shared rows, private marks.** Focus and hidden live in
+  `freelance_job_marks` per `(user, job)`; tracks and proposals were per user
+  already. Hiding a posting hides it for you, not the team.
+- **The extension harvests; the server reads.** The extension knows where a
+  posting is on the page and lifts it as shown - visible text, `data-test`
+  labels, the description and skill tokens. Upwork's wording is read in one
+  file, `app/freelancing/capture.py`, and the raw capture is kept under
+  `raw`, so a change to Upwork's pages is a backend fix and old captures can
+  be re-read, rather than an extension release.
+- **A list left open stays fresh.** A search or feed tab is refreshed
+  every 5 minutes, as with F5, and the page that comes back is harvested like
+  any other, so new postings arrive without anyone reloading. Never while
+  someone is using the tab, and pausing stops it.
+- **Nothing about the viewer reaches the row.** A posting's page also shows
+  the viewer's own state ("Available Connects"); those lines are dropped
+  before storing, because every user reads the row. The extension reads only
+  the job-browsing pages, never proposals, messages or contracts.
 
-Search itself goes through a `JobSource` (`app/freelancing/sources/`), and
-the default is not Upwork's API at all but an Apify actor. Two actors that
-both scrape Upwork disagree on nearly everything - field names, how a page is
-addressed, the shape of a job - so the Apify source runs actors and the
-actor's `ActorProfile` says what to ask for; one reads by Upwork page number,
-the other by posted-date window. A scrape takes tens of seconds, longer than one request should block,
-so a source may answer `pending` with a cursor, and the portal asks again
-until the page arrives; the Apify cursor names the run, then an offset into
-its dataset. Every run is billed, so "load more" never starts one while the
-dataset has rows left, and an identical search within half an hour reuses its
-run. A source declares which search parameters it can apply, and the form
-renders only those: a filter that silently did nothing would be worse than no
-filter.
+## Writers run the user's prompts verbatim
 
-The OAuth callback is the one unauthenticated endpoint in the category: it
-arrives as a browser redirect from upwork.com with no bearer token. The
-signed `state` names the user instead, and expires in fifteen minutes.
-
-## The proposal engine is a seam
-
-Phase 2 of Freelancing is a generator whose prompt has not been supplied.
-Rather than wait, the contract exists now - `ProposalEngine.draft(context) ->
-ProposalDraft` - and one engine meets it without a model: a deterministic
-scaffold that labels itself `template-v0`, so nobody mistakes it for the real
-thing. A draft goes through the same generation queue and event stream as a
-resume, so the portal follows it with the same hook and progress card, and
-the worker branches before resolving an LLM provider so a user with no API
-key can still draft. Swapping the engine changes one function.
+The profile writer and the proposal writer each load the user's own prompt
+(`backend/prompts/profile_architect_v3.md`, `proposal_generator_v1.md`) as a
+byte-frozen system block, followed by a frozen `CONTRACT` that adapts its
+chat-style turn-taking to an editor where each instruction writes one
+numbered version. The prompt is the user's to tune, so behaviour changes go
+in the contract, never in the prompt file. The proposal contract also holds
+the letter to the freelancer's real work: a client hires on it, so the
+writer never invents a past project, and where nothing real fits it writes a
+plan for the client's build and asks for the real project. Both run through
+the same generation queue and event stream as a resume, so the portal
+follows them with the same hook and progress card.
 
 ## The generator prompt is a specification, not a hint
 
@@ -202,18 +203,24 @@ btree range.
 
 ## The extension inverts the usual advice
 
-All backend I/O lives in the **side panel document**, not the service worker.
-MV3 workers are evicted after ~30s idle; a tailoring run takes 60-180s. The
-panel is a normal long-lived page context, and `URL.createObjectURL` (needed
-for the `.docx` download) does not exist in a worker at all.
+All long-running backend I/O lives in the **side panel document**, not the
+service worker. MV3 workers are evicted after ~30s idle; a tailoring run takes
+60-180s. The panel is a normal long-lived page context, and
+`URL.createObjectURL` (needed for the `.docx` download) does not exist in a
+worker at all. What the worker does fetch is short and has to work with the
+panel closed: the next-call badge, and Upwork capture - one POST per page
+change, finished well inside a worker's lifetime.
 
 Related choices:
 
 - **Real `host_permissions`, not `activeTab`.** `activeTab` grants the main
   frame origin only, so it cannot read a Greenhouse or Lever form inside an
   iframe - which is most application forms.
-- **No static content scripts.** Everything goes through `executeScript` on
-  demand, which is also the panel-to-page RPC.
+- **Static content scripts on upwork.com only.** Upwork capture
+  (`upwork.content.ts`) and the client-watch card (`upwork-watch.content/`)
+  have to run while people browse, panel open or not, so they are declared
+  for `www.upwork.com` and nowhere else. Everything else goes through
+  `executeScript` on demand, which is also the panel-to-page RPC.
 - **Panel scoped to the window, not the tab**, because it carries a calendar
   and a banner that should survive tab switches.
 - **`sidePanel.open()` only from `action.onClicked`** - the user gesture does

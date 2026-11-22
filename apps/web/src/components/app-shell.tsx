@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Chrome } from "@/components/shell/chrome";
+import { TextStyler } from "@/components/text-style/text-styler";
 import { Skeleton } from "@/components/ui/skeleton";
 import { tokens } from "@/lib/api";
 import { portalOf } from "@/lib/portals";
@@ -58,8 +59,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <Chrome portal={portal} pathname={pathname}>
-      {children}
-    </Chrome>
+    <>
+      <Chrome portal={portal} pathname={pathname}>
+        {children}
+      </Chrome>
+      <TextStyler />
+    </>
   );
 }

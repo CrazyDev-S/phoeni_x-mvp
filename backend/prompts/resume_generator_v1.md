@@ -826,7 +826,8 @@ Practices & Tooling       Event-driven design, TDD, OpenTelemetry, CI/CD
   lines and not others. Pick one and hold it.
 - Same separator throughout: comma + single space. Never mix in slashes, pipes or
   middle dots.
-- Same item count per line, within one or two: 4–6 items. A line of 9 next to a line of
+- Same item count per line, within one or two: 4–6 items, unless the candidate asked for a
+  total, in which case about a quarter of it per line. A line of 9 next to a line of
   2 looks unplanned.
 - **No parentheticals**, with one exception: expanding an acronym on first use so both
   forms tokenize — `Infrastructure as Code (IaC)`. Depth proof like

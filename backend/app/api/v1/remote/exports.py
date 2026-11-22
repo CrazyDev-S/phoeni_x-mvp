@@ -15,8 +15,15 @@ from app.remote.export.docx_renderer import render_docx
 from app.remote.export.pdf import PdfFailed, PdfUnavailable, docx_to_pdf
 from app.remote.export.preview import render_preview
 from app.remote.export.profiles import ExportOptions, PageSize, RenderProfile
+from app.remote.export.templates import DEFAULT_TEMPLATE, PALETTE, TEMPLATES
 from app.remote.services.resumes import parse_or_422
-from app.schemas.resume import ExportRequest, PreviewOut
+from app.schemas.resume import (
+    ExportRequest,
+    PreviewOut,
+    SwatchOut,
+    TemplateOut,
+    TemplatesOut,
+)
 
 router = APIRouter(prefix="/export", tags=["export"])
 
@@ -74,7 +81,22 @@ async def _source(
 
 
 def _options(body: ExportRequest) -> ExportOptions:
-    return ExportOptions(profile=RenderProfile(body.profile), page=PageSize(body.page))
+    return ExportOptions(
+        profile=RenderProfile(body.profile),
+        page=PageSize(body.page),
+        template=body.template,
+        accent=body.accent,
+    )
+
+
+@router.get("/templates", response_model=TemplatesOut)
+async def export_templates(user: CurrentUser) -> TemplatesOut:
+    """The looks a designed resume can take, and the colours offered for each."""
+    return TemplatesOut(
+        default=DEFAULT_TEMPLATE,
+        templates=[TemplateOut(key=t.key, label=t.label, accent=t.accent) for t in TEMPLATES.values()],
+        palette=[SwatchOut(name=name, value=value) for name, value in PALETTE],
+    )
 
 
 @router.post(

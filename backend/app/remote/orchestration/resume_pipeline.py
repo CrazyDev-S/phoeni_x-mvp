@@ -24,14 +24,12 @@ import asyncio
 import json
 import logging
 import re
-import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
 from app.core.timezone import app_today
-from app.llm.catalog import cost_micros
 from app.llm.prompts import (
     COMPANY_RESEARCH_SYSTEM,
     CRITERIA_SYSTEM,
@@ -59,7 +57,6 @@ from app.llm.provider import (
     LLMRequest,
     LLMResponse,
     SystemBlock,
-    Usage,
 )
 from app.llm.schemas import (
     COMPANY_RESEARCH,
@@ -69,6 +66,7 @@ from app.llm.schemas import (
     SCENARIO_LEDGER,
     shape,
 )
+from app.llm.streaming import streamed_turn
 from app.remote.orchestration import ats_report
 from app.remote.orchestration.staging import (
     clean_criteria,
@@ -103,10 +101,6 @@ MAX_OUTPUT_CEILING = 128_000
 
 # Searches a research turn may run for each employer, or for the education.
 SEARCHES_PER_ITEM = 3
-
-# How often a running turn reports its reasoning, and how much of it to keep.
-THINKING_INTERVAL_SECONDS = 3.0
-THINKING_TAIL_CHARS = 600
 
 # How much of a model's reason for declining reaches the user.
 DECLINE_QUOTE_CHARS = 600
@@ -978,71 +972,8 @@ class ResumePipeline:
         return resp
 
     async def _stream_call(self, request: LLMRequest) -> LLMResponse:
-        """Run a turn with streaming, reporting reasoning as it arrives.
-
-        Deltas are coalesced on a timer rather than forwarded individually -
-        one database write per token would be absurd, and the reader only needs
-        to see that something is still happening.
-        """
-        summary: list[str] = []
-        last_sent = 0.0
-        usage = Usage()
-        text_parts: list[str] = []
-        stop_reason: str | None = None
-        final_text: str | None = None
-        started = time.perf_counter()
-
-        async for event in self.provider.stream(request):
-            if event.type == "thinking":
-                summary.append(str(event.data.get("text", "")))
-                now = time.perf_counter()
-                if now - last_sent >= THINKING_INTERVAL_SECONDS:
-                    last_sent = now
-                    await self._report(
-                        LLMEvent(
-                            "thinking",
-                            {
-                                "purpose": request.purpose,
-                                "text": "".join(summary)[-THINKING_TAIL_CHARS:],
-                                "elapsed_seconds": int(now - started),
-                            },
-                        )
-                    )
-            elif event.type == "text_delta":
-                text_parts.append(str(event.data.get("text", "")))
-            elif event.type == "usage":
-                usage = Usage(
-                    input_tokens=event.data.get("input_tokens", 0),
-                    output_tokens=event.data.get("output_tokens", 0),
-                    cache_read_tokens=event.data.get("cache_read_tokens", 0),
-                    cache_write_5m_tokens=event.data.get("cache_write_5m_tokens", 0),
-                    cache_write_1h_tokens=event.data.get("cache_write_1h_tokens", 0),
-                )
-            elif event.type == "done":
-                stop_reason = event.data.get("stop_reason")
-                final_text = event.data.get("text")
-
-        # The answer is the final message's text. A turn resumed after a
-        # search paused it also streamed what it said before the pause.
-        text = final_text if final_text is not None else "".join(text_parts)
-        parsed = None
-        if text:
-            try:
-                parsed = json.loads(text)
-            except (ValueError, TypeError):
-                parsed = None
-
-        return LLMResponse(
-            text=text,
-            parsed=parsed,
-            stop_reason=stop_reason,
-            usage=usage,
-            model=getattr(self.provider, "model", ""),
-            latency_ms=int((time.perf_counter() - started) * 1000),
-            # The worker streams every turn, so without this every recorded
-            # call - and every generation's total - read $0.
-            cost_usd_micros=cost_micros(getattr(self.provider, "spec", None), usage.as_dict()),
-        )
+        """Run a turn with streaming, reporting reasoning as it arrives."""
+        return await streamed_turn(self.provider, request, self._report)
 
     async def _report(self, event: LLMEvent) -> None:
         async with self._report_lock:

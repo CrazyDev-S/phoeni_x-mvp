@@ -16,14 +16,17 @@ from app.models.application import (
 )
 from app.models.calendar import Meeting, MeetingSeries
 from app.models.freelancing import (
-    ApifyConnection,
     FreelanceJob,
+    FreelanceJobAlert,
+    FreelanceJobMark,
     FreelanceJobTrack,
     FreelanceJobTrackEvent,
+    FreelanceJobWatch,
     FreelancerProfile,
+    FreelancerProfileVersion,
     FreelanceSavedSearch,
     Proposal,
-    UpworkConnection,
+    ProposalVersion,
 )
 from app.models.generation import Generation, GenerationEvent, LLMCall
 from app.models.job_link import JobLink
@@ -39,7 +42,6 @@ from app.models.user import ApiToken, LLMCredential, ModelCatalog, User, UserSet
 
 __all__ = [
     "ApiToken",
-    "ApifyConnection",
     "ApplicationFormAnswer",
     "ApplicationStage",
     "ApplicationStageEvent",
@@ -48,10 +50,14 @@ __all__ = [
     "BaseResume",
     "CandidateProfile",
     "FreelanceJob",
+    "FreelanceJobAlert",
+    "FreelanceJobMark",
     "FreelanceJobTrack",
     "FreelanceJobTrackEvent",
+    "FreelanceJobWatch",
     "FreelanceSavedSearch",
     "FreelancerProfile",
+    "FreelancerProfileVersion",
     "Generation",
     "GenerationEvent",
     "JobApplication",
@@ -64,10 +70,10 @@ __all__ = [
     "ModelCatalog",
     "ProfileEmployment",
     "Proposal",
+    "ProposalVersion",
     "StageTemplate",
     "StageTemplateItem",
     "TailoredResume",
-    "UpworkConnection",
     "User",
     "UserSettings",
 ]

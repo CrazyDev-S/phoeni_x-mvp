@@ -9,15 +9,18 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterable
+from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.timezone import utc_now
+from app.freelancing.services import jobs
 from app.models.calendar import Meeting
 from app.models.enums import FreelanceTrackStage, MeetingStatus, ProposalStatus
 from app.models.freelancing import (
     FreelanceJob,
+    FreelanceJobMark,
     FreelanceJobTrack,
     FreelanceJobTrackEvent,
     Proposal,
@@ -57,6 +60,14 @@ async def ensure_track(session: AsyncSession, user_id: uuid.UUID, job: Freelance
             )
         )
     return track
+
+
+async def untrack(session: AsyncSession, track: FreelanceJobTrack) -> None:
+    """Take a job out of the pipeline: the track goes, and so does the focus that
+    put it there (focusing is what tracks a job). The shared posting stays."""
+    await jobs.clear_focus(session, track.user_id, track.job_id)
+    await session.delete(track)
+    await session.flush()
 
 
 async def get_track(session: AsyncSession, user_id: uuid.UUID, track_id: uuid.UUID) -> FreelanceJobTrack | None:
@@ -125,7 +136,7 @@ TRACK_COLUMNS = (
 )
 
 
-def _job_brief(job: FreelanceJob) -> JobBrief:
+def _job_brief(job: FreelanceJob, focused_at: datetime | None) -> JobBrief:
     return JobBrief(
         id=job.id,
         title=job.title,
@@ -137,7 +148,7 @@ def _job_brief(job: FreelanceJob) -> JobBrief:
         client_country=(job.client or {}).get("country"),
         total_applicants=job.total_applicants,
         published_at=job.published_at,
-        focused_at=job.focused_at,
+        focused_at=focused_at,
         description=job.description,
         skills=list(job.skills or []),
     )
@@ -165,6 +176,17 @@ async def describe(session: AsyncSession, tracks: Iterable[FreelanceJobTrack]) -
             select(FreelanceJob).where(FreelanceJob.id.in_({t.job_id for t in tracks}))
         )
     }
+    # Tracks are always one user's; the posting is shared, their star is not.
+    focused = dict(
+        (
+            await session.execute(
+                select(FreelanceJobMark.job_id, FreelanceJobMark.focused_at).where(
+                    FreelanceJobMark.user_id == tracks[0].user_id,
+                    FreelanceJobMark.job_id.in_(jobs),
+                )
+            )
+        ).all()
+    )
     proposal_ids = {t.proposal_id for t in tracks if t.proposal_id}
     proposals = {}
     if proposal_ids:
@@ -193,7 +215,7 @@ async def describe(session: AsyncSession, tracks: Iterable[FreelanceJobTrack]) -
         out.append(
             TrackOut(
                 **{name: getattr(track, name) for name in TRACK_COLUMNS},
-                job=_job_brief(job),
+                job=_job_brief(job, focused.get(job.id)),
                 proposal=ProposalBrief(
                     id=proposal.id,
                     status=proposal.status,

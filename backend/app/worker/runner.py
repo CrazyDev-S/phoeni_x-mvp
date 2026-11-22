@@ -160,11 +160,15 @@ async def _was_stopped(session, generation: Generation) -> bool:
 async def _process(session, generation: Generation) -> None:
     payload = generation.input or {}
     if generation.kind is GenerationKind.PROPOSAL:
-        # The Freelancing engine. Today it needs no model, so it must not go
-        # through get_provider, which would refuse a user with no API key.
+        # The Freelancing proposal writer resolves its own provider.
         from app.freelancing.proposals.run import run_proposal_generation
 
         await run_proposal_generation(session, generation)
+        return
+    if generation.kind is GenerationKind.PROFILE:
+        from app.freelancing.profile_writer import run_profile_generation
+
+        await run_profile_generation(session, generation)
         return
 
     settings = await session.get(UserSettings, generation.user_id)

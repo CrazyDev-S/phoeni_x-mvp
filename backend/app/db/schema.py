@@ -120,6 +120,61 @@ def _model_enums() -> dict[str, list[str]]:
     return found
 
 
+# 2026-11: freelance_jobs goes from one copy per user to one row per posting.
+# Runs only while the table still has its per-user shape. Rows are re-keyed
+# to Upwork's job key (the "~0..." every job URL carries), the copies of one
+# posting collapse into the most recently seen, and what each user said about
+# a copy - focused, hidden - becomes their mark on the survivor.
+SHARE_FREELANCE_JOBS = """
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = current_schema()
+      AND table_name = 'freelance_jobs' AND column_name = 'user_id'
+  ) THEN
+    RETURN;
+  END IF;
+
+  ALTER TABLE freelance_jobs DROP CONSTRAINT IF EXISTS uq_freelance_jobs_user_id_upwork_id;
+  UPDATE freelance_jobs SET upwork_id = lower(ciphertext) WHERE ciphertext LIKE '~0%';
+
+  CREATE TEMP TABLE _freelance_job_keep ON COMMIT DROP AS
+    SELECT id, first_value(id) OVER (
+      PARTITION BY upwork_id ORDER BY last_seen_at DESC, id
+    ) AS keep
+    FROM freelance_jobs;
+
+  INSERT INTO freelance_job_marks (user_id, job_id, focused_at, hidden_at)
+    SELECT j.user_id, k.keep, max(j.focused_at), max(j.hidden_at)
+    FROM freelance_jobs j JOIN _freelance_job_keep k ON k.id = j.id
+    WHERE j.focused_at IS NOT NULL OR j.hidden_at IS NOT NULL
+    GROUP BY j.user_id, k.keep
+    ON CONFLICT DO NOTHING;
+
+  UPDATE proposals p SET job_id = k.keep
+    FROM _freelance_job_keep k WHERE p.job_id = k.id AND k.id <> k.keep;
+  UPDATE freelance_job_tracks t SET job_id = k.keep
+    FROM _freelance_job_keep k WHERE t.job_id = k.id AND k.id <> k.keep;
+  DELETE FROM freelance_jobs j
+    USING _freelance_job_keep k WHERE j.id = k.id AND k.id <> k.keep;
+
+  ALTER TABLE freelance_jobs
+    DROP COLUMN user_id, DROP COLUMN ciphertext, DROP COLUMN focused_at,
+    DROP COLUMN hidden_at, DROP COLUMN is_premium, DROP COLUMN is_enterprise,
+    DROP COLUMN renewed_at;
+  ALTER TABLE freelance_jobs RENAME COLUMN detail_fetched_at TO detail_captured_at;
+  ALTER TABLE freelance_jobs
+    ADD CONSTRAINT uq_freelance_jobs_upwork_id UNIQUE (upwork_id),
+    ADD COLUMN captured_by_id uuid
+      CONSTRAINT fk_freelance_jobs_captured_by_id_users
+      REFERENCES users(id) ON DELETE SET NULL;
+  CREATE INDEX IF NOT EXISTS ix_freelance_jobs_published
+    ON freelance_jobs (published_at DESC NULLS LAST);
+  CREATE INDEX IF NOT EXISTS ix_freelance_jobs_created ON freelance_jobs (created_at DESC);
+END $$
+"""
+
 # Changes to EXISTING tables. ``create_all`` only ever adds whole tables, so a
 # column or constraint added to a table that already exists has to be stated
 # here, in a form that is safe to run again. Newest last.
@@ -155,6 +210,16 @@ UPGRADES = (
     "ALTER TABLE job_applications DROP CONSTRAINT IF EXISTS ck_job_applications_one_resume",
     "ALTER TABLE job_applications ADD CONSTRAINT ck_job_applications_one_resume "
     "CHECK (num_nonnulls(tailored_resume_id, base_resume_id) <= 1)",
+    # 2026-11: Upwork jobs come from the browser extension into one shared
+    # list. The Apify and Upwork-API sources and their credentials are gone.
+    "DROP TABLE IF EXISTS apify_connections",
+    "DROP TABLE IF EXISTS upwork_connections",
+    "DROP TYPE IF EXISTS upwork_connection_status",
+    SHARE_FREELANCE_JOBS,
+    # 2026-11: proposals are written in versions; a proposal knows the one it holds.
+    "ALTER TABLE proposals ADD COLUMN IF NOT EXISTS version_id uuid "
+    "CONSTRAINT fk_proposals_version_id_proposal_versions "
+    "REFERENCES proposal_versions(id) ON DELETE SET NULL",
 )
 
 
@@ -164,14 +229,20 @@ async def _apply_upgrades(conn: AsyncConnection) -> None:
 
 
 async def _drop_everything(conn: AsyncConnection) -> None:
-    """Drop the view, the tables, and the native enum types.
+    """Drop the view, every table, and the native enum types.
 
-    ``metadata.drop_all`` leaves the enum types behind, and the next
-    ``create_all`` then fails with "type already exists" - so they are dropped
-    explicitly.
+    Enum types outlive their tables, and the next ``create_all`` would then
+    fail with "type already exists" - so they are dropped explicitly.
     """
     await conn.execute(text("DROP VIEW IF EXISTS all_resumes"))
-    await conn.run_sync(Base.metadata.drop_all)
+    # Every table in the schema, not only the ones the models still name: a
+    # table left by a removed model would otherwise hold a foreign key to
+    # ``users`` and block the whole reset.
+    tables = await conn.execute(
+        text("SELECT tablename FROM pg_tables WHERE schemaname = current_schema()")
+    )
+    for (name,) in tables.all():
+        await conn.execute(text(f'DROP TABLE IF EXISTS "{name}" CASCADE'))
     enums = await conn.execute(
         text(
             "SELECT t.typname FROM pg_type t "

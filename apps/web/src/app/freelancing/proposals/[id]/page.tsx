@@ -2,16 +2,19 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Bold, Code, Copy, ExternalLink, Eye, Italic, Link as LinkIcon, List, ListOrdered, Quote, Save, Send, Strikethrough } from "lucide-react";
+import { Copy, ExternalLink, Eye, Save, Send, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState, type ComponentType } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { ConfirmDelete } from "@/components/confirm-delete";
 import { ErrorAlert } from "@/components/error-alert";
+import { ProposalRead } from "@/components/freelancing/proposal-read";
+import { ProposalWriter } from "@/components/freelancing/proposal-writer";
 import { PageHero } from "@/components/page-hero";
-import { GenerationProgress } from "@/components/remote/generation-progress";
 import { Panel, PanelHead } from "@/components/panel";
+import { StyleBar } from "@/components/text-style/style-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +29,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { useGeneration } from "@/hooks/use-generation";
 import { request } from "@/lib/api";
 import {
   describeEngine,
@@ -39,24 +41,15 @@ import {
   type ProposalAnswer,
   type ProposalStatus,
 } from "@/lib/freelancing";
+import {
+  isSaved,
+  proposalVersionsKey,
+  proposalVersionsPath,
+  versionLabel,
+  type ProposalVersion,
+  type ProposalVersions,
+} from "@/lib/proposal-writer";
 import { cn } from "@/lib/utils";
-
-type Format = "bold" | "italic" | "strike" | "code" | "link" | "bullets" | "numbers" | "quote";
-
-const TOOLBAR: { format: Format; label: string; icon: ComponentType<{ className?: string }> }[][] = [
-  [
-    { format: "bold", label: "Bold", icon: Bold },
-    { format: "italic", label: "Italic", icon: Italic },
-    { format: "strike", label: "Strikethrough", icon: Strikethrough },
-  ],
-  [
-    { format: "bullets", label: "Bulleted list", icon: List },
-    { format: "numbers", label: "Numbered list", icon: ListOrdered },
-    { format: "quote", label: "Quote", icon: Quote },
-    { format: "code", label: "Code", icon: Code },
-    { format: "link", label: "Link", icon: LinkIcon },
-  ],
-];
 
 const NO_PROFILE = "__none";
 
@@ -71,7 +64,6 @@ export default function ProposalPage() {
 function ProposalEditor() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const key = ["freelancing", "proposal", id];
 
@@ -83,6 +75,11 @@ function ProposalEditor() {
     queryKey: ["freelancing", "profiles"],
     queryFn: () => request<FreelancerProfile[]>("/api/v1/freelancing/profiles"),
   });
+  // Shared with the writer panel, which owns refetching it.
+  const versions = useQuery({
+    queryKey: proposalVersionsKey(id),
+    queryFn: () => request<ProposalVersions>(proposalVersionsPath(id)),
+  });
 
   const [activeEditorTab, setActiveEditorTab] = useState<"write" | "review" | "compare">("write");
   const [letter, setLetter] = useState("");
@@ -92,13 +89,16 @@ function ProposalEditor() {
   const [connects, setConnects] = useState("");
   const [status, setStatus] = useState<ProposalStatus>("draft");
   const [profileId, setProfileId] = useState("");
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const loadedVersion = useRef<string | null>(null);
   const letterRef = useRef<HTMLTextAreaElement>(null);
 
+  // The editor holds the proposal as the server has it: on load, after a save,
+  // when a draft lands, and when a version is deleted.
   useEffect(() => {
     if (!data) return;
-    const version = `${data.updated_at}:${data.engine_version}`;
+    const version = `${data.updated_at}:${data.version_id}`;
     if (loadedVersion.current === version) return;
     loadedVersion.current = version;
     setLetter(data.cover_letter_markdown);
@@ -108,25 +108,28 @@ function ProposalEditor() {
     setConnects(data.connects_estimate == null ? "" : String(data.connects_estimate));
     setStatus(data.status);
     setProfileId(data.profile_id ?? "");
+    setActiveId(data.version_id);
     setDirty(false);
   }, [data]);
 
-  const generation = useGeneration();
-  const followed = useRef(false);
-  useEffect(() => {
-    const generationId = searchParams.get("generation");
-    if (!generationId || followed.current) return;
-    followed.current = true;
-    generation.attach(generationId);
-    router.replace(`/freelancing/proposals/${id}`, { scroll: false });
-  }, [searchParams, generation, id, router]);
-
-  useEffect(() => {
-    if (!generation.state.running && generation.state.resultId) {
-      queryClient.invalidateQueries({ queryKey: key });
+  const onChanged = useCallback(
+    (next?: Proposal) => {
+      if (next) queryClient.setQueryData(["freelancing", "proposal", id], next);
       invalidateFreelancing(queryClient);
-    }
-  }, [generation.state.running, generation.state.resultId, queryClient, key]);
+    },
+    [queryClient, id],
+  );
+
+  /** Put a version's letter and answers in the editor; Save makes it the next whole version. */
+  const applyVersion = useCallback(
+    (version: ProposalVersion) => {
+      setLetter(version.document.cover_letter_markdown);
+      setAnswers(version.document.answers);
+      setActiveId(version.id);
+      setDirty(version.id !== data?.version_id);
+    },
+    [data?.version_id],
+  );
 
   const save = useMutation({
     mutationFn: () =>
@@ -140,13 +143,12 @@ function ProposalEditor() {
           connects_estimate: connects.trim() === "" ? null : Number(connects),
           status,
           profile_id: profileId || null,
+          version_id: activeId,
         }),
       }),
     onSuccess: (next) => {
-      queryClient.setQueryData(key, next);
-      invalidateFreelancing(queryClient);
-      setDirty(false);
-      toast.success("Proposal saved successfully");
+      onChanged(next);
+      toast.success("Proposal saved");
     },
   });
 
@@ -156,80 +158,14 @@ function ProposalEditor() {
       return request<Proposal>(`/api/v1/freelancing/proposals/${id}/submit`, { method: "POST" });
     },
     onSuccess: (next) => {
-      queryClient.setQueryData(key, next);
-      invalidateFreelancing(queryClient);
-      toast.success("Proposal submitted successfully!");
+      onChanged(next);
+      toast.success("Marked as submitted");
     },
   });
 
   const copyText = () => {
-    navigator.clipboard.writeText(letter);
-    toast.success("Copied proposal to clipboard!");
-  };
-
-  /** Markdown around the selection, or at the caret; list and quote marks go on each selected line. */
-  const applyFormat = (kind: Format) => {
-    const el = letterRef.current;
-    if (!el) return;
-    const { selectionStart: from, selectionEnd: to, value } = el;
-    const picked = value.slice(from, to);
-    let next: string;
-    let caretFrom: number;
-    let caretTo: number;
-
-    const wrap = (open: string, close: string, fallback: string) => {
-      const inner = picked || fallback;
-      next = value.slice(0, from) + open + inner + close + value.slice(to);
-      caretFrom = from + open.length;
-      caretTo = caretFrom + inner.length;
-    };
-    const prefixLines = (mark: (n: number) => string) => {
-      const start = value.lastIndexOf("\n", from - 1) + 1;
-      const endAt = value.indexOf("\n", to);
-      const end = endAt === -1 ? value.length : endAt;
-      const block = value
-        .slice(start, end)
-        .split("\n")
-        .map((line, i) => mark(i + 1) + line)
-        .join("\n");
-      next = value.slice(0, start) + block + value.slice(end);
-      caretFrom = start;
-      caretTo = start + block.length;
-    };
-
-    switch (kind) {
-      case "bold":
-        wrap("**", "**", "bold text");
-        break;
-      case "italic":
-        wrap("*", "*", "italic text");
-        break;
-      case "strike":
-        wrap("~~", "~~", "struck text");
-        break;
-      case "code":
-        wrap("`", "`", "code");
-        break;
-      case "link":
-        wrap("[", "](https://)", "link text");
-        break;
-      case "bullets":
-        prefixLines(() => "- ");
-        break;
-      case "numbers":
-        prefixLines((n) => `${n}. `);
-        break;
-      case "quote":
-        prefixLines(() => "> ");
-        break;
-    }
-
-    setLetter(next!);
-    setDirty(true);
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(caretFrom, caretTo);
-    });
+    void navigator.clipboard.writeText(letter);
+    toast.success("Copied, ready to paste into Upwork");
   };
 
   if (isLoading || !data) {
@@ -242,6 +178,7 @@ function ProposalEditor() {
     );
   }
 
+  const active = versions.data?.items.find((v) => v.id === activeId) ?? null;
   const wordCount = letter.trim() ? letter.trim().split(/\s+/).filter(Boolean).length : 0;
   const job = data.job;
   const answered = answers.filter((a) => a.answer.trim()).length;
@@ -259,6 +196,11 @@ function ProposalEditor() {
   ]
     .filter(Boolean)
     .join(" · ");
+  const badge = dirty
+    ? { variant: "warning" as const, text: active ? `Unsaved · ${versionLabel(active)}` : "Unsaved" }
+    : active
+      ? { variant: "secondary" as const, text: isSaved(active) ? `Version ${versionLabel(active)}` : `Draft ${versionLabel(active)}` }
+      : { variant: "secondary" as const, text: `Saved ${timeAgo(data.updated_at)}` };
 
   return (
     <div className="space-y-3">
@@ -266,16 +208,33 @@ function ProposalEditor() {
         title="Proposal"
         back="/freelancing/proposals"
         stats={stats}
-        badge={<Badge variant={dirty ? "warning" : "secondary"}>{dirty ? "Unsaved" : `Saved ${timeAgo(data.updated_at)}`}</Badge>}
+        badge={<Badge variant={badge.variant}>{badge.text}</Badge>}
         actions={
           <>
+            <ConfirmDelete
+              label={job?.title || "this proposal"}
+              description="This permanently removes the proposal, all its versions and its place in your pipeline. This cannot be undone."
+              onDelete={async () => {
+                await request(`/api/v1/freelancing/proposals/${id}`, { method: "DELETE" });
+              }}
+              onDeleted={() => {
+                invalidateFreelancing(queryClient);
+                toast.success("Proposal deleted");
+                router.push("/freelancing/proposals");
+              }}
+              trigger={
+                <Button variant="ghost" size="icon" aria-label="Delete proposal" className="hover:text-destructive">
+                  <Trash2 />
+                </Button>
+              }
+            />
             <Button variant="outline" onClick={() => save.mutate()} disabled={save.isPending}>
               {save.isPending ? <Spinner /> : <Save />}
-              Save draft
+              Save
             </Button>
             <Button variant="brand" onClick={() => submit.mutate()} disabled={submit.isPending || !letter.trim()}>
               {submit.isPending ? <Spinner /> : <Send />}
-              Submit proposal
+              Mark submitted
             </Button>
           </>
         }
@@ -285,12 +244,17 @@ function ProposalEditor() {
         <ErrorAlert>{((save.error ?? submit.error) as Error).message}</ErrorAlert>
       )}
 
-      {(generation.state.running || generation.state.error) && (
-        <GenerationProgress state={generation.state} />
-      )}
-
       <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="min-w-0 space-y-3">
+          <ProposalWriter
+            proposal={data}
+            profileId={profileId || null}
+            active={active}
+            writing={() => ({ cover_letter_markdown: letter, answers })}
+            onApply={applyVersion}
+            onChanged={onChanged}
+          />
+
           {/* The letter */}
           <Panel className="overflow-hidden">
             <div className="flex flex-wrap items-center gap-2 border-b px-3 py-1.5">
@@ -302,26 +266,7 @@ function ProposalEditor() {
                 </TabsList>
               </Tabs>
 
-              <div className="flex flex-wrap items-center gap-0.5" role="toolbar" aria-label="Formatting">
-                {TOOLBAR.map((group, i) => (
-                  <div key={i} className="flex items-center gap-0.5">
-                    <span className="bg-border mx-1.5 h-4 w-px" aria-hidden />
-                    {group.map(({ format: kind, label, icon: Icon }) => (
-                      <button
-                        key={kind}
-                        type="button"
-                        aria-label={label}
-                        title={label}
-                        disabled={activeEditorTab !== "write"}
-                        onClick={() => applyFormat(kind)}
-                        className="text-foreground/75 hover:bg-muted focus-visible:ring-ring/40 grid size-7 place-items-center rounded outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-40"
-                      >
-                        <Icon className="size-3.5" />
-                      </button>
-                    ))}
-                  </div>
-                ))}
-              </div>
+              <StyleBar target={letterRef} lists disabled={activeEditorTab !== "write"} />
 
               <div className="ml-auto flex items-center gap-1.5">
                 <Button
@@ -343,13 +288,14 @@ function ProposalEditor() {
             {activeEditorTab === "write" && (
               <Textarea
                 ref={letterRef}
+                styleBar="inline"
                 aria-label="Cover letter"
                 value={letter}
                 onChange={(e) => {
                   setLetter(e.target.value);
                   setDirty(true);
                 }}
-                placeholder="Write the cover letter."
+                placeholder="The proposal writer drafts the letter here, or write it yourself."
                 className="min-h-[24rem] resize-none rounded-none border-0 bg-transparent px-4 py-3 text-sm leading-relaxed shadow-none focus-visible:border-0 focus-visible:ring-0"
               />
             )}
@@ -416,7 +362,9 @@ function ProposalEditor() {
           )}
         </div>
 
-        <aside className="min-w-0">
+        <aside className="min-w-0 space-y-3">
+          {active && <ProposalRead version={active} />}
+
           <Panel>
             {/* Posting */}
             {job && (
@@ -592,7 +540,7 @@ function ProposalEditor() {
             </section>
 
             <section className="flex items-baseline justify-between gap-2 border-t px-3 py-2 text-xs">
-              <span className="text-muted-foreground">Current draft</span>
+              <span className="text-muted-foreground">Written by</span>
               <span className="truncate font-medium">{describeEngine(data.engine_version)}</span>
             </section>
           </Panel>

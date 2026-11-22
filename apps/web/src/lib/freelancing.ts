@@ -8,244 +8,97 @@ import type { QueryClient } from "@tanstack/react-query";
 
 import type { Tone } from "@/components/status-badge";
 
-// --- Upwork connection ----------------------------------------------------------
-
-export type ConnectionStatus =
-  | "not_configured"
-  | "pending_authorization"
-  | "connected"
-  | "expired"
-  | "error";
-
-export interface UpworkConnection {
-  status: ConnectionStatus;
-  configured: boolean;
-  credentials_source: "user" | "environment" | "none";
-  client_id: string | null;
-  masked_client_secret: string | null;
-  connected: boolean;
-  upwork_user_name: string | null;
-  upwork_user_id: string | null;
-  tenant_id: string | null;
-  redirect_uri: string;
-  access_token_expires_at: string | null;
-  connected_at: string | null;
-  last_used_at: string | null;
-  last_error: string | null;
-}
-
-export const CONNECTION_LABEL: Record<ConnectionStatus, { label: string; tone: Tone }> = {
-  not_configured: { label: "Not configured", tone: "neutral" },
-  pending_authorization: { label: "Awaiting authorization", tone: "warn" },
-  connected: { label: "Connected", tone: "ok" },
-  expired: { label: "Session expired", tone: "warn" },
-  error: { label: "Error", tone: "bad" },
-};
-
-// --- Search -----------------------------------------------------------------------
+// --- The shared job list ---------------------------------------------------------------
 
 export type JobType = "hourly" | "fixed";
-export type SortField = "recency" | "relevance" | "client_total_charge" | "client_rating";
+export type ExperienceLevel = "entry_level" | "intermediate" | "expert";
+export type SortField = "recency" | "captured";
 
-export interface AreaParam {
-  latitude: number;
-  longitude: number;
-  radius_miles: number;
-}
-
-/** Every parameter the search accepts. Mirrors `JobSearchParams` on the backend. */
-export interface JobSearchParams {
+/**
+ * What the job view asks of the shared list. Mirrors `JobFilter` on the
+ * backend; every filter is answered from captured postings.
+ */
+export interface JobFilter {
   query: string;
-  title: string;
   skills: string[];
-  and_terms: string[];
-  or_terms: string[];
-  exact_terms: string[];
   exclude_terms: string[];
-  category_ids: string[];
-  subcategory_ids: string[];
-  occupation_ids: string[];
-  ontology_skill_ids: string[];
   job_type: JobType | null;
-  workload: string | null;
-  durations: string[];
-  experience_level: string | null;
+  experience_level: ExperienceLevel | null;
+  /** Hourly postings paying at least this; fixed-price ones are left alone. */
+  hourly_rate_min: number | null;
+  /** Fixed-price budget range; hourly ones are left alone. */
   budget_min: number | null;
   budget_max: number | null;
-  hourly_rate_min: number | null;
-  hourly_rate_max: number | null;
-  client_hires_min: number | null;
-  client_hires_max: number | null;
-  proposals_min: number | null;
-  proposals_max: number | null;
-  verified_payment_only: boolean | null;
-  previous_clients_only: boolean | null;
-  client_locations: string[];
-  client_timezone: string;
-  enterprise_only: boolean | null;
-  talent_cloud_only: boolean | null;
-  talent_cloud_ids: string[];
-  user_location_match: boolean | null;
-  visitor_country: string;
-  area: AreaParam | null;
-  /** Only postings published within this many hours. Not every source can. */
   posted_within_hours: number | null;
-  client_min_rating: number | null;
+  verified_payment_only: boolean;
   client_min_spent: number | null;
-  client_max_spent: number | null;
-  client_min_hire_rate: number | null;
-  phone_verified_only: boolean | null;
+  client_min_rating: number | null;
+  client_locations: string[];
   exclude_client_locations: string[];
-  connects_min: number | null;
-  connects_max: number | null;
-  english_level: "basic" | "conversational" | "fluent" | "native" | null;
-  contractor_type: "freelancer" | "agency" | null;
-  featured_only: boolean | null;
-  exclude_with_questions: boolean | null;
-  sort: SortField;
-  page_size: number;
-  cursor: string | null;
-  hide_hidden: boolean;
-  hide_applied: boolean;
-  /** Drop postings that only accept applicants from other countries. Applied here. */
+  proposals_max: number | null;
+  /** Drop postings that only accept applicants from other countries. */
   open_to_country: string;
+  hide_hidden: boolean;
+  sort: SortField;
 }
 
-export const EMPTY_SEARCH: JobSearchParams = {
+export const EMPTY_FILTER: JobFilter = {
   query: "",
-  title: "",
   skills: [],
-  and_terms: [],
-  or_terms: [],
-  exact_terms: [],
   exclude_terms: [],
-  category_ids: [],
-  subcategory_ids: [],
-  occupation_ids: [],
-  ontology_skill_ids: [],
   job_type: null,
-  workload: null,
-  durations: [],
   experience_level: null,
+  hourly_rate_min: null,
   budget_min: null,
   budget_max: null,
-  hourly_rate_min: null,
-  hourly_rate_max: null,
-  client_hires_min: null,
-  client_hires_max: null,
-  proposals_min: null,
-  proposals_max: null,
-  verified_payment_only: null,
-  previous_clients_only: null,
-  client_locations: [],
-  client_timezone: "",
-  enterprise_only: null,
-  talent_cloud_only: null,
-  talent_cloud_ids: [],
-  user_location_match: null,
-  visitor_country: "",
-  area: null,
   posted_within_hours: null,
-  client_min_rating: null,
+  verified_payment_only: false,
   client_min_spent: null,
-  client_max_spent: null,
-  client_min_hire_rate: null,
-  phone_verified_only: null,
+  client_min_rating: null,
+  client_locations: [],
   exclude_client_locations: [],
-  connects_min: null,
-  connects_max: null,
-  english_level: null,
-  contractor_type: null,
-  featured_only: null,
-  exclude_with_questions: null,
-  sort: "recency",
-  page_size: 20,
-  cursor: null,
-  hide_hidden: true,
-  hide_applied: false,
+  proposals_max: null,
   open_to_country: "",
+  hide_hidden: true,
+  sort: "recency",
 };
 
+export const JOB_TYPES: { value: JobType; label: string }[] = [
+  { value: "hourly", label: "Hourly" },
+  { value: "fixed", label: "Fixed price" },
+];
+
+export const EXPERIENCE_LEVELS: { value: ExperienceLevel; label: string }[] = [
+  { value: "entry_level", label: "Entry level" },
+  { value: "intermediate", label: "Intermediate" },
+  { value: "expert", label: "Expert" },
+];
+
+export const SORTS: { value: SortField; label: string }[] = [
+  { value: "recency", label: "Newest posted" },
+  { value: "captured", label: "Newest added" },
+];
+
 /** The request body: blanks dropped, so the backend sees only what was set. */
-export function toSearchBody(params: JobSearchParams): Record<string, unknown> {
+export function toFilterBody(filter: JobFilter): Record<string, unknown> {
   const body: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(params)) {
+  for (const [key, value] of Object.entries(filter)) {
     if (value === null || value === "" || (Array.isArray(value) && !value.length)) continue;
     body[key] = typeof value === "string" ? value.trim() : value;
   }
   return body;
 }
 
+/** Whether anything narrows the list beyond the defaults. The sort does not. */
+export function isFiltered(filter: JobFilter): boolean {
+  return (Object.keys(EMPTY_FILTER) as (keyof JobFilter)[]).some(
+    (key) => key !== "sort" && JSON.stringify(filter[key]) !== JSON.stringify(EMPTY_FILTER[key]),
+  );
+}
+
 /** Saved parameters back onto the full shape, so every control has a value. */
-export function fromSavedParams(saved: Record<string, unknown>): JobSearchParams {
-  return { ...EMPTY_SEARCH, ...(saved as Partial<JobSearchParams>), cursor: null };
-}
-
-/** How many controls are set beyond the free-text query, for the filter badge. */
-export function activeFilterCount(params: JobSearchParams): number {
-  let count = 0;
-  for (const [key, value] of Object.entries(params)) {
-    if (["query", "sort", "page_size", "cursor", "hide_hidden", "hide_applied"].includes(key)) continue;
-    if (value === null || value === "" || (Array.isArray(value) && !value.length)) continue;
-    count += 1;
-  }
-  return count;
-}
-
-export interface FilterOption {
-  value: string;
-  label: string;
-  hint?: string | null;
-}
-
-export interface CategoryOption {
-  id: string;
-  label: string;
-  subcategories: FilterOption[];
-}
-
-/** Which provider answers searches, and which controls it honours. */
-export interface JobSourceInfo {
-  key: string;
-  label: string;
-  filters: string[];
-  sorts: string[];
-  detail: boolean;
-  categories: boolean;
-  skills: boolean;
-}
-
-/** The source in service, and whether this user can search with it now. */
-export interface JobSourceStatus extends JobSourceInfo {
-  ready: boolean;
-  setup_hint: string | null;
-}
-
-export interface ApifyConnection {
-  configured: boolean;
-  token_source: "user" | "environment" | "none";
-  masked_token: string | null;
-  status: "unverified" | "valid" | "invalid" | "revoked";
-  apify_username: string | null;
-  actor_id: string;
-  actor_label: string | null;
-  cost_note: string | null;
-  last_verified_at: string | null;
-  last_error: string | null;
-  last_run_id: string | null;
-  last_run_at: string | null;
-}
-
-export interface FilterCatalogue {
-  source: JobSourceInfo;
-  job_types: FilterOption[];
-  workloads: FilterOption[];
-  durations: FilterOption[];
-  experience_levels: FilterOption[];
-  sorts: FilterOption[];
-  page_sizes: number[];
-  categories: CategoryOption[];
-  categories_error: string | null;
+export function fromSavedParams(saved: Record<string, unknown>): JobFilter {
+  return { ...EMPTY_FILTER, ...(saved as Partial<JobFilter>) };
 }
 
 export interface SavedSearch {
@@ -270,33 +123,28 @@ export type TrackStage =
   | "closed";
 
 export interface JobClient {
-  company_name: string | null;
-  /** A first name the source inferred with confidence. */
-  contact_name?: string | null;
+  company_name?: string | null;
   hire_rate_percent?: number | null;
   avg_hourly_rate?: number | null;
   industry?: string | null;
+  company_size?: string | null;
   phone_verified?: boolean | null;
-  country: string | null;
-  city: string | null;
-  state: string | null;
-  timezone: string | null;
-  payment_verified: boolean | null;
-  verification_status: string | null;
-  total_spent: number | null;
-  total_spent_display: string | null;
-  total_hires: number | null;
-  total_posted_jobs: number | null;
-  total_reviews: number | null;
-  feedback: number | null;
-  last_contract_platform: string | null;
-  has_financial_privacy: boolean | null;
+  country?: string | null;
+  city?: string | null;
+  payment_verified?: boolean | null;
+  total_spent?: number | null;
+  total_spent_display?: string | null;
+  total_hires?: number | null;
+  total_posted_jobs?: number | null;
+  total_reviews?: number | null;
+  feedback?: number | null;
+  member_since?: string | null;
 }
 
+/** One Upwork posting in the shared list, with this user's own marks on it. */
 export interface JobCard {
   id: string;
   upwork_id: string;
-  ciphertext: string | null;
   url: string | null;
   title: string;
   description: string | null;
@@ -314,21 +162,66 @@ export interface JobCard {
   client: JobClient;
   total_applicants: number | null;
   freelancers_to_hire: number | null;
-  is_premium: boolean;
-  is_enterprise: boolean;
   preferred_freelancer_location: string[];
   published_at: string | null;
-  renewed_at: string | null;
+  /** When the posting entered the shared list, and when anyone last saw it. */
+  created_at: string;
   last_seen_at: string;
   focused_at: string | null;
   hidden_at: string | null;
-  applied: boolean;
   track_stage: TrackStage | null;
   proposal_count: number;
-  /** From the source's own record, when it has them. */
+  /** As Upwork words it: "10 to 15". */
+  proposals_label: string | null;
   connects_required: number | null;
-  featured: boolean;
-  job_score: number | null;
+  /** Live, from whoever's extension is watching the posting's client. */
+  client_activity_at: string | null;
+  interviewing: number | null;
+  watchers: JobWatcher[];
+}
+
+/** Someone whose extension has the posting open right now. */
+export interface JobWatcher {
+  name: string;
+  you: boolean;
+  /** Their extension checks the client and alerts them. */
+  notify: boolean;
+  /** Theirs is the watch whose findings go to the whole team. */
+  relay: boolean;
+}
+
+/** What a watched posting's client did, as the relaying watch told the team. */
+export interface TeamAlert {
+  id: number;
+  kind: "client_viewed" | "interview_started";
+  job_id: string;
+  title: string;
+  url: string | null;
+  relay_name: string | null;
+  /** This user's own watch alerted them already. */
+  local: boolean;
+  client_activity_at: string | null;
+  interviewing: number | null;
+  previous_interviewing: number | null;
+  occurred_at: string;
+}
+
+export interface TeamAlertFeed {
+  items: TeamAlert[];
+  cursor: number;
+}
+
+/** A client seen this recently is on the posting now. */
+export const CLIENT_HERE_MS = 5 * 60_000;
+
+export function clientIsHere(iso: string | null | undefined): boolean {
+  return Boolean(iso) && Date.now() - Date.parse(iso!) <= CLIENT_HERE_MS;
+}
+
+export function alertHeadline(alert: TeamAlert): string {
+  return alert.kind === "client_viewed"
+    ? "Client is viewing"
+    : `Client started interviewing (${alert.previous_interviewing ?? "?"} → ${alert.interviewing ?? "?"})`;
 }
 
 export interface JobActivity {
@@ -337,38 +230,20 @@ export interface JobActivity {
   total_invited_to_interview: number | null;
   total_hired: number | null;
   total_unanswered_invites: number | null;
-  total_offered: number | null;
-  average_bid: number | null;
-  min_bid: number | null;
-  max_bid: number | null;
-  average_interviewed_bid: number | null;
-  /** Whether the client already hired someone for this posting. */
-  client_has_hired: boolean | null;
 }
 
 export interface JobDetail extends JobCard {
-  detail_fetched_at: string | null;
+  /** Null until someone opened the posting's own page with the extension on. */
+  detail_captured_at: string | null;
   screening_questions: string[];
-  cover_letter_required: boolean | null;
   activity: Partial<JobActivity>;
-  qualification: Record<string, unknown>;
-  location_preference: Record<string, unknown>;
-  attachments: { id?: string; fileName?: string; fileSize?: number; link?: string }[];
-  on_site_type: string | null;
-  status: string | null;
 }
 
-export interface JobSearchPage {
-  items: JobCard[];
-  total: number | null;
-  has_next_page: boolean;
-  end_cursor: string | null;
-  hidden_count: number;
-  /** The source is still working (an Apify run): ask again with `end_cursor`. */
-  pending: boolean;
-  progress_note: string | null;
-  /** Something the source said about this search. */
-  notice: string | null;
+export interface Page<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 // --- Profile, proposals, tracking -----------------------------------------------------
@@ -397,6 +272,8 @@ export interface FreelancerProfile {
   specialized_profiles: SpecializedProfile[];
   upwork_profile_url: string | null;
   raw_profile_markdown: string | null;
+  /** The latest saved version's number (lib/profile-writer.ts); null until first saved. */
+  version: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -439,6 +316,8 @@ export interface Proposal {
   generation_id: string | null;
   generation_meta: Record<string, unknown>;
   submitted_at: string | null;
+  /** The writer's version the letter was last set from. */
+  version_id: string | null;
   created_at: string;
   updated_at: string;
   job: JobBrief | null;
@@ -602,19 +481,6 @@ export function humanizeEnum(value: string | null | undefined): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-export function clientSummary(client: JobClient): string {
-  const parts: string[] = [];
-  if (client.country) parts.push(client.city ? `${client.city}, ${client.country}` : client.country);
-  if (client.total_spent_display) parts.push(`${client.total_spent_display} spent`);
-  else if (client.total_spent != null) parts.push(`$${Math.round(client.total_spent).toLocaleString()} spent`);
-  if (client.total_hires != null) parts.push(`${client.total_hires} hires`);
-  if (client.hire_rate_percent != null) parts.push(`${Math.round(client.hire_rate_percent)}% hire rate`);
-  if (client.feedback != null && client.feedback > 0) {
-    parts.push(`${client.feedback.toFixed(1)}★${client.total_reviews ? ` (${client.total_reviews})` : ""}`);
-  }
-  return parts.join(" · ");
-}
-
 /** Every query that shows a job, a proposal or a track. One write refreshes all of them. */
 const FREELANCING_QUERIES = ["freelancing"];
 
@@ -633,7 +499,7 @@ export function describeEngine(version: string | null): string {
   const source = base.startsWith("template")
     ? "Template draft"
     : base.startsWith("prompt")
-      ? "Generated from your profile"
+      ? "Proposal writer"
       : base;
   return edited ? `${source}, edited by hand` : source;
 }

@@ -15,9 +15,11 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
+  /* After the text face: colour emoji, then symbols and the mathematical
+     alphabets the text-style bar writes - each OS's own, so nothing downloads. */
+  --font-sans: var(--font-inter), var(--font-glyphs);
+  --font-heading: var(--font-inter), var(--font-glyphs);
+  --font-mono: var(--font-geist-mono), var(--font-glyphs);
 
   /* One step above text-4xl, for the two pages that lead with a statement. */
   --text-display: 1.857rem;
@@ -98,6 +100,10 @@
  */
 
 :root {
+  /* What Inter and Geist Mono lack: emoji first so they stay in colour, then
+     the faces with enclosed letters, symbols and the mathematical alphabets. */
+  --font-glyphs: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", "Cambria Math",
+    "STIX Two Math", "Apple Symbols", "Noto Sans Math", "Noto Sans Symbols 2", "DejaVu Sans", sans-serif;
   --radius: 0.5rem;
 
   /* Semantic hues: shared by both portals. */
@@ -393,6 +399,23 @@
   }
   to {
     opacity: 1;
+  }
+}
+
+/* A field just filled for the user (the profile's fill from link): a ring of
+   the portal's accent that fades, so what changed is seen, not hunted for. */
+@utility fill-glow {
+  animation: fill-glow 1.5s ease-out;
+}
+
+@keyframes fill-glow {
+  0%,
+  25% {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 45%, transparent);
+    background-color: color-mix(in oklab, var(--brand) 8%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 0 transparent;
   }
 }
 

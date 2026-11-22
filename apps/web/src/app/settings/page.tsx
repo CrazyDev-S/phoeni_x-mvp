@@ -10,7 +10,6 @@ import {
   Monitor,
   Moon,
   Palette,
-  Plug,
   PlugZap,
   Plus,
   Puzzle,
@@ -25,9 +24,6 @@ import { useTheme } from "next-themes";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 
-import { ApifyConnect } from "@/components/freelancing/apify-connect-card";
-import { useJobSource } from "@/components/freelancing/job-source";
-import { UpworkConnect } from "@/components/freelancing/upwork-connect-card";
 import { AutofillProfile } from "@/components/remote/autofill-profile-card";
 import { ErrorAlert } from "@/components/error-alert";
 import { FormField } from "@/components/form-field";
@@ -122,7 +118,6 @@ const GENERATION_TOGGLES = [
 const SECTIONS = [
   { id: "profile", label: "Profile", Icon: UserRound },
   { id: "models", label: "Models", Icon: Cpu },
-  { id: "integrations", label: "Integrations", Icon: Plug },
   { id: "generation", label: "Generation", Icon: Sparkles },
   { id: "autofill", label: "Autofill", Icon: Wand2 },
   { id: "extension", label: "Extension", Icon: Puzzle },
@@ -189,23 +184,8 @@ function SettingsSections() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requested = searchParams.get("tab");
-  // The Upwork OAuth callback lands here with the outcome in the URL.
-  const upworkOutcome = searchParams.get("upwork");
-  const upworkNotice =
-    upworkOutcome === "connected"
-      ? { kind: "connected" as const }
-      : upworkOutcome === "error"
-        ? {
-            kind: "error" as const,
-            reason: searchParams.get("reason") ?? undefined,
-          }
-        : null;
-  // A link that names a section opens there; so does the Upwork callback.
-  const target: Section | null = isSection(requested)
-    ? requested
-    : upworkOutcome
-      ? "integrations"
-      : null;
+  // A link that names a section opens there.
+  const target: Section | null = isSection(requested) ? requested : null;
 
   const [active, setActive] = useState<Section>(target ?? "profile");
   const queryClient = useQueryClient();
@@ -305,8 +285,6 @@ function SettingsSections() {
             <ModelTiers data={data} models={models ?? []} onPatch={patch.mutate} />
           </SettingsSection>
 
-          <IntegrationsSection upworkNotice={upworkNotice} />
-
           <SettingsSection id="generation" title="Generation">
             <SettingRow label="Base country">
               {(control) => (
@@ -349,31 +327,6 @@ function SettingsSections() {
         </div>
       </div>
     </div>
-  );
-}
-
-/**
- * The section for whichever job source the deployment uses.
- *
- * The source is chosen on the backend (FREELANCING_JOB_SOURCE), so the other
- * one's settings would only be noise here.
- */
-function IntegrationsSection({
-  upworkNotice,
-}: {
-  upworkNotice: { kind: "connected" | "error"; reason?: string } | null;
-}) {
-  const { data, isLoading } = useJobSource();
-  return (
-    <SettingsSection id="integrations" title={data ? `Integrations · ${data.label}` : "Integrations"}>
-      {isLoading || !data ? (
-        <Skeleton className="h-32 w-full" />
-      ) : data.key === "upwork" ? (
-        <UpworkConnect notice={upworkNotice} />
-      ) : (
-        <ApifyConnect />
-      )}
-    </SettingsSection>
   );
 }
 

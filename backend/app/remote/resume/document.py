@@ -26,6 +26,12 @@ class Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
+# Skills. A generated resume has four categories, so the most it can list is
+# four full ones; the default asks for a generous but still scannable 60.
+MAX_SKILLS_PER_CATEGORY = 20
+DEFAULT_SKILL_COUNT = 60
+MAX_SKILL_COUNT = 4 * MAX_SKILLS_PER_CATEGORY
+
 Txt = Annotated[str, Field(min_length=1, max_length=400)]
 Short = Annotated[str, Field(min_length=1, max_length=80)]
 
@@ -89,7 +95,7 @@ class Header(Strict):
 
 class SkillCategory(Strict):
     label: Annotated[str, Field(min_length=1, max_length=60)]
-    items: Annotated[list[Short], Field(min_length=1, max_length=14)]
+    items: Annotated[list[Short], Field(min_length=1, max_length=MAX_SKILLS_PER_CATEGORY)]
 
     @property
     def value(self) -> str:

@@ -1,10 +1,16 @@
-"""The Freelancing category: Upwork connection, job snapshots, focus, proposals, tracking.
+"""The Freelancing category: shared Upwork jobs, focus, proposals, tracking.
 
-A job is stored as a **snapshot** of the Upwork posting the moment it was
-seen. Upwork's own search is paged by cursor and re-ranked on every call, so
-nothing in the product refers to a posting by its position in a result set -
-focus, proposals and tracking all hang off the snapshot row. The snapshot is
-refreshed whenever the posting turns up again or is opened.
+A job is **one Upwork posting, shared by every user**, keyed by Upwork's own
+job id. The browser extension registers postings as people browse Upwork
+(``app.freelancing.capture``); whoever sees a posting first creates the row and
+everyone after them refreshes it. What one user thinks of a posting - starred
+into their tracker, or hidden - is theirs alone and lives in
+``freelance_job_marks``; proposals and tracks were per user already.
+
+While a posting is open in someone's browser, their extension *watches* its
+client (``freelance_job_watches``) and the team is told when the client comes
+back or starts interviewing (``freelance_job_alerts``); see
+``app.freelancing.services.watch``.
 """
 
 from __future__ import annotations
@@ -19,9 +25,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
-    LargeBinary,
     Numeric,
-    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -29,124 +33,40 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, PrimaryKey, Timestamps
 from app.models.enums import (
-    CredentialStatus,
+    FreelanceAlertKind,
     FreelanceJobType,
     FreelanceTrackStage,
     ProposalStatus,
-    UpworkConnectionStatus,
     pg_enum,
 )
 
-UPWORK_CONNECTION_STATUS_ENUM = pg_enum(UpworkConnectionStatus, "upwork_connection_status")
+FREELANCE_ALERT_KIND_ENUM = pg_enum(FreelanceAlertKind, "freelance_alert_kind")
 FREELANCE_JOB_TYPE_ENUM = pg_enum(FreelanceJobType, "freelance_job_type")
 FREELANCE_TRACK_STAGE_ENUM = pg_enum(FreelanceTrackStage, "freelance_track_stage")
 PROPOSAL_STATUS_ENUM = pg_enum(ProposalStatus, "proposal_status")
-# The same native type the LLM credentials use; create_all makes it once.
-APIFY_CREDENTIAL_STATUS_ENUM = pg_enum(CredentialStatus, "credential_status")
-
-
-class UpworkConnection(Timestamps, Base):
-    """One Upwork link per user.
-
-    The API key pair (client id + secret) and the OAuth tokens are all sealed
-    with the same envelope encryption as LLM keys. The client id itself is
-    not secret, so it is stored in the clear for display.
-    """
-
-    __tablename__ = "upwork_connections"
-
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
-    )
-
-    client_id: Mapped[str | None] = mapped_column(Text)
-    client_secret_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
-    client_secret_nonce: Mapped[bytes | None] = mapped_column(LargeBinary)
-    client_secret_last4: Mapped[str | None] = mapped_column(String(8))
-
-    access_token_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
-    access_token_nonce: Mapped[bytes | None] = mapped_column(LargeBinary)
-    access_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    refresh_token_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
-    refresh_token_nonce: Mapped[bytes | None] = mapped_column(LargeBinary)
-    encryption_key_version: Mapped[int] = mapped_column(
-        SmallInteger, nullable=False, server_default="1"
-    )
-
-    # The organisation the API acts for. Upwork accounts can belong to several;
-    # the header X-Upwork-API-TenantId picks one.
-    tenant_id: Mapped[str | None] = mapped_column(Text)
-    upwork_user_id: Mapped[str | None] = mapped_column(Text)
-    upwork_user_name: Mapped[str | None] = mapped_column(Text)
-
-    status: Mapped[UpworkConnectionStatus] = mapped_column(
-        UPWORK_CONNECTION_STATUS_ENUM,
-        nullable=False,
-        server_default=UpworkConnectionStatus.NOT_CONFIGURED.value,
-    )
-    last_error: Mapped[str | None] = mapped_column(Text)
-    connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-
-class ApifyConnection(Timestamps, Base):
-    """A user's Apify API token, for the Apify job source.
-
-    Sealed with the same envelope as LLM keys. A deployment-wide token in
-    ``APIFY_TOKEN`` is the fallback when a user has not stored their own.
-    """
-
-    __tablename__ = "apify_connections"
-
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
-    )
-    token_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
-    token_nonce: Mapped[bytes | None] = mapped_column(LargeBinary)
-    token_last4: Mapped[str | None] = mapped_column(String(8))
-    encryption_key_version: Mapped[int] = mapped_column(
-        SmallInteger, nullable=False, server_default="1"
-    )
-    status: Mapped[CredentialStatus] = mapped_column(
-        APIFY_CREDENTIAL_STATUS_ENUM,
-        nullable=False,
-        server_default=CredentialStatus.UNVERIFIED.value,
-    )
-    apify_username: Mapped[str | None] = mapped_column(Text)
-    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    last_error: Mapped[str | None] = mapped_column(Text)
-    last_run_id: Mapped[str | None] = mapped_column(Text)
-    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class FreelanceJob(PrimaryKey, Timestamps, Base):
-    """A snapshot of one posting, as one user saw it, from whichever job source."""
+    """One Upwork posting, as the extension last captured it. Shared by everyone.
+
+    The columns are derived from ``raw`` by ``capture.normalize``: ``raw`` keeps
+    the last capture of each view ("tile" from a search list, "detail" from the
+    posting's own page), so a better parser can re-derive every column without
+    anyone visiting Upwork again.
+    """
 
     __tablename__ = "freelance_jobs"
     __table_args__ = (
-        UniqueConstraint("user_id", "upwork_id"),
-        Index("ix_freelance_jobs_user_seen", "user_id", text("last_seen_at DESC")),
-        Index(
-            "ix_freelance_jobs_user_focused",
-            "user_id",
-            text("focused_at DESC"),
-            postgresql_where=text("focused_at IS NOT NULL"),
-        ),
+        Index("ix_freelance_jobs_published", text("published_at DESC NULLS LAST")),
+        Index("ix_freelance_jobs_created", text("created_at DESC")),
     )
 
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        PGUUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    # Upwork's posting id, and the "~01..." ciphertext its public URL uses.
-    upwork_id: Mapped[str] = mapped_column(Text, nullable=False)
-    ciphertext: Mapped[str | None] = mapped_column(Text)
+    # Upwork's job key, as every job URL carries it: "~021858964253717283346".
+    upwork_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     url: Mapped[str | None] = mapped_column(Text)
 
     title: Mapped[str] = mapped_column(Text, nullable=False)
@@ -166,33 +86,118 @@ class FreelanceJob(PrimaryKey, Timestamps, Base):
     skills: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, server_default="{}")
 
     # Client facts are read, never computed over, so one document is the
-    # right shape. Keys: company_name, country, city, payment_verified,
-    # total_spent, total_hires, total_posted_jobs, feedback, reviews.
+    # right shape. Keys: see ``schemas.freelancing.JobClient``.
     client: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
+    # Upwork shows a tier ("10 to 15"); this is its upper end, so "at most N
+    # proposals" never lets a busier posting through.
     total_applicants: Mapped[int | None] = mapped_column(Integer)
     freelancers_to_hire: Mapped[int | None] = mapped_column(Integer)
-    is_premium: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
-    is_enterprise: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     preferred_freelancer_location: Mapped[list[str]] = mapped_column(
         ARRAY(Text), nullable=False, server_default="{}"
     )
 
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    renewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    # The whole node as Upwork returned it, so a field the columns do not
-    # carry is still there for the proposal engine.
+    # {"tile": {...}, "detail": {...}, "extras": {...}} - see ``capture``.
     raw: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
 
+    # The last time anyone's browser saw the posting, and saw its own page.
     last_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()"), nullable=False
     )
-    detail_fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    detail_captured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Who registered it first. Kept when that account goes; the job is everyone's.
+    captured_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+
+class FreelanceJobMark(Timestamps, Base):
+    """What one user has said about a shared posting: focused (starred) or hidden.
+
+    A row exists only while one of the two is set.
+    """
+
+    __tablename__ = "freelance_job_marks"
+    __table_args__ = (
+        Index(
+            "ix_freelance_job_marks_user_focused",
+            "user_id",
+            text("focused_at DESC"),
+            postgresql_where=text("focused_at IS NOT NULL"),
+        ),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("freelance_jobs.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
     # Focus is a timestamp, not a flag, so the focused list has an order.
     focused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     hidden_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    track: Mapped[FreelanceJobTrack | None] = relationship(
-        back_populates="job", uselist=False, cascade="all, delete-orphan"
+
+class FreelanceJobWatch(Timestamps, Base):
+    """One user's extension watching a posting's client while it is open on Upwork.
+
+    A watch is live while its heartbeats are (``last_seen_at``) and it has not
+    been left (``ended_at``). The row outlives a session so the user's own
+    baseline - the last client visit and interview count *they* saw - carries
+    over, and reopening a posting never re-announces a visit already told.
+    """
+
+    __tablename__ = "freelance_job_watches"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("freelance_jobs.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
+    # Whether this user's extension checks the posting and alerts them. Off by
+    # default when someone else is already relaying it to the team.
+    notify: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    # When this run of heartbeats began: the earliest live, alerting watch relays.
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    seen_client_activity_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    seen_interviewing: Mapped[int | None] = mapped_column(Integer)
+
+
+class FreelanceJobAlert(Base):
+    """Something a posting's client did, as the relaying watcher reported it to everyone.
+
+    Append-only; ``id`` is the feed's cursor. ``local_user_ids`` are the people
+    whose own watch alerted them already, so the team feed does not tell them twice.
+    """
+
+    __tablename__ = "freelance_job_alerts"
+    __table_args__ = (Index("ix_freelance_job_alerts_job_kind", "job_id", "kind", text("id DESC")),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("freelance_jobs.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[FreelanceAlertKind] = mapped_column(FREELANCE_ALERT_KIND_ENUM, nullable=False)
+    client_activity_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    interviewing: Mapped[int | None] = mapped_column(Integer)
+    previous_interviewing: Mapped[int | None] = mapped_column(Integer)
+    relay_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    local_user_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(PGUUID(as_uuid=True)), nullable=False, server_default="{}"
+    )
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()"), nullable=False
     )
 
 
@@ -255,6 +260,42 @@ class FreelancerProfile(PrimaryKey, Timestamps, Base):
     raw_profile_markdown: Mapped[str | None] = mapped_column(Text)
 
 
+class FreelancerProfileVersion(PrimaryKey, Timestamps, Base):
+    """One version of a profile's written content: a draft or a save.
+
+    Drafts are what the profile writer produces, one per instruction, and are
+    numbered toward the next save: 1.1, 1.2, ... Saving the profile records a
+    whole version, 1, and the drafts after it are 2.1, 2.2, ... (``minor`` 0 is
+    a save). A profile not created yet keeps its drafts with no ``profile_id``;
+    creating it adopts them.
+
+    ``document`` is the whole written profile - the fields the form holds
+    (title, summary, skills, hourly_rate) and what it does not (title options,
+    work history, education, portfolio direction, the intelligence brief).
+    """
+
+    __tablename__ = "freelancer_profile_versions"
+    __table_args__ = (Index("ix_freelancer_profile_versions_thread", "user_id", "profile_id", "created_at"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    profile_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("freelancer_profiles.id", ondelete="CASCADE"), index=True
+    )
+    major: Mapped[int] = mapped_column(Integer, nullable=False)
+    minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    # What the user asked for; empty on a save.
+    instruction: Mapped[str | None] = mapped_column(Text)
+    document: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
+    based_on_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("freelancer_profile_versions.id", ondelete="SET NULL")
+    )
+    generation_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("generations.id", ondelete="SET NULL")
+    )
+
+
 class Proposal(PrimaryKey, Timestamps, Base):
     __tablename__ = "proposals"
     __table_args__ = (
@@ -295,6 +336,46 @@ class Proposal(PrimaryKey, Timestamps, Base):
     )
     generation_meta: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The version the letter and answers were last set from: the writer's
+    # latest draft, or the save that recorded them. A new instruction revises it.
+    version_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("proposal_versions.id", ondelete="SET NULL", use_alter=True),
+    )
+
+
+class ProposalVersion(PrimaryKey, Timestamps, Base):
+    """One version of a proposal's writing: a draft or a save.
+
+    Numbered like the profile writer's: each instruction writes a draft toward
+    the next save (1.1, 1.2, ...), saving records the whole version (1), and
+    the drafts after it are 2.1, 2.2, ... (``minor`` 0 is a save).
+
+    ``document`` is the letter and the screening answers, plus what the writer
+    worked out to write them: its read of the posting, where the experience
+    spike came from, questions for the freelancer and a change note.
+    """
+
+    __tablename__ = "proposal_versions"
+    __table_args__ = (Index("ix_proposal_versions_thread", "proposal_id", "created_at"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    proposal_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("proposals.id", ondelete="CASCADE"), nullable=False
+    )
+    major: Mapped[int] = mapped_column(Integer, nullable=False)
+    minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    # What the user asked for; empty on a save.
+    instruction: Mapped[str | None] = mapped_column(Text)
+    document: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
+    based_on_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("proposal_versions.id", ondelete="SET NULL")
+    )
+    generation_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("generations.id", ondelete="SET NULL")
+    )
 
 
 class FreelanceJobTrack(PrimaryKey, Timestamps, Base):
@@ -342,7 +423,6 @@ class FreelanceJobTrack(PrimaryKey, Timestamps, Base):
     outcome_notes: Mapped[str | None] = mapped_column(Text)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    job: Mapped[FreelanceJob] = relationship(back_populates="track")
 
 
 class FreelanceJobTrackEvent(Base):

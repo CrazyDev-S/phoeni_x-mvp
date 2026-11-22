@@ -29,12 +29,15 @@ import { cn } from "@/lib/utils";
  */
 export function ConfirmDelete({
   label,
+  description = "This permanently removes the resume. This cannot be undone.",
   onDelete,
   onDeleted,
   size = "default",
   trigger,
 }: {
   label: string;
+  /** What deleting does, under the title. */
+  description?: string;
   /** Resolves when deleted; throws an ApiError the caller can inspect. */
   onDelete: (cascade: boolean) => Promise<void>;
   onDeleted?: () => void;
@@ -105,7 +108,7 @@ export function ConfirmDelete({
           <AlertDialogDescription>
             {cascade
               ? `${cascade.message} This cannot be undone.`
-              : "This permanently removes the resume. This cannot be undone."}
+              : description}
           </AlertDialogDescription>
         </AlertDialogHeader>
 

@@ -93,6 +93,10 @@ class ExportRequest(BaseModel):
     content_markdown: str | None = None
     profile: str = Field(default="designed", pattern="^(designed|ats_plain)$")
     page: str = Field(default="letter", pattern="^(letter|a4)$")
+    # The look of a DESIGNED document; omitted means the default template at
+    # its own colour. The ATS profile ignores both.
+    template: str | None = Field(default=None, pattern="^[a-z_]{1,32}$")
+    accent: str | None = Field(default=None, pattern="^[0-9A-Fa-f]{6}$")
     filename: str | None = None
 
 
@@ -114,10 +118,20 @@ class PreviewStyle(BaseModel):
     space_after_pt: float
     line_spacing: float
     justify: bool
+    center: bool
     left_indent_pt: float
+    right_indent_pt: float
     first_line_indent_pt: float
     keep_with_next: bool
+    shading: str | None
+    border_top: PreviewBorder | None
     border_bottom: PreviewBorder | None
+
+
+class PreviewIconLook(BaseModel):
+    style: str = Field(pattern="^(chip|disc|ring|glyph)$")
+    fg: str
+    bg: str | None = None
 
 
 class PreviewLayout(BaseModel):
@@ -133,6 +147,18 @@ class PreviewLayout(BaseModel):
     cell_right_margin_pt: float
     table_rule_color: str
     table_rule_pt: float
+    bullet: str
+    date_italic: bool
+    rest_italic: bool
+    skills_cols: int
+    contact_cols: int
+    contact_hang_pt: float
+    contact_icon: PreviewIconLook | None
+    heading_icon: PreviewIconLook | None
+    # The coloured band across the top of page one, when the template has one.
+    band_fill: str | None
+    band_pad_top_pt: float
+    band_pad_bottom_pt: float
 
 
 class PreviewSkillRow(BaseModel):
@@ -140,15 +166,46 @@ class PreviewSkillRow(BaseModel):
     value: str
 
 
-class PreviewBlock(BaseModel):
-    """One paragraph of the .docx, or the skills table."""
+class PreviewContactItem(BaseModel):
+    icon: str
+    text: str
 
-    kind: str = Field(pattern="^(paragraph|role|bullet|skill_line|skills_table)$")
+
+class PreviewBlock(BaseModel):
+    """One paragraph of the .docx, or a table."""
+
+    kind: str = Field(
+        pattern="^(paragraph|heading|contact|role|bullet|skill_line|skills_table|skills_grid)$"
+    )
     style: str
     text: str = ""
+    # Text that follows a bold ``text`` on the same line: the organisation
+    # after a title.
+    rest: str | None = None
     right: str | None = None
     label: str | None = None
+    icon: str | None = None
+    items: list[PreviewContactItem] | None = None
     rows: list[PreviewSkillRow] | None = None
+    # "band" blocks sit in the coloured band on page one, outside the flow.
+    region: str = Field(default="body", pattern="^(band|body)$")
+
+
+class TemplateOut(BaseModel):
+    key: str
+    label: str
+    accent: str
+
+
+class SwatchOut(BaseModel):
+    name: str
+    value: str
+
+
+class TemplatesOut(BaseModel):
+    default: str
+    templates: list[TemplateOut]
+    palette: list[SwatchOut]
 
 
 class PreviewOut(BaseModel):

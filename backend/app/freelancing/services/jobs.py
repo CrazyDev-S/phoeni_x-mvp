@@ -1,215 +1,308 @@
-"""Job search, snapshots, focus, and saved searches.
+"""The shared Upwork job list: registering captures, browsing, marks, saved searches.
 
-Searches go to whichever ``JobSource`` is in service (``sources.registry``);
-this module never speaks a provider's own vocabulary.
-
-Upwork's terms allow caching a posting for 24 hours. A snapshot the user has
-not focused, hidden, tracked or written a proposal for is therefore pruned
-once it has not been seen for a day. Focused jobs are the user's own list and
-stay; that is what makes the tracker possible at all.
+Every user reads the same rows. Registering is race-free by construction:
+``INSERT ... ON CONFLICT (upwork_id) DO NOTHING`` makes sure a posting exists
+exactly once, then the rows are locked and merged, so two people capturing the
+same posting at the same moment both land on one row.
 """
 
 from __future__ import annotations
 
-import time
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 
-from sqlalchemy import exists, func, or_, select
+from sqlalchemy import and_, exists, func, literal_column, not_, or_, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.ids import uuid7
 from app.core.timezone import utc_now
-from app.freelancing.countries import same_country
-from app.freelancing.errors import JobSourceError
-from app.freelancing.snapshot import extras as snapshot_extras
-from app.freelancing.sources.registry import describe_source, get_source
-from app.freelancing.upwork.filters import (
-    DURATION_OPTIONS,
-    EXPERIENCE_OPTIONS,
-    JOB_TYPE_OPTIONS,
-    PAGE_SIZES,
-    SORT_OPTIONS,
-    WORKLOAD_OPTIONS,
-)
-from app.models.enums import FreelanceTrackStage
+from app.freelancing.capture import COLUMNS, extras, instant, job_url, normalize, stored_view
+from app.freelancing.countries import country_code, country_name
+from app.models.enums import FreelanceJobType, FreelanceTrackStage
 from app.models.freelancing import (
     FreelanceJob,
+    FreelanceJobMark,
     FreelanceJobTrack,
     FreelanceSavedSearch,
     Proposal,
 )
 from app.schemas.freelancing import (
-    CategoryOption,
-    FilterCatalogue,
+    CapturedJob,
+    CapturedRef,
+    CaptureOut,
     JobCard,
     JobDetail,
-    JobSearchPage,
-    JobSearchParams,
-    SkillSuggestion,
+    JobFilter,
+    Teammate,
 )
 
-SNAPSHOT_TTL = timedelta(hours=24)
-DETAIL_TTL = timedelta(hours=6)
-CATEGORY_CACHE_SECONDS = 12 * 3600
-
-# A category tree is the same for everyone and changes rarely; cached per source.
-_categories_cache: tuple[str, float, list[CategoryOption]] | None = None
+# --- registering what the extension saw -----------------------------------------------
 
 
-async def search_jobs(session: AsyncSession, user_id: uuid.UUID, params: JobSearchParams) -> JobSearchPage:
-    source = await get_source(session, user_id)
-    page = await source.search(params)
-    if page.pending:
-        return JobSearchPage(
-            items=[], pending=True, end_cursor=page.end_cursor, progress_note=page.note
+async def register(session: AsyncSession, user_id: uuid.UUID, captures: list[CapturedJob]) -> CaptureOut:
+    """Create or refresh one shared row per posting from a batch of captures."""
+    # The last capture of each view of each posting; a page can show both
+    # (a search list with a posting open beside it).
+    latest: dict[str, dict[str, CapturedJob]] = {}
+    for capture in captures:
+        latest.setdefault(capture.upwork_id, {})[capture.view] = capture
+    keys = sorted(latest)  # one lock order for every batch, so two never deadlock
+
+    first_title = {
+        key: next((c.title for c in views.values() if c.title), None) or "Untitled posting"
+        for key, views in latest.items()
+    }
+    created = set(
+        await session.scalars(
+            pg_insert(FreelanceJob)
+            .values(
+                [
+                    {"id": uuid7(), "upwork_id": key, "title": first_title[key],
+                     "url": job_url(key), "captured_by_id": user_id}
+                    for key in keys
+                ]
+            )
+            .on_conflict_do_nothing(index_elements=["upwork_id"])
+            .returning(FreelanceJob.upwork_id)
         )
-    rows = await _upsert_snapshots(session, user_id, page.snapshots)
+    )
+    rows = list(
+        await session.scalars(
+            select(FreelanceJob)
+            .where(FreelanceJob.upwork_id.in_(keys))
+            .order_by(FreelanceJob.upwork_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    )
 
-    hidden = 0
-    kept: list[FreelanceJob] = []
+    now = utc_now()
     for row in rows:
-        if params.hide_hidden and row.hidden_at is not None:
-            hidden += 1
-            continue
-        if params.hide_applied and (row.raw or {}).get("applied"):
-            hidden += 1
-            continue
-        if params.open_to_country and not open_to(row, params.open_to_country):
-            hidden += 1
-            continue
-        kept.append(row)
+        views = latest[row.upwork_id]
+        raw = dict(row.raw or {})
+        for view, capture in views.items():
+            raw[view] = stored_view(capture.model_dump(), now)
+        columns = normalize(raw)
+        raw["extras"] = columns.pop("extras", {})
+        for key in COLUMNS:
+            # Every column is re-derived from the views; only a title is never blanked.
+            if key != "title" or columns.get(key):
+                setattr(row, key, columns.get(key))
+        row.client = columns.get("client") or {}
+        row.published_at = columns.get("published_at") or row.published_at
+        row.raw = raw
+        row.last_seen_at = now
+        if "detail" in views or "store" in views:
+            row.detail_captured_at = now
+    await session.flush()
 
-    await prune_stale(session, user_id)
-
-    return JobSearchPage(
-        items=await cards(session, user_id, kept),
-        total=page.total,
-        has_next_page=page.has_next_page,
-        end_cursor=page.end_cursor,
-        hidden_count=hidden,
-        notice=page.notice,
+    return CaptureOut(
+        received=len(captures),
+        created=len(created),
+        jobs=[
+            CapturedRef(upwork_id=row.upwork_id, id=row.id, title=row.title, created=row.upwork_id in created)
+            for row in rows
+        ],
     )
 
 
-def open_to(row: FreelanceJob, country: str) -> bool:
-    """False when the posting only accepts applicants from other countries."""
-    allowed = [c for c in (row.preferred_freelancer_location or []) if c]
-    if not allowed:
-        return True
-    # Upwork's own API marks a preference that is only a preference.
-    if (row.raw or {}).get("preferredFreelancerLocationMandatory") is False:
-        return True
-    # "Thailand" and "TH" are the same country, whichever a source used.
-    return any(same_country(country, place) for place in allowed)
+# --- reading the list ---------------------------------------------------------------
 
 
-async def _upsert_snapshots(
-    session: AsyncSession, user_id: uuid.UUID, snapshots: list[dict]
-) -> list[FreelanceJob]:
-    """Write the source's snapshots, one row per posting, updating rows seen before."""
-    if not snapshots:
-        return []
-    ids = [str(s["upwork_id"]) for s in snapshots]
-    existing = {
-        row.upwork_id: row
-        for row in await session.scalars(
-            select(FreelanceJob).where(
-                FreelanceJob.user_id == user_id, FreelanceJob.upwork_id.in_(ids)
+def _countries(values: list[str]) -> list[str]:
+    """Lower-cased country names, whichever spelling (name or code) was typed."""
+    out = []
+    for value in values:
+        code = country_code(value)
+        out.append((country_name(code) if code else value).strip().lower())
+    return out
+
+
+def _skills_match(skills: list[str]):
+    lowered = [s.lower() for s in skills]
+    return exists(
+        select(literal_column("1"))
+        .select_from(func.unnest(FreelanceJob.skills).alias("skill"))
+        .where(func.lower(literal_column("skill")).in_(lowered))
+    )
+
+
+def _filtered(stmt, user_id: uuid.UUID, f: JobFilter):
+    """The filter's conditions on a statement over ``freelance_jobs``."""
+    if f.query:
+        for word in f.query.split():
+            needle = f"%{word}%"
+            stmt = stmt.where(
+                or_(
+                    FreelanceJob.title.ilike(needle),
+                    FreelanceJob.description.ilike(needle),
+                    func.array_to_string(FreelanceJob.skills, " ").ilike(needle),
+                )
+            )
+    if f.skills:
+        stmt = stmt.where(_skills_match(f.skills))
+    for term in f.exclude_terms:
+        needle = f"%{term}%"
+        stmt = stmt.where(
+            not_(FreelanceJob.title.ilike(needle)),
+            or_(FreelanceJob.description.is_(None), not_(FreelanceJob.description.ilike(needle))),
+        )
+    if f.job_type:
+        stmt = stmt.where(FreelanceJob.job_type == FreelanceJobType(f.job_type))
+    if f.experience_level:
+        stmt = stmt.where(func.upper(FreelanceJob.experience_level) == f.experience_level.upper())
+    if f.hourly_rate_min is not None:
+        stmt = stmt.where(
+            or_(
+                FreelanceJob.job_type.is_distinct_from(FreelanceJobType.HOURLY),
+                func.coalesce(FreelanceJob.hourly_max, FreelanceJob.hourly_min) >= f.hourly_rate_min,
+            )
+        )
+    if f.budget_min is not None or f.budget_max is not None:
+        fixed = [FreelanceJob.budget_amount.is_not(None)]
+        if f.budget_min is not None:
+            fixed.append(FreelanceJob.budget_amount >= f.budget_min)
+        if f.budget_max is not None:
+            fixed.append(FreelanceJob.budget_amount <= f.budget_max)
+        stmt = stmt.where(
+            or_(FreelanceJob.job_type.is_distinct_from(FreelanceJobType.FIXED), and_(*fixed))
+        )
+    if f.posted_within_hours:
+        since = utc_now() - timedelta(hours=f.posted_within_hours)
+        stmt = stmt.where(func.coalesce(FreelanceJob.published_at, FreelanceJob.created_at) >= since)
+    if f.verified_payment_only:
+        stmt = stmt.where(FreelanceJob.client["payment_verified"].as_boolean().is_(True))
+    if f.client_min_spent is not None:
+        stmt = stmt.where(FreelanceJob.client["total_spent"].as_float() >= f.client_min_spent)
+    if f.client_min_rating is not None:
+        stmt = stmt.where(FreelanceJob.client["feedback"].as_float() >= f.client_min_rating)
+    country = func.lower(FreelanceJob.client["country"].as_string())
+    if f.client_locations:
+        stmt = stmt.where(country.in_(_countries(f.client_locations)))
+    if f.exclude_client_locations:
+        stmt = stmt.where(or_(country.is_(None), country.not_in(_countries(f.exclude_client_locations))))
+    if f.proposals_max is not None:
+        stmt = stmt.where(FreelanceJob.total_applicants <= f.proposals_max)
+    if f.open_to_country:
+        (wanted,) = _countries([f.open_to_country])
+        stmt = stmt.where(
+            or_(
+                func.cardinality(FreelanceJob.preferred_freelancer_location) == 0,
+                exists(
+                    select(literal_column("1"))
+                    .select_from(func.unnest(FreelanceJob.preferred_freelancer_location).alias("place"))
+                    .where(func.lower(literal_column("place")) == wanted)
+                ),
+            )
+        )
+    if f.hide_hidden:
+        stmt = stmt.where(
+            ~exists().where(
+                FreelanceJobMark.job_id == FreelanceJob.id,
+                FreelanceJobMark.user_id == user_id,
+                FreelanceJobMark.hidden_at.is_not(None),
+            )
+        )
+    return stmt
+
+
+async def browse(session: AsyncSession, user_id: uuid.UUID, f: JobFilter) -> tuple[list[FreelanceJob], int]:
+    stmt = _filtered(select(FreelanceJob), user_id, f)
+    total = await session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    order = (
+        [FreelanceJob.created_at.desc()]
+        if f.sort == "captured"
+        else [func.coalesce(FreelanceJob.published_at, FreelanceJob.created_at).desc()]
+    )
+    rows = await session.scalars(stmt.order_by(*order, FreelanceJob.id.desc()).limit(f.limit).offset(f.offset))
+    return list(rows), total
+
+
+async def focused(session: AsyncSession, user_id: uuid.UUID, *, limit: int, offset: int) -> tuple[list[FreelanceJob], int]:
+    """This user's starred postings, most recently starred first."""
+    stmt = select(FreelanceJob).join(
+        FreelanceJobMark,
+        and_(
+            FreelanceJobMark.job_id == FreelanceJob.id,
+            FreelanceJobMark.user_id == user_id,
+            FreelanceJobMark.focused_at.is_not(None),
+        ),
+    )
+    total = await session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    rows = await session.scalars(stmt.order_by(FreelanceJobMark.focused_at.desc()).limit(limit).offset(offset))
+    return list(rows), total
+
+
+async def get_job(session: AsyncSession, job_id: uuid.UUID) -> FreelanceJob | None:
+    return await session.get(FreelanceJob, job_id)
+
+
+async def job_by_key(session: AsyncSession, upwork_id: str) -> FreelanceJob | None:
+    return await session.scalar(select(FreelanceJob).where(FreelanceJob.upwork_id == upwork_id.lower()))
+
+
+async def marks(session: AsyncSession, user_id: uuid.UUID, job_ids: list[uuid.UUID]) -> dict[uuid.UUID, FreelanceJobMark]:
+    if not job_ids:
+        return {}
+    return {
+        m.job_id: m
+        for m in await session.scalars(
+            select(FreelanceJobMark).where(
+                FreelanceJobMark.user_id == user_id, FreelanceJobMark.job_id.in_(job_ids)
             )
         )
     }
-    now = utc_now()
-    rows: list[FreelanceJob] = []
-    seen: set[str] = set()
-    for snapshot in snapshots:
-        snapshot = {**snapshot, "upwork_id": str(snapshot["upwork_id"])}
-        if snapshot["upwork_id"] in seen:
-            continue
-        seen.add(snapshot["upwork_id"])
-        row = existing.get(snapshot["upwork_id"])
-        if row is None:
-            row = FreelanceJob(user_id=user_id, **snapshot)
-            session.add(row)
-        else:
-            # The search result is authoritative for what it carries; the deeper
-            # aggregate fetched earlier is kept alongside it.
-            detail = (row.raw or {}).get("detail")
-            if detail is not None:
-                snapshot["raw"] = {**(snapshot.get("raw") or {}), "detail": detail}
-            for key, value in snapshot.items():
-                setattr(row, key, value)
-        row.last_seen_at = now
-        rows.append(row)
-    await session.flush()
-    return rows
-
-
-async def prune_stale(session: AsyncSession, user_id: uuid.UUID) -> int:
-    """Drop snapshots nothing refers to once they are a day old."""
-    cutoff = utc_now() - SNAPSHOT_TTL
-    stale = list(
-        await session.scalars(
-            select(FreelanceJob).where(
-                FreelanceJob.user_id == user_id,
-                FreelanceJob.focused_at.is_(None),
-                FreelanceJob.hidden_at.is_(None),
-                FreelanceJob.last_seen_at < cutoff,
-                ~exists().where(FreelanceJobTrack.job_id == FreelanceJob.id),
-                ~exists().where(Proposal.job_id == FreelanceJob.id),
-            )
-        )
-    )
-    for row in stale:
-        await session.delete(row)
-    if stale:
-        await session.flush()
-    return len(stale)
 
 
 async def cards(session: AsyncSession, user_id: uuid.UUID, rows: list[FreelanceJob]) -> list[JobCard]:
-    """Cards with what the tracker and proposals know about each job, in two queries."""
+    """Shared rows with this user's marks, stage, proposal count and who is watching."""
+    from app.freelancing.services.watch import watchers
+
     if not rows:
         return []
     ids = [r.id for r in rows]
-    stages = {
-        job_id: stage
-        for job_id, stage in await session.execute(
-            select(FreelanceJobTrack.job_id, FreelanceJobTrack.stage).where(
-                FreelanceJobTrack.user_id == user_id, FreelanceJobTrack.job_id.in_(ids)
+    mine = await marks(session, user_id, ids)
+    watching = await watchers(session, user_id, ids)
+    stages = dict(
+        (
+            await session.execute(
+                select(FreelanceJobTrack.job_id, FreelanceJobTrack.stage).where(
+                    FreelanceJobTrack.user_id == user_id, FreelanceJobTrack.job_id.in_(ids)
+                )
+            )
+        ).all()
+    )
+    counts = dict(
+        (
+            await session.execute(
+                select(Proposal.job_id, func.count())
+                .where(Proposal.user_id == user_id, Proposal.job_id.in_(ids))
+                .group_by(Proposal.job_id)
+            )
+        ).all()
+    )
+    out = []
+    for row in rows:
+        mark = mine.get(row.id)
+        found = extras(row.raw)
+        activity = found["activity"]
+        out.append(
+            JobCard.model_validate(row).model_copy(
+                update={
+                    "focused_at": mark.focused_at if mark else None,
+                    "hidden_at": mark.hidden_at if mark else None,
+                    "track_stage": stages.get(row.id),
+                    "proposal_count": counts.get(row.id, 0),
+                    "proposals_label": found["proposals_label"],
+                    "connects_required": found["connects_required"],
+                    "client_activity_at": instant(activity.get("last_client_activity")),
+                    "interviewing": activity.get("total_invited_to_interview"),
+                    "watchers": watching.get(row.id, []),
+                }
             )
         )
-    }
-    counts = {
-        job_id: count
-        for job_id, count in await session.execute(
-            select(Proposal.job_id, func.count())
-            .where(Proposal.user_id == user_id, Proposal.job_id.in_(ids))
-            .group_by(Proposal.job_id)
-        )
-    }
-    return [
-        JobCard.model_validate(row).model_copy(
-            update={
-                "applied": bool((row.raw or {}).get("applied")),
-                "track_stage": stages.get(row.id),
-                "proposal_count": counts.get(row.id, 0),
-                **_card_extras(row.raw),
-            }
-        )
-        for row in rows
-    ]
-
-
-def _card_extras(raw: dict | None) -> dict:
-    """Connects cost, featured, job score: from the source's record, when it has them."""
-    extras = (raw or {}).get("extras") or {}
-    connects = extras.get("connects_required")
-    score = extras.get("job_score")
-    return {
-        "connects_required": int(connects) if isinstance(connects, (int, float)) else None,
-        "featured": bool(extras.get("featured")),
-        "job_score": float(score) if isinstance(score, (int, float)) else None,
-    }
+    return out
 
 
 async def card(session: AsyncSession, user_id: uuid.UUID, row: FreelanceJob) -> JobCard:
@@ -217,94 +310,61 @@ async def card(session: AsyncSession, user_id: uuid.UUID, row: FreelanceJob) -> 
 
 
 async def detail(session: AsyncSession, user_id: uuid.UUID, row: FreelanceJob) -> JobDetail:
+    from app.freelancing.services.watch import display_names
+
     base = await card(session, user_id, row)
+    found = extras(row.raw)
+    poster = row.captured_by_id
+    name = (await display_names(session, {poster})).get(poster) if poster else None
     return JobDetail(
         **base.model_dump(),
-        detail_fetched_at=row.detail_fetched_at,
-        **snapshot_extras(row.raw),
+        detail_captured_at=row.detail_captured_at,
+        screening_questions=found["screening_questions"],
+        activity=found["activity"],
+        posted_by=Teammate(name=name, you=poster == user_id) if name else None,
     )
 
 
-async def get_job(session: AsyncSession, user_id: uuid.UUID, job_id: uuid.UUID) -> FreelanceJob | None:
-    return await session.scalar(
-        select(FreelanceJob).where(FreelanceJob.id == job_id, FreelanceJob.user_id == user_id)
-    )
+# --- this user's marks ----------------------------------------------------------------
 
 
-async def refresh_detail(session: AsyncSession, user_id: uuid.UUID, row: FreelanceJob) -> bool:
-    """Fetch the posting's deeper aggregate. False when the source has none."""
-    if not describe_source().detail:
-        return False
-    source = await get_source(session, user_id)
-    updates = await source.detail(row)
-    if updates is None:
-        return False
-    for key, value in updates.items():
-        setattr(row, key, value)
-    row.detail_fetched_at = utc_now()
+async def _mark(session: AsyncSession, user_id: uuid.UUID, job_id: uuid.UUID) -> FreelanceJobMark:
+    mark = await session.get(FreelanceJobMark, (user_id, job_id))
+    if mark is None:
+        mark = FreelanceJobMark(user_id=user_id, job_id=job_id)
+        session.add(mark)
+    return mark
+
+
+async def _settle(session: AsyncSession, mark: FreelanceJobMark) -> None:
+    """A mark with nothing set says nothing, so it goes."""
+    if mark.focused_at is None and mark.hidden_at is None:
+        await session.delete(mark)
     await session.flush()
-    return True
 
 
-def detail_is_fresh(row: FreelanceJob) -> bool:
-    """Fresh, or not something this source can fetch at all."""
-    if not describe_source().detail:
-        return True
-    return row.detail_fetched_at is not None and utc_now() - row.detail_fetched_at < DETAIL_TTL
-
-
-async def list_jobs(
-    session: AsyncSession,
-    user_id: uuid.UUID,
-    *,
-    focused: bool | None,
-    include_hidden: bool,
-    query: str | None,
-    limit: int,
-    offset: int,
-) -> tuple[list[FreelanceJob], int]:
-    stmt = select(FreelanceJob).where(FreelanceJob.user_id == user_id)
-    if focused is True:
-        stmt = stmt.where(FreelanceJob.focused_at.is_not(None))
-    elif focused is False:
-        stmt = stmt.where(FreelanceJob.focused_at.is_(None))
-    if not include_hidden:
-        stmt = stmt.where(FreelanceJob.hidden_at.is_(None))
-    if query:
-        needle = f"%{query.strip()}%"
-        stmt = stmt.where(
-            or_(
-                FreelanceJob.title.ilike(needle),
-                FreelanceJob.description.ilike(needle),
-                func.array_to_string(FreelanceJob.skills, " ").ilike(needle),
-            )
-        )
-    total = await session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
-    order = (
-        FreelanceJob.focused_at.desc().nulls_last()
-        if focused
-        else FreelanceJob.last_seen_at.desc()
-    )
-    rows = list(await session.scalars(stmt.order_by(order, FreelanceJob.created_at.desc()).limit(limit).offset(offset)))
-    return rows, total
-
-
-async def focus(session: AsyncSession, user_id: uuid.UUID, row: FreelanceJob) -> FreelanceJob:
+async def focus(session: AsyncSession, user_id: uuid.UUID, row: FreelanceJob) -> None:
     from app.freelancing.services.tracking import ensure_track
 
-    if row.focused_at is None:
-        row.focused_at = utc_now()
-    row.hidden_at = None
+    mark = await _mark(session, user_id, row.id)
+    mark.focused_at = mark.focused_at or utc_now()
+    mark.hidden_at = None
     await ensure_track(session, user_id, row)
     await session.flush()
-    return row
 
 
-async def unfocus(session: AsyncSession, user_id: uuid.UUID, row: FreelanceJob) -> FreelanceJob:
-    row.focused_at = None
+async def clear_focus(session: AsyncSession, user_id: uuid.UUID, job_id: uuid.UUID) -> None:
+    mark = await session.get(FreelanceJobMark, (user_id, job_id))
+    if mark is not None:
+        mark.focused_at = None
+        await _settle(session, mark)
+
+
+async def unfocus(session: AsyncSession, user_id: uuid.UUID, job_id: uuid.UUID) -> None:
+    await clear_focus(session, user_id, job_id)
     track = await session.scalar(
         select(FreelanceJobTrack).where(
-            FreelanceJobTrack.user_id == user_id, FreelanceJobTrack.job_id == row.id
+            FreelanceJobTrack.user_id == user_id, FreelanceJobTrack.job_id == job_id
         )
     )
     # A track that never left "focused" and has no proposal carries nothing
@@ -317,59 +377,26 @@ async def unfocus(session: AsyncSession, user_id: uuid.UUID, row: FreelanceJob) 
     ):
         await session.delete(track)
     await session.flush()
-    return row
 
 
-async def hide(session: AsyncSession, row: FreelanceJob, hidden: bool) -> FreelanceJob:
-    row.hidden_at = utc_now() if hidden else None
+async def hide(session: AsyncSession, user_id: uuid.UUID, job_id: uuid.UUID, hidden: bool) -> None:
     if hidden:
-        row.focused_at = None
-    await session.flush()
-    return row
+        mark = await _mark(session, user_id, job_id)
+        mark.hidden_at = utc_now()
+        mark.focused_at = None
+        await session.flush()
+        return
+    mark = await session.get(FreelanceJobMark, (user_id, job_id))
+    if mark is not None:
+        mark.hidden_at = None
+        await _settle(session, mark)
 
 
-# --- catalogue -------------------------------------------------------------------
-
-
-async def filter_catalogue(session: AsyncSession, user_id: uuid.UUID) -> FilterCatalogue:
-    source = describe_source()
-    catalogue = FilterCatalogue(
-        source=source,
-        job_types=JOB_TYPE_OPTIONS,
-        workloads=WORKLOAD_OPTIONS,
-        durations=DURATION_OPTIONS,
-        experience_levels=EXPERIENCE_OPTIONS,
-        sorts=[option for option in SORT_OPTIONS if option.value in source.sorts],
-        page_sizes=PAGE_SIZES,
-    )
-    if source.categories:
-        try:
-            catalogue.categories = await categories(session, user_id)
-        except JobSourceError as exc:
-            catalogue.categories_error = exc.message
-    return catalogue
-
-
-async def categories(session: AsyncSession, user_id: uuid.UUID) -> list[CategoryOption]:
-    global _categories_cache
-    key = describe_source().key
-    if (
-        _categories_cache
-        and _categories_cache[0] == key
-        and time.monotonic() - _categories_cache[1] < CATEGORY_CACHE_SECONDS
-    ):
-        return _categories_cache[2]
-    source = await get_source(session, user_id)
-    options = await source.categories()
-    _categories_cache = (key, time.monotonic(), options)
-    return options
-
-
-async def suggest_skills(session: AsyncSession, user_id: uuid.UUID, label: str, limit: int = 10) -> list[SkillSuggestion]:
-    if not describe_source().skills:
-        return []
-    source = await get_source(session, user_id)
-    return await source.suggest_skills(label, limit)
+async def focused_at(
+    session: AsyncSession, user_id: uuid.UUID, job_ids: set[uuid.UUID]
+) -> dict[uuid.UUID, datetime | None]:
+    """When this user starred each of these postings, for the briefs on proposals and tracks."""
+    return {job_id: m.focused_at for job_id, m in (await marks(session, user_id, list(job_ids))).items()}
 
 
 # --- saved searches ---------------------------------------------------------------
@@ -386,15 +413,15 @@ async def list_saved_searches(session: AsyncSession, user_id: uuid.UUID) -> list
 
 
 async def save_search(
-    session: AsyncSession, user_id: uuid.UUID, *, name: str, params: JobSearchParams
+    session: AsyncSession, user_id: uuid.UUID, *, name: str, params: JobFilter
 ) -> FreelanceSavedSearch:
     row = await session.scalar(
         select(FreelanceSavedSearch).where(
             FreelanceSavedSearch.user_id == user_id, FreelanceSavedSearch.name == name
         )
     )
-    # The cursor is a position in one result set, not part of the search.
-    stored = params.model_dump(exclude={"cursor"}, exclude_defaults=True)
+    # Paging is a position in one result list, not part of the search.
+    stored = params.model_dump(exclude={"limit", "offset"}, exclude_defaults=True)
     if row is None:
         row = FreelanceSavedSearch(user_id=user_id, name=name, params=stored)
         session.add(row)
@@ -404,11 +431,6 @@ async def save_search(
     return row
 
 
-async def touch_saved_search(session: AsyncSession, user_id: uuid.UUID, saved_id: uuid.UUID) -> None:
-    row = await session.scalar(
-        select(FreelanceSavedSearch).where(
-            FreelanceSavedSearch.id == saved_id, FreelanceSavedSearch.user_id == user_id
-        )
-    )
-    if row is not None:
-        row.last_run_at = utc_now()
+async def touch_saved_search(session: AsyncSession, row: FreelanceSavedSearch) -> None:
+    row.last_run_at = utc_now()
+

@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { EmptyState } from "@/components/empty-state";
-import { JobSourceBanner } from "@/components/freelancing/job-source";
 import { NewProposalDialog } from "@/components/freelancing/new-proposal-dialog";
 import { PageHero } from "@/components/page-hero";
 import { Panel, PanelHead } from "@/components/panel";
@@ -76,14 +75,12 @@ export default function FreelancingOverviewPage() {
             <Button asChild variant="brand">
               <Link href="/freelancing/jobs">
                 <Search />
-                Search jobs
+                Browse jobs
               </Link>
             </Button>
           </>
         }
       />
-
-      <JobSourceBanner />
 
       <div className="grid gap-3 xl:grid-cols-2 xl:items-start">
         <Panel>

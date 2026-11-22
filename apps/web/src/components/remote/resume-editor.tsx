@@ -9,6 +9,7 @@ import {
   ResumePreview,
   type ResumePreviewData,
 } from "@/components/remote/resume-preview";
+import { ResumeStylePicker } from "@/components/remote/resume-style-picker";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/panel";
 import {
@@ -29,6 +30,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { request } from "@/lib/api";
+import { styleFields, useResumeStyle } from "@/lib/resume-style";
 import { cn } from "@/lib/utils";
 
 /**
@@ -127,13 +129,16 @@ export function PreviewPane({ markdown }: { markdown: string }) {
     useState<ResumePreviewData["profile"]>("designed");
   const [pageCount, setPageCount] = useState<number | null>(null);
   const source = useDebounced(markdown, 400);
+  // The ATS version has no look to choose.
+  const look = useResumeStyle();
+  const fields = profile === "designed" ? styleFields(look) : {};
 
   const preview = useQuery({
-    queryKey: ["resume-preview", profile, source],
+    queryKey: ["resume-preview", profile, fields, source],
     queryFn: () =>
       request<ResumePreviewData>("/api/v1/remote/export/preview", {
         method: "POST",
-        body: JSON.stringify({ content_markdown: source, profile }),
+        body: JSON.stringify({ content_markdown: source, profile, ...fields }),
       }),
     placeholderData: keepPreviousData,
     retry: false,
@@ -155,15 +160,18 @@ export function PreviewPane({ markdown }: { markdown: string }) {
   return (
     <div>
       <div className="bg-muted/40 flex flex-wrap items-center justify-between gap-2 border-b px-3 py-1.5">
-        <Tabs
-          value={profile}
-          onValueChange={(v) => setProfile(v as ResumePreviewData["profile"])}
-        >
-          <TabsList>
-            <TabsTrigger value="designed">Designed</TabsTrigger>
-            <TabsTrigger value="ats_plain">ATS version</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-2">
+          <Tabs
+            value={profile}
+            onValueChange={(v) => setProfile(v as ResumePreviewData["profile"])}
+          >
+            <TabsList>
+              <TabsTrigger value="designed">Designed</TabsTrigger>
+              <TabsTrigger value="ats_plain">ATS version</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          {profile === "designed" && <ResumeStylePicker />}
+        </div>
         <span className="text-muted-foreground text-xs tabular-nums">
           {preview.isFetching || source !== markdown
             ? "Updating…"

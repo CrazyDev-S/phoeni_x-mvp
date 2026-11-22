@@ -26,7 +26,7 @@ export const PORTALS: Record<PortalId, PortalInfo> = {
     id: "freelancing",
     name: "Freelancing",
     path: "/freelancing",
-    tagline: "Search Upwork, draft proposals, and track every bid to payment.",
+    tagline: "Share Upwork jobs as you browse, draft proposals, and track every bid to payment.",
     swatches: ["#93c5fd", "#3b82f6", "#1d4ed8"],
   },
   remote: {

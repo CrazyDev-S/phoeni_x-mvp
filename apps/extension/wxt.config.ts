@@ -16,8 +16,8 @@ export default defineConfig({
   manifest: {
     name: "PhoeniX",
     description:
-      "Tailor your resume to the job you have open, fill the application, and track it.",
-    version: "0.1.0",
+      "Tailor your resume to the job you have open, fill the application, track it, and collect Upwork jobs for your team.",
+    version: "0.2.0",
     // chrome.sidePanel.open() requires 116+.
     minimum_chrome_version: "116",
 
@@ -31,9 +31,9 @@ export default defineConfig({
       "storage",
       "tabs", // tab.url/title for arbitrary tabs, and tab-change events
       "downloads", // deterministic filenames + a real completion signal
-      "alarms", // refresh the next-call badge while the panel is closed
+      "alarms", // the next-call badge, and polling the team's client alerts
+      "notifications", // a watched job's client is back, or started interviewing
     ],
-    optional_permissions: ["notifications"],
 
     // activeTab is deliberately NOT used: it grants the tab's MAIN FRAME origin
     // only, so it cannot read a Greenhouse or Lever form inside an iframe -

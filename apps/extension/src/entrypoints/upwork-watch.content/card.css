@@ -1,0 +1,383 @@
+/* The client watch card, inside its own shadow root on Upwork's pages.
+   Warm stone neutrals under the Freelancing portal's teal. */
+
+.dock {
+  --bg: #1c1917;
+  --raise: #292524;
+  --line: rgba(250, 250, 249, 0.09);
+  --text: #fafaf9;
+  --muted: #a8a29e;
+  --subtle: #78716c;
+  --teal: #34d1b1;
+  --teal-soft: rgba(52, 209, 177, 0.16);
+
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147483646;
+  font: 500 13px/1.35 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.dock * {
+  box-sizing: border-box;
+}
+
+.dock svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.card,
+.pill {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(12, 10, 9, 0.38), 0 2px 6px rgba(12, 10, 9, 0.24);
+  animation: rise 260ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.card {
+  width: 272px;
+  padding: 10px 12px 10px;
+  transition: border-color 400ms ease, box-shadow 400ms ease;
+}
+
+.card[data-here="true"] {
+  border-color: rgba(52, 209, 177, 0.45);
+  box-shadow: 0 0 0 4px var(--teal-soft), 0 12px 32px rgba(12, 10, 9, 0.38);
+}
+
+/* --- header ---------------------------------------------------------------- */
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 20px;
+}
+
+.eyebrow {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.grow {
+  flex: 1;
+}
+
+.icon {
+  all: unset;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-right: -4px;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.icon:hover {
+  background: var(--raise);
+  color: var(--text);
+}
+
+.icon:focus-visible,
+.pill:focus-visible,
+.switch:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+/* The beacon: a still dot, which pulses while the client is on the posting. */
+.beacon {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--subtle);
+}
+
+.beacon[data-here="true"] {
+  background: var(--teal);
+}
+
+.beacon[data-here="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--teal);
+  animation: ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* --- the headline ------------------------------------------------------------ */
+
+.hero {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0 9px;
+}
+
+.hero-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.hero-value {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hero-value[data-here="true"] {
+  color: var(--teal);
+}
+
+/* --- counts ----------------------------------------------------------------- */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--line);
+}
+
+.stat {
+  padding: 6px 6px 5px;
+  background: var(--raise);
+  text-align: center;
+}
+
+.stat dt {
+  color: var(--subtle);
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stat dd {
+  margin: 1px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat[data-rose="true"] dd {
+  color: var(--teal);
+  animation: bump 700ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+/* --- alerts and who relays -------------------------------------------------- */
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.who {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.switch {
+  all: unset;
+  position: relative;
+  width: 30px;
+  height: 18px;
+  flex: none;
+  border-radius: 999px;
+  background: #44403c;
+  cursor: pointer;
+  transition: background 180ms ease;
+}
+
+.switch[aria-checked="true"] {
+  background: var(--teal);
+}
+
+.switch:disabled {
+  cursor: progress;
+}
+
+.knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fafaf9;
+  box-shadow: 0 1px 2px rgba(12, 10, 9, 0.4);
+  transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.switch[aria-checked="true"] .knob {
+  transform: translateX(12px);
+}
+
+.switch:active .knob {
+  width: 17px;
+}
+
+.switch[aria-checked="true"]:active .knob {
+  transform: translateX(9px);
+}
+
+.faces {
+  display: flex;
+  flex: none;
+}
+
+.face {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: -5px;
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: #57534e;
+  color: var(--text);
+  font-size: 8.5px;
+  font-weight: 700;
+}
+
+.face[data-relay="true"] {
+  background: var(--teal);
+  color: #0b5c4b;
+}
+
+.face.more {
+  background: var(--raise);
+  color: var(--muted);
+}
+
+.problem {
+  margin: 8px 0 0;
+  color: #fbbf24;
+  font-size: 11.5px;
+}
+
+/* --- small forms ------------------------------------------------------------ */
+
+.pill {
+  all: unset;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 8px 22px rgba(12, 10, 9, 0.35);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  animation: rise 260ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  transition: transform 120ms ease;
+}
+
+.pill:hover {
+  transform: translateY(-1px);
+}
+
+.pill[data-here="true"] {
+  color: var(--teal);
+  border-color: rgba(52, 209, 177, 0.45);
+}
+
+.pill.quiet {
+  color: var(--muted);
+  cursor: default;
+}
+
+.pill.quiet:hover {
+  transform: none;
+}
+
+.note {
+  width: 248px;
+}
+
+.note-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.note-body {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.dim {
+  color: var(--subtle);
+}
+
+.spin {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+}
+
+@keyframes ping {
+  75%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+@keyframes bump {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  35% {
+    transform: translateY(-3px) scale(1.18);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock *,
+  .dock *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

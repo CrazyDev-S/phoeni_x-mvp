@@ -9,6 +9,8 @@
  */
 import { createApi, toApiError, type TokenStore } from "@phoenix/api-types";
 
+import { styleFields } from "@/lib/resume-style";
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
 const ACCESS_KEY = "ra.access";
@@ -140,6 +142,10 @@ async function downloadExport(
   body: Record<string, unknown>,
   fallbackName: string,
 ): Promise<void> {
+  // The chosen look rides along with every download, so the file matches the
+  // preview wherever the button is. The ATS version has no look to choose, and
+  // a caller that names its own template wins.
+  const look = body.profile === "ats_plain" ? {} : styleFields();
   const headers = new Headers({ "Content-Type": "application/json" });
   const access = tokens.access();
   if (access) headers.set("Authorization", `Bearer ${access}`);
@@ -147,7 +153,7 @@ async function downloadExport(
   const res = await fetch(`${API_URL}/api/v1/remote/export/${format}`, {
     method: "POST",
     headers,
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...look, ...body }),
   });
   if (!res.ok) throw toApiError(res.status, await res.json().catch(() => null));
 

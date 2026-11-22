@@ -77,6 +77,8 @@ class GenerationKind(StrEnum):
     JD_PARSE = "jd_parse"
     # Freelancing: a proposal drafted for an Upwork posting.
     PROPOSAL = "proposal"
+    # Freelancing: a profile version written or revised from the user's instruction.
+    PROFILE = "profile"
 
 
 class GenerationStatus(StrEnum):
@@ -142,21 +144,6 @@ class Severity(StrEnum):
 # --- Freelancing -------------------------------------------------------------
 
 
-class UpworkConnectionStatus(StrEnum):
-    """Where a user's Upwork link is.
-
-    ``not_configured`` has no API key pair; ``pending_authorization`` has one
-    and is waiting on the OAuth round trip; ``expired`` means the refresh
-    token stopped working and the user has to authorize again.
-    """
-
-    NOT_CONFIGURED = "not_configured"
-    PENDING_AUTHORIZATION = "pending_authorization"
-    CONNECTED = "connected"
-    EXPIRED = "expired"
-    ERROR = "error"
-
-
 class FreelanceJobType(StrEnum):
     HOURLY = "hourly"
     FIXED = "fixed"
@@ -178,6 +165,15 @@ class FreelanceTrackStage(StrEnum):
     DECLINED = "declined"
     WITHDRAWN = "withdrawn"
     CLOSED = "closed"
+
+
+class FreelanceAlertKind(StrEnum):
+    """What a watched posting's client just did, as the team is told it."""
+
+    # The client came back to the posting (Upwork's "last viewed by client").
+    CLIENT_VIEWED = "client_viewed"
+    # Upwork's "Interviewing" count went up.
+    INTERVIEW_STARTED = "interview_started"
 
 
 class ProposalStatus(StrEnum):

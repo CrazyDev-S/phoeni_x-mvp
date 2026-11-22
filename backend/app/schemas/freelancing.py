@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime
 from typing import Literal
@@ -9,163 +10,134 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.models.enums import (
+    FreelanceAlertKind,
     FreelanceJobType,
     FreelanceTrackStage,
     ProposalStatus,
-    UpworkConnectionStatus,
 )
 from app.schemas.common import ORMModel
 
-# --- Upwork connection ---------------------------------------------------------
+# --- Capture: the browser extension registers what it sees on Upwork -------------
+
+# "~021858964253717283346", or "~01" and hex for older postings.
+JOB_KEY_PATTERN = r"^~0[12][0-9a-fA-F]{10,40}$"
+# A posting's store is a few tens of kilobytes; this is headroom, not a target.
+STATE_MAX_BYTES = 400_000
 
 
-class UpworkCredentialsIn(BaseModel):
-    client_id: str = Field(min_length=8, max_length=200)
-    client_secret: str = Field(min_length=8, max_length=400)
+def bounded_state(value: dict | None) -> dict | None:
+    if value is not None and len(json.dumps(value, default=str)) > STATE_MAX_BYTES:
+        raise ValueError(f"state is larger than {STATE_MAX_BYTES} bytes")
+    return value
 
 
-class UpworkOrganization(BaseModel):
-    organization_id: str
-    title: str
-    type_title: str | None = None
+class CapturedJob(BaseModel):
+    """One posting as the extension harvested it from an Upwork page.
 
-
-class UpworkConnectionOut(BaseModel):
-    status: UpworkConnectionStatus
-    # A key pair exists, in Settings ("user") or the environment ("environment").
-    configured: bool
-    credentials_source: Literal["user", "environment", "none"]
-    client_id: str | None = None
-    masked_client_secret: str | None = None
-    connected: bool
-    upwork_user_name: str | None = None
-    upwork_user_id: str | None = None
-    tenant_id: str | None = None
-    # What to register on the Upwork key as the redirect URI. Shown so the two
-    # cannot silently disagree.
-    redirect_uri: str
-    access_token_expires_at: datetime | None = None
-    connected_at: datetime | None = None
-    last_used_at: datetime | None = None
-    last_error: str | None = None
-
-
-class UpworkAuthorizeOut(BaseModel):
-    url: str
-
-
-class UpworkTenantIn(BaseModel):
-    tenant_id: str | None = Field(default=None, max_length=100)
-
-
-class UpworkTestOut(BaseModel):
-    ok: bool
-    detail: str
-    upwork_user_name: str | None = None
-    organizations: list[UpworkOrganization] = Field(default_factory=list)
-
-
-# --- Job search ---------------------------------------------------------------
-
-JobTypeParam = Literal["hourly", "fixed"]
-WorkloadParam = Literal["full_time", "part_time", "as_needed", "not_sure"]
-DurationParam = Literal["week", "month", "quarter", "semester", "ongoing"]
-ExperienceParam = Literal["entry_level", "intermediate", "expert"]
-SortParam = Literal["recency", "relevance", "client_total_charge", "client_rating"]
-
-
-class AreaParam(BaseModel):
-    latitude: float = Field(ge=-90, le=90)
-    longitude: float = Field(ge=-180, le=180)
-    radius_miles: float = Field(gt=0, le=5000)
-
-
-class JobSearchParams(BaseModel):
-    """Every filter Upwork's job search accepts, in this API's own words.
-
-    Each field maps to exactly one entry of ``MarketplaceJobPostingsSearchFilter``
-    (see ``app.freelancing.upwork.filters``). Nothing here is invented: a
-    filter Upwork does not offer, such as "posted in the last N days", is not
-    offered either.
+    Raw on purpose: the backend reads Upwork's vocabulary out of it
+    (``app.freelancing.capture``), so a change to Upwork's pages is fixed there.
     """
 
-    # Text
-    query: str | None = Field(default=None, max_length=500, description="Lucene-style search")
-    title: str | None = Field(default=None, max_length=200, description="Words in the title")
-    skills: list[str] = Field(default_factory=list, max_length=30, description="Skill slugs, OR")
-    and_terms: list[str] = Field(default_factory=list, max_length=20)
-    or_terms: list[str] = Field(default_factory=list, max_length=20)
-    exact_terms: list[str] = Field(default_factory=list, max_length=20)
+    upwork_id: str = Field(pattern=JOB_KEY_PATTERN, description="The ~0... key in every job URL")
+    view: Literal["tile", "detail", "store"] = Field(
+        description="A search/feed tile, the posting's own page, or the page's own app state"
+    )
+    url: str | None = Field(default=None, max_length=2000)
+    # The "store" view: Upwork's job-details state ({job, buyer, sands}) as the page holds it.
+    state: dict | None = None
+    title: str | None = Field(default=None, max_length=500)
+    description: str | None = Field(default=None, max_length=30_000)
+    skills: list[str] = Field(default_factory=list, max_length=80)
+    # Every element Upwork names with data-test / data-qa: name -> visible text.
+    labels: dict[str, str] = Field(default_factory=dict)
+    # The posting's block as the page shows it, one line per rendered line.
+    text: str = Field(default="", max_length=60_000)
+
+    @field_validator("upwork_id")
+    @classmethod
+    def _lower(cls, value: str) -> str:
+        return value.lower()
+
+    @field_validator("skills")
+    @classmethod
+    def _short_skills(cls, value: list[str]) -> list[str]:
+        return [v.strip()[:80] for v in value if v and v.strip()]
+
+    @field_validator("labels")
+    @classmethod
+    def _bounded_labels(cls, value: dict[str, str]) -> dict[str, str]:
+        return {str(k)[:80]: str(v)[:2000] for k, v in list(value.items())[:150]}
+
+    @field_validator("state")
+    @classmethod
+    def _bounded_state(cls, value: dict | None) -> dict | None:
+        return bounded_state(value)
+
+    @model_validator(mode="after")
+    def _store_has_state(self) -> CapturedJob:
+        if (self.view == "store") != (self.state is not None):
+            raise ValueError("a store capture carries state, and only a store capture does")
+        return self
+
+
+class CaptureIn(BaseModel):
+    jobs: list[CapturedJob] = Field(min_length=1, max_length=100)
+
+
+class CapturedRef(BaseModel):
+    upwork_id: str
+    id: uuid.UUID
+    title: str
+    # True when this capture put the posting in the shared list.
+    created: bool
+
+
+class CaptureOut(BaseModel):
+    received: int
+    created: int
+    jobs: list[CapturedRef]
+
+
+# --- Browsing the shared list ---------------------------------------------------
+
+JobTypeParam = Literal["hourly", "fixed"]
+ExperienceParam = Literal["entry_level", "intermediate", "expert"]
+SortParam = Literal["recency", "captured"]
+
+
+class JobFilter(BaseModel):
+    """What the job view can ask of the shared list: every filter is answered from it.
+
+    Pay filters each constrain their own kind of job, as on Upwork: an hourly
+    floor leaves fixed-price postings alone, and the other way round.
+    """
+
+    query: str | None = Field(default=None, max_length=300, description="Every word, in the title, description or skills")
+    skills: list[str] = Field(default_factory=list, max_length=30, description="Any of these")
     exclude_terms: list[str] = Field(default_factory=list, max_length=20)
 
-    # Taxonomy
-    category_ids: list[str] = Field(default_factory=list, max_length=30)
-    subcategory_ids: list[str] = Field(default_factory=list, max_length=60)
-    occupation_ids: list[str] = Field(default_factory=list, max_length=60)
-    ontology_skill_ids: list[str] = Field(default_factory=list, max_length=30, description="AND")
-
-    # Contract shape
     job_type: JobTypeParam | None = None
-    workload: WorkloadParam | None = None
-    durations: list[DurationParam] = Field(default_factory=list)
     experience_level: ExperienceParam | None = None
-
-    # Money
+    hourly_rate_min: int | None = Field(default=None, ge=0)
     budget_min: int | None = Field(default=None, ge=0)
     budget_max: int | None = Field(default=None, ge=0)
-    hourly_rate_min: int | None = Field(default=None, ge=0)
-    hourly_rate_max: int | None = Field(default=None, ge=0)
+    posted_within_hours: int | None = Field(default=None, ge=1, le=24 * 365)
 
-    # Client
-    client_hires_min: int | None = Field(default=None, ge=0)
-    client_hires_max: int | None = Field(default=None, ge=0)
-    proposals_min: int | None = Field(default=None, ge=0)
-    proposals_max: int | None = Field(default=None, ge=0)
-    verified_payment_only: bool | None = None
-    previous_clients_only: bool | None = None
-    client_locations: list[str] = Field(default_factory=list, max_length=20)
-    client_timezone: str | None = Field(default=None, max_length=80)
-    enterprise_only: bool | None = None
-    talent_cloud_only: bool | None = None
-    talent_cloud_ids: list[str] = Field(default_factory=list, max_length=20)
-    user_location_match: bool | None = None
-    visitor_country: str | None = Field(default=None, max_length=2)
-    area: AreaParam | None = None
-    # Only postings published within this many hours. Not every source can.
-    posted_within_hours: int | None = Field(default=None, ge=1, le=24 * 60)
-
-    # Client quality, beyond hires and verification. Not every source can.
-    client_min_rating: float | None = Field(default=None, ge=0, le=5)
+    verified_payment_only: bool = False
     client_min_spent: int | None = Field(default=None, ge=0)
-    client_max_spent: int | None = Field(default=None, ge=0)
-    client_min_hire_rate: int | None = Field(default=None, ge=0, le=100)
-    phone_verified_only: bool | None = None
+    client_min_rating: float | None = Field(default=None, ge=0, le=5)
+    client_locations: list[str] = Field(default_factory=list, max_length=20)
     exclude_client_locations: list[str] = Field(default_factory=list, max_length=20)
-
-    # What applying costs and who may apply.
-    connects_min: int | None = Field(default=None, ge=0, le=100)
-    connects_max: int | None = Field(default=None, ge=0, le=100)
-    english_level: Literal["basic", "conversational", "fluent", "native"] | None = None
-    contractor_type: Literal["freelancer", "agency"] | None = None
-    featured_only: bool | None = None
-    exclude_with_questions: bool | None = None
-
-    # Ordering and paging
-    sort: SortParam = "recency"
-    page_size: int = Field(default=20, ge=1, le=50)
-    cursor: str | None = Field(default=None, description="pageInfo.end_cursor of the previous page")
-
-    # Applied on this side, after the source answers.
-    hide_hidden: bool = True
-    hide_applied: bool = False
+    proposals_max: int | None = Field(default=None, ge=0)
     # Drop postings that only accept applicants from other countries.
     open_to_country: str | None = Field(default=None, max_length=80)
 
-    @field_validator(
-        "skills", "and_terms", "or_terms", "exact_terms", "exclude_terms",
-        "category_ids", "subcategory_ids", "occupation_ids", "ontology_skill_ids",
-        "client_locations", "talent_cloud_ids", "exclude_client_locations", mode="before",
-    )
+    hide_hidden: bool = True
+    sort: SortParam = "recency"
+    limit: int = Field(default=50, ge=1, le=200)
+    offset: int = Field(default=0, ge=0)
+
+    @field_validator("skills", "exclude_terms", "client_locations", "exclude_client_locations", mode="before")
     @classmethod
     def _strip_blank(cls, value: object) -> object:
         if isinstance(value, list):
@@ -174,98 +146,9 @@ class JobSearchParams(BaseModel):
 
     @model_validator(mode="after")
     def _ranges_in_order(self):
-        for low, high in (
-            ("budget_min", "budget_max"),
-            ("hourly_rate_min", "hourly_rate_max"),
-            ("client_hires_min", "client_hires_max"),
-            ("proposals_min", "proposals_max"),
-            ("client_min_spent", "client_max_spent"),
-            ("connects_min", "connects_max"),
-        ):
-            lo, hi = getattr(self, low), getattr(self, high)
-            if lo is not None and hi is not None and lo > hi:
-                raise ValueError(f"{low} must not exceed {high}")
+        if self.budget_min is not None and self.budget_max is not None and self.budget_min > self.budget_max:
+            raise ValueError("budget_min must not exceed budget_max")
         return self
-
-
-class FilterOption(BaseModel):
-    value: str
-    label: str
-    hint: str | None = None
-
-
-class CategoryOption(BaseModel):
-    id: str
-    label: str
-    subcategories: list[FilterOption] = Field(default_factory=list)
-
-
-class JobSourceInfo(BaseModel):
-    """Which provider answers searches, and which controls it honours."""
-
-    key: str
-    label: str
-    # JobSearchParams field names the source applies. The form hides the rest.
-    filters: list[str]
-    sorts: list[str]
-    detail: bool
-    categories: bool
-    skills: bool
-
-
-class JobSourceStatus(JobSourceInfo):
-    """The source, and whether this user can search with it right now."""
-
-    ready: bool
-    setup_hint: str | None = None
-
-
-class ApifyConnectionOut(BaseModel):
-    configured: bool
-    token_source: Literal["user", "environment", "none"]
-    masked_token: str | None = None
-    status: str
-    apify_username: str | None = None
-    actor_id: str
-    # The actor profile in service: how it is described and billed.
-    actor_label: str | None = None
-    cost_note: str | None = None
-    last_verified_at: datetime | None = None
-    last_error: str | None = None
-    last_run_id: str | None = None
-    last_run_at: datetime | None = None
-
-
-class ApifyTokenIn(BaseModel):
-    token: str = Field(min_length=10, max_length=200)
-
-
-class ApifyTestOut(BaseModel):
-    ok: bool
-    detail: str
-    apify_username: str | None = None
-    plan: str | None = None
-    actor_title: str | None = None
-    price_per_job_usd: float | None = None
-
-
-class FilterCatalogue(BaseModel):
-    """Everything the search form needs to render its controls."""
-
-    source: JobSourceInfo
-    job_types: list[FilterOption]
-    workloads: list[FilterOption]
-    durations: list[FilterOption]
-    experience_levels: list[FilterOption]
-    sorts: list[FilterOption]
-    page_sizes: list[int]
-    categories: list[CategoryOption] = Field(default_factory=list)
-    categories_error: str | None = None
-
-
-class SkillSuggestion(BaseModel):
-    id: str
-    label: str
 
 
 # --- Jobs -----------------------------------------------------------------------
@@ -273,32 +156,40 @@ class SkillSuggestion(BaseModel):
 
 class JobClient(BaseModel):
     company_name: str | None = None
-    # A first name to greet, when a source can infer one with confidence.
-    contact_name: str | None = None
     hire_rate_percent: float | None = None
     avg_hourly_rate: float | None = None
     industry: str | None = None
+    company_size: str | None = None
     phone_verified: bool | None = None
     country: str | None = None
     city: str | None = None
-    state: str | None = None
-    timezone: str | None = None
     payment_verified: bool | None = None
-    verification_status: str | None = None
     total_spent: float | None = None
     total_spent_display: str | None = None
     total_hires: int | None = None
     total_posted_jobs: int | None = None
     total_reviews: int | None = None
     feedback: float | None = None
-    last_contract_platform: str | None = None
-    has_financial_privacy: bool | None = None
+    member_since: str | None = None
+
+
+class Teammate(BaseModel):
+    name: str
+    you: bool = False
+
+
+class Watcher(Teammate):
+    """Someone whose extension has the posting open right now."""
+
+    # Their extension checks the client and alerts them.
+    notify: bool
+    # Theirs is the watch whose findings go to everyone.
+    relay: bool
 
 
 class JobCard(ORMModel):
     id: uuid.UUID
     upwork_id: str
-    ciphertext: str | None
     url: str | None
     title: str
     description: str | None
@@ -316,54 +207,38 @@ class JobCard(ORMModel):
     client: JobClient
     total_applicants: int | None
     freelancers_to_hire: int | None
-    is_premium: bool
-    is_enterprise: bool
     preferred_freelancer_location: list[str]
     published_at: datetime | None
-    renewed_at: datetime | None
+    # When the posting entered the shared list, and when anyone last saw it.
+    created_at: datetime
     last_seen_at: datetime
-    focused_at: datetime | None
-    hidden_at: datetime | None
-    # Read off the raw node for the card, not stored as columns.
-    applied: bool = False
+    # This user's own marks and history with the posting.
+    focused_at: datetime | None = None
+    hidden_at: datetime | None = None
     track_stage: FreelanceTrackStage | None = None
     proposal_count: int = 0
-    # From the source's own record, when it has them.
+    # As Upwork words it ("10 to 15"); ``total_applicants`` is the tier's top.
+    proposals_label: str | None = None
     connects_required: int | None = None
-    featured: bool = False
-    job_score: float | None = None
+    # Live, from whoever watches the posting: see ``services.watch``.
+    client_activity_at: datetime | None = None
+    interviewing: int | None = None
+    watchers: list[Watcher] = Field(default_factory=list)
 
 
 class JobDetail(JobCard):
-    detail_fetched_at: datetime | None = None
-    # The deeper aggregate from marketplaceJobPosting, when it has been fetched.
+    # Null until someone opened the posting's own page with the extension on;
+    # until then the description is the search tile's.
+    detail_captured_at: datetime | None = None
     screening_questions: list[str] = Field(default_factory=list)
-    cover_letter_required: bool | None = None
     activity: dict = Field(default_factory=dict)
-    qualification: dict = Field(default_factory=dict)
-    location_preference: dict = Field(default_factory=dict)
-    attachments: list[dict] = Field(default_factory=list)
-    on_site_type: str | None = None
-    status: str | None = None
-
-
-class JobSearchPage(BaseModel):
-    items: list[JobCard]
-    total: int | None = None
-    has_next_page: bool = False
-    end_cursor: str | None = None
-    # How many of the page the source returned were dropped by this side's filters.
-    hidden_count: int = 0
-    # The source is still working (an Apify run). Ask again with ``end_cursor``.
-    pending: bool = False
-    progress_note: str | None = None
-    # Something the source said about this search, e.g. an exhausted quota.
-    notice: str | None = None
+    # Whose extension posted it to the shared list first; null once that account is gone.
+    posted_by: Teammate | None = None
 
 
 class SavedSearchIn(BaseModel):
     name: str = Field(min_length=1, max_length=80)
-    params: JobSearchParams
+    params: JobFilter
 
 
 class SavedSearchOut(ORMModel):
@@ -372,6 +247,80 @@ class SavedSearchOut(ORMModel):
     params: dict
     last_run_at: datetime | None
     created_at: datetime
+
+
+
+# --- Watching a posting's client -----------------------------------------------------
+
+
+class WatchReport(BaseModel):
+    """A heartbeat from the extension for a posting open in this user's browser.
+
+    With ``state`` it is also a fresh reading of the posting (the page just
+    loaded, or a background refresh), which updates the shared row and is
+    checked for client activity. Without it, it only says "still watching".
+    """
+
+    upwork_id: str = Field(pattern=JOB_KEY_PATTERN)
+    url: str | None = Field(default=None, max_length=2000)
+    state: dict | None = None
+
+    @field_validator("upwork_id")
+    @classmethod
+    def _lower(cls, value: str) -> str:
+        return value.lower()
+
+    @field_validator("state")
+    @classmethod
+    def _bounded_state(cls, value: dict | None) -> dict | None:
+        return bounded_state(value)
+
+
+class WatchPatch(BaseModel):
+    notify: bool
+
+
+class WatchEvent(BaseModel):
+    """Something this user's own watch just saw, for their extension to announce."""
+
+    kind: FreelanceAlertKind
+    client_activity_at: datetime | None = None
+    interviewing: int | None = None
+    previous_interviewing: int | None = None
+
+
+class WatchOut(BaseModel):
+    job_id: uuid.UUID
+    upwork_id: str
+    title: str
+    url: str | None
+    notify: bool
+    relay: bool
+    watchers: list[Watcher]
+    total_applicants: int | None
+    activity: dict
+    events: list[WatchEvent] = Field(default_factory=list)
+
+
+class AlertOut(BaseModel):
+    id: int
+    kind: FreelanceAlertKind
+    job_id: uuid.UUID
+    title: str
+    url: str | None
+    relay_name: str | None
+    # This user's own watch alerted them already.
+    local: bool
+    client_activity_at: datetime | None
+    interviewing: int | None
+    previous_interviewing: int | None
+    occurred_at: datetime
+
+
+class AlertFeed(BaseModel):
+    items: list[AlertOut]
+    # The newest alert id there is. Ask with ``after=cursor`` for what follows.
+    cursor: int
 
 
 # --- Freelancer profile ----------------------------------------------------------
@@ -400,6 +349,8 @@ class FreelancerProfileIn(BaseModel):
     specialized_profiles: list[SpecializedProfile] = Field(default_factory=list, max_length=10)
     upwork_profile_url: str | None = Field(default=None, max_length=2000)
     raw_profile_markdown: str | None = Field(default=None, max_length=40_000)
+    # The writer version the form was built from, when it was; the save becomes the next whole version.
+    version_id: uuid.UUID | None = None
 
 
 class FreelancerProfilePatch(BaseModel):
@@ -413,6 +364,7 @@ class FreelancerProfilePatch(BaseModel):
     specialized_profiles: list[SpecializedProfile] | None = Field(default=None, max_length=10)
     upwork_profile_url: str | None = Field(default=None, max_length=2000)
     raw_profile_markdown: str | None = Field(default=None, max_length=40_000)
+    version_id: uuid.UUID | None = None
 
 
 class FreelancerProfileOut(ORMModel):
@@ -427,8 +379,81 @@ class FreelancerProfileOut(ORMModel):
     specialized_profiles: list
     upwork_profile_url: str | None
     raw_profile_markdown: str | None
+    # The latest saved version's number; none until the profile is first saved.
+    version: int | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class ProfilePageView(BaseModel):
+    """One Upwork page of the freelancer, as the extension read it in the user's browser."""
+
+    url: str = Field(max_length=2000)
+    title: str | None = Field(default=None, max_length=500)
+    text: str = Field(max_length=50_000)
+
+
+class ProfileImportIn(BaseModel):
+    url: str = Field(min_length=1, max_length=2000)
+    # The link's own page first, then the other views of the freelancer it links to.
+    views: list[ProfilePageView] = Field(min_length=1, max_length=12)
+
+
+class FreelancerProfileDraft(BaseModel):
+    """A profile read from its Upwork pages: what the form fills in, not saved."""
+
+    name: str | None
+    title: str | None
+    overview: str | None
+    hourly_rate: float | None
+    skills: list[str]
+    portfolio: list[PortfolioItem]
+    specialized_profiles: list[SpecializedProfile]
+    raw_profile_markdown: str | None
+
+
+class ProfileMaterial(BaseModel):
+    """The profile form as it is when the writer is asked: what it writes from."""
+
+    title: str | None = Field(default=None, max_length=200)
+    overview: str | None = Field(default=None, max_length=8000)
+    hourly_rate: float | None = Field(default=None, ge=0, le=10_000)
+    skills: list[str] = Field(default_factory=list, max_length=100)
+    portfolio: list[PortfolioItem] = Field(default_factory=list, max_length=50)
+    specialized_profiles: list[SpecializedProfile] = Field(default_factory=list, max_length=10)
+    raw_profile_markdown: str | None = Field(default=None, max_length=40_000)
+
+
+class ProfileWriteIn(BaseModel):
+    # None writes for a profile not created yet.
+    profile_id: uuid.UUID | None = None
+    # The version being revised; None writes the first draft.
+    based_on_id: uuid.UUID | None = None
+    instruction: str = Field(min_length=1, max_length=20_000)
+    material: ProfileMaterial = Field(default_factory=ProfileMaterial)
+
+
+class ProfileWriteAccepted(BaseModel):
+    id: uuid.UUID
+    status: str
+
+
+class ProfileVersionOut(ORMModel):
+    id: uuid.UUID
+    profile_id: uuid.UUID | None
+    major: int
+    minor: int
+    instruction: str | None
+    document: dict
+    based_on_id: uuid.UUID | None
+    generation_id: uuid.UUID | None
+    created_at: datetime
+
+
+class ProfileVersions(BaseModel):
+    items: list[ProfileVersionOut]
+    # A draft still being written for this profile, to follow after a reload.
+    running_generation_id: uuid.UUID | None
 
 
 # --- Proposals ------------------------------------------------------------------
@@ -459,17 +484,46 @@ class ProposalPatch(BaseModel):
     connects_estimate: int | None = Field(default=None, ge=0, le=200)
     cover_letter_markdown: str | None = Field(default=None, max_length=40_000)
     answers: list[ProposalAnswer] | None = Field(default=None, max_length=20)
+    # The version the editor was built from; a save records the next whole version over it.
+    version_id: uuid.UUID | None = None
+
+
+class ProposalWriting(BaseModel):
+    """The letter and answers as the editor holds them, hand edits included."""
+
+    cover_letter_markdown: str = Field(default="", max_length=40_000)
+    answers: list[ProposalAnswer] = Field(default_factory=list, max_length=20)
 
 
 class ProposalGenerateIn(BaseModel):
-    """Ask the engine for a draft. Returns the queued generation, not the proposal."""
+    """Ask the writer for the next draft. Returns the queued generation, not the proposal."""
 
     job_id: uuid.UUID
     profile_id: uuid.UUID | None = None
-    # Rewrites an existing proposal in place rather than adding another.
+    # Writes the next version of an existing proposal rather than starting another.
     proposal_id: uuid.UUID | None = None
-    instructions: str | None = Field(default=None, max_length=4000)
-    tone: Literal["direct", "warm", "formal"] = "direct"
+    # The version being revised, and the editor's text now; neither on a first draft.
+    based_on_id: uuid.UUID | None = None
+    current: ProposalWriting | None = None
+    instruction: str | None = Field(default=None, max_length=20_000)
+
+
+class ProposalVersionOut(ORMModel):
+    id: uuid.UUID
+    proposal_id: uuid.UUID
+    major: int
+    minor: int
+    instruction: str | None
+    document: dict
+    based_on_id: uuid.UUID | None
+    generation_id: uuid.UUID | None
+    created_at: datetime
+
+
+class ProposalVersions(BaseModel):
+    items: list[ProposalVersionOut]
+    # A draft still being written for this proposal, to follow after a reload.
+    running_generation_id: uuid.UUID | None
 
 
 class JobBrief(BaseModel):
@@ -503,6 +557,7 @@ class ProposalOut(ORMModel):
     generation_id: uuid.UUID | None
     generation_meta: dict
     submitted_at: datetime | None
+    version_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
     job: JobBrief | None = None

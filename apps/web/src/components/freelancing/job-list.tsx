@@ -5,6 +5,7 @@ import { BadgeCheck, ExternalLink, EyeOff, Star } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { ClientActive, WatchChip } from "@/components/freelancing/client-watch";
 import { Panel } from "@/components/panel";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -105,17 +106,21 @@ export function FocusButton({
 
 /** The facts about a posting as small badges, for the posting's own page. */
 export function JobMetaChips({ job }: { job: JobCardData }) {
+  const proposals = proposalsText(job);
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {job.experience_level && <Badge variant="secondary">{humanizeEnum(job.experience_level)}</Badge>}
-      {job.total_applicants != null && <Badge variant="secondary">{job.total_applicants} proposals</Badge>}
-      {job.featured && <Badge variant="warning">Featured</Badge>}
-      {job.job_score != null && <Badge variant="secondary">Score {job.job_score.toFixed(1)}</Badge>}
-      {job.is_premium && <Badge variant="warning">Premium</Badge>}
-      {job.is_enterprise && <Badge variant="info">Enterprise</Badge>}
-      {job.applied && <Badge variant="success">Applied</Badge>}
+      {proposals && <Badge variant="secondary">{proposals} proposals</Badge>}
+      {job.freelancers_to_hire != null && job.freelancers_to_hire > 1 && (
+        <Badge variant="secondary">Hiring {job.freelancers_to_hire}</Badge>
+      )}
     </div>
   );
+}
+
+/** Upwork's own wording ("10 to 15") when the capture had it. */
+function proposalsText(job: JobCardData): string | null {
+  return job.proposals_label ?? (job.total_applicants != null ? String(job.total_applicants) : null);
 }
 
 function clientLine(client: JobClient) {
@@ -123,7 +128,8 @@ function clientLine(client: JobClient) {
   if (client.country) parts.push(client.country);
   if (client.total_spent_display) parts.push(client.total_spent_display);
   else if (client.total_spent != null) parts.push(`$${Math.round(client.total_spent).toLocaleString()}`);
-  if (client.feedback != null && client.feedback > 0) parts.push(`${client.feedback.toFixed(1)}★`);
+  // Upwork rates to two places; one would round a 4.95 up to a 5.0 it never earned.
+  if (client.feedback != null && client.feedback > 0) parts.push(`${Number(client.feedback.toFixed(2))}★`);
   return parts.join(" · ");
 }
 
@@ -175,20 +181,11 @@ function Row({
           >
             {job.title}
           </Link>
+          <WatchChip job={job} />
           {job.track_stage && (
             <StatusBadge tone={STAGE_TONE[job.track_stage]} className="shrink-0">
               {STAGE_LABEL[job.track_stage]}
             </StatusBadge>
-          )}
-          {job.applied && !job.track_stage && (
-            <Badge variant="success" className="shrink-0">
-              Applied
-            </Badge>
-          )}
-          {job.featured && (
-            <Badge variant="warning" className="shrink-0 max-md:hidden">
-              Featured
-            </Badge>
           )}
           {job.proposal_count > 0 && (
             <Badge variant="outline" className="shrink-0 max-md:hidden">
@@ -215,10 +212,18 @@ function Row({
           <span className="truncate">{client || "-"}</span>
         </span>
       </TableCell>
-      <TableCell className="text-muted-foreground hidden text-right text-xs tabular-nums md:table-cell">
-        {job.total_applicants ?? "-"}
+      <TableCell className="text-muted-foreground hidden text-right text-xs whitespace-nowrap tabular-nums md:table-cell">
+        {proposalsText(job) ?? "-"}
       </TableCell>
-      <TableCell className="text-muted-foreground hidden text-xs md:table-cell">{timeAgo(job.published_at)}</TableCell>
+      <TableCell className="text-muted-foreground hidden text-xs whitespace-nowrap lg:table-cell">
+        <ClientActive job={job} />
+      </TableCell>
+      <TableCell
+        className="text-muted-foreground hidden text-xs whitespace-nowrap md:table-cell"
+        title={job.published_at ? undefined : "Added to the list; Upwork's posting time was not on the page"}
+      >
+        {timeAgo(job.published_at ?? job.created_at)}
+      </TableCell>
       <TableCell className="w-16 pr-1.5 pl-0" onClick={stop}>
         <div className="flex items-center justify-end">
           <Tooltip>
@@ -256,7 +261,7 @@ function Row({
 }
 
 /**
- * Search results and the focused list as one table: a row per posting, the
+ * The shared list and the focused list as one table: a row per posting, the
  * facts in columns. Clicking a row opens the posting; the star, hide and
  * Upwork buttons are their own targets.
  */
@@ -279,6 +284,9 @@ export function JobList({
             <TableHead>Budget</TableHead>
             <TableHead className="hidden md:table-cell">Client</TableHead>
             <TableHead className="hidden text-right md:table-cell">Bids</TableHead>
+            <TableHead className="hidden lg:table-cell" title="When the client was last on the posting">
+              Client seen
+            </TableHead>
             <TableHead className="hidden md:table-cell">Posted</TableHead>
             <TableHead className="w-16" />
           </TableRow>

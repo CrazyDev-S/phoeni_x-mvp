@@ -272,7 +272,8 @@ function GenerateForm({ kind }: { kind: "story" | "job" }) {
   const router = useRouter();
   const { state, start, stop } = useGeneration();
   const [targetTitle, setTargetTitle] = useState("");
-  const [skillCount, setSkillCount] = useState("");
+  // Four categories of up to 20 each: the server's limits (MAX_SKILL_COUNT).
+  const [skillCount, setSkillCount] = useState("60");
   const [jobDescription, setJobDescription] = useState("");
   const [extra, setExtra] = useState("");
 
@@ -311,7 +312,7 @@ function GenerateForm({ kind }: { kind: "story" | "job" }) {
                     {...control}
                     type="number"
                     min={4}
-                    max={40}
+                    max={80}
                     value={skillCount}
                     onChange={(e) => setSkillCount(e.target.value)}
                   />

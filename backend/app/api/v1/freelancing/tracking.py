@@ -83,12 +83,8 @@ async def update_track(
 
 @router.delete("/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_track(track_id: uuid.UUID, user: CurrentUser, session: Session) -> None:
-    """Stop tracking. The job snapshot stays, unfocused; proposals stay with it."""
-    row = await _owned(session, user, track_id)
-    job = await session.get(FreelanceJob, row.job_id)
-    if job is not None:
-        job.focused_at = None
-    await session.delete(row)
+    """Stop tracking. The shared posting stays, unfocused for this user; proposals stay too."""
+    await tracking.untrack(session, await _owned(session, user, track_id))
 
 
 @router.post("/{track_id}/promote", response_model=MaintainedJobOut, status_code=status.HTTP_201_CREATED)

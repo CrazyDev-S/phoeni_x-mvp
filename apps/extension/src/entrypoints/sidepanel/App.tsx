@@ -1,4 +1,4 @@
-import { Briefcase, CalendarDays, Settings2, Wrench } from "lucide-react";
+import { Briefcase, CalendarDays, Radar, Settings2, Wrench } from "lucide-react";
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,11 @@ import { ApplyTab } from "./tabs/Apply";
 import { CalendarTab } from "./tabs/Calendar";
 import { MaintainTab } from "./tabs/Maintain";
 import { SettingsTab } from "./tabs/Settings";
+import { UpworkTab } from "./tabs/Upwork";
 import { PanelFooter, PanelHeader, type Connection } from "./chrome-shell";
 import { NextCall, type Upcoming } from "./components";
 
-type Route = "apply" | "calendar" | "maintain" | "settings";
+type Route = "apply" | "upwork" | "calendar" | "maintain" | "settings";
 
 const TABS: {
   key: Route;
@@ -21,6 +22,7 @@ const TABS: {
   Icon: ComponentType<{ className?: string }>;
 }[] = [
   { key: "apply", label: "Apply", Icon: Briefcase },
+  { key: "upwork", label: "Upwork", Icon: Radar },
   { key: "calendar", label: "Calendar", Icon: CalendarDays },
   { key: "maintain", label: "Jobs", Icon: Wrench },
   { key: "settings", label: "Settings", Icon: Settings2 },
@@ -143,6 +145,9 @@ export function App() {
                 <>
                   <TabsContent value="apply" className="flex flex-col gap-3">
                     <ApplyTab portalUrl={portalUrl} onOpenSettings={() => go("settings")} />
+                  </TabsContent>
+                  <TabsContent value="upwork">
+                    <UpworkTab portalUrl={portalUrl} />
                   </TabsContent>
                   <TabsContent value="calendar">
                     <CalendarTab portalUrl={portalUrl} />

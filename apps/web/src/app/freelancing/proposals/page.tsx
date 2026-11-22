@@ -1,11 +1,12 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { FileSignature, Plus } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { FileSignature, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
+import { ConfirmDelete } from "@/components/confirm-delete";
 import { EmptyState } from "@/components/empty-state";
 import { NewProposalDialog } from "@/components/freelancing/new-proposal-dialog";
 import { PageHero } from "@/components/page-hero";
@@ -18,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { request } from "@/lib/api";
 import {
   formatBudget,
+  invalidateFreelancing,
   PROPOSAL_STATUS_LABEL,
   timeAgo,
   type JobCard,
@@ -53,6 +55,7 @@ export default function ProposalsPage() {
 
 function ProposalsList() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const requested = searchParams.get("status");
   const filter = (FILTERS as string[]).includes(requested ?? "")
@@ -165,6 +168,9 @@ function ProposalsList() {
                 <TableHead>Status</TableHead>
                 <TableHead>Bid</TableHead>
                 <TableHead>Updated</TableHead>
+                <TableHead className="w-8">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -196,6 +202,27 @@ function ProposalsList() {
                   </TableCell>
                   <TableCell className="font-medium tabular-nums">{bidText(p)}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">{timeAgo(p.updated_at)}</TableCell>
+                  {/* The dialog renders in a portal, but its clicks still bubble here, not to the row. */}
+                  <TableCell className="py-0 pr-1.5" onClick={(e) => e.stopPropagation()}>
+                    <ConfirmDelete
+                      label={p.job?.title || "Custom proposal"}
+                      description="This permanently removes the proposal, all its versions and its place in your pipeline. This cannot be undone."
+                      onDelete={async () => {
+                        await request(`/api/v1/freelancing/proposals/${p.id}`, { method: "DELETE" });
+                        invalidateFreelancing(queryClient);
+                      }}
+                      trigger={
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label="Delete proposal"
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 />
+                        </Button>
+                      }
+                    />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

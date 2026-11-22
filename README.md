@@ -2,11 +2,10 @@
 
 Two ways to find work, one place to run it all.
 
-- **Freelancing** — bidding on Upwork: job search through the Apify actor
-  `upwork-vibe/upwork-job-scraper` (or, optionally, another supported actor or
-  Upwork's own API), a focus list,
-  proposals drafted from a freelancer profile, and a tracker from the first
-  star to hired.
+- **Freelancing** — bidding on Upwork: one job list shared by the whole team,
+  filled by the browser extension as people browse Upwork (one row per Upwork
+  job id), a focus list, proposals drafted from a freelancer profile, and a
+  tracker from the first star to hired.
 - **Remote** — remote roles: resumes generated and tailored against a
   posting, applications filled from the browser, and an interview pipeline.
 - **Shared tools** — the calendar, job maintenance, and Interview Assist
@@ -42,10 +41,8 @@ All three surfaces build and run.
 | **Remote** — Generation pipeline: 3 turns, 2 Python gates, bounded repair | Done |
 | **Remote** — Tailoring (job- and instruction-based), applications, interview stages | Done |
 | **Remote** — Chrome MV3 side panel (5 tabs, scan + fill engines, many tabs at once) | Done |
-| **Freelancing** — Job sources behind one seam: Apify (default) and Upwork's own API | Done |
-| **Freelancing** — Apify source: per-user token, run polling, dataset paging, run reuse; actor profiles for `upwork-vibe` (default, every filter it accepts) and `neatrat` | Done |
-| **Freelancing** — Upwork API source: per-user key pair, OAuth2, token refresh, every `MarketplaceJobPostingsSearchFilter` field | Done |
-| **Freelancing** — Phase 1: search, snapshots, focus, hide, saved searches, "open to my country" | Done |
+| **Freelancing** — Shared Upwork job list: the extension captures postings as people browse, one row per Upwork job id, race-free registration, Upwork's wording read on the server | Done |
+| **Freelancing** — Phase 1: browse and filter the shared list as you type, focus, hide (per user), saved searches, "open to my country" | Done |
 | **Freelancing** — Phase 2 (initial): freelancer profiles, proposals, the engine seam + a template engine | Done — awaiting the prompt |
 | **Freelancing** — Phase 3: tracking focused jobs through the bidding pipeline, with history | Done |
 | **Shared** — Calendar and job maintenance, for applications, maintained jobs and freelancing bids | Done |
@@ -84,8 +81,8 @@ python3 -c "import secrets; print(secrets.token_urlsafe(48))"          # APP_SEC
 python3 -c "import base64,os; print(base64.b64encode(os.urandom(32)).decode())"  # APP_KEK
 ```
 
-`APP_SECRET_KEY` signs session tokens and the Upwork OAuth state; `APP_KEK`
-encrypts the LLM API keys and Upwork credentials users store in Settings. They
+`APP_SECRET_KEY` signs session tokens; `APP_KEK` encrypts the LLM API keys
+users store in Settings. They
 are separate because they rotate differently — changing the signing key just
 logs everyone out, while changing the KEK means re-encrypting every stored key
 (which is what the `encryption_key_version` columns are for).
@@ -122,49 +119,19 @@ npm run build:ext              # then load apps/extension/.output/chrome-mv3
 API docs at <http://localhost:8000/docs>; the OpenAPI document both frontends
 generate their types from is at `/openapi.json`.
 
-### Setting up job search
+### Collecting Upwork jobs
 
-Freelancing job search runs through a job source chosen by
-`FREELANCING_JOB_SOURCE`. The default, `apify`, runs the Apify actor
-[`upwork-vibe/upwork-job-scraper`](https://apify.com/upwork-vibe/upwork-job-scraper)
-and needs only an Apify API token:
-
-1. Create a token in Apify Console -> Settings -> Integrations.
-2. Paste it into **Settings -> Integrations** and press **Save and test**.
-   A deployment-wide token can go in `APIFY_TOKEN` instead; a user's own wins.
-
-Each search starts one actor run, billed to that Apify account per job
-returned: about $0.0105 on Apify's free plan, from $0.0045 on paid tiers,
-platform usage included. "Load more" reads further into what a run already
-returned before starting another, and an identical search within half an hour
-reuses its run. `APIFY_UPWORK_ACTOR_ID=neatrat~upwork-job-scraper` switches to
-the other supported actor. The details, including every input field the
-filters map to, are in `docs/freelancing.md`.
-
-#### Using Upwork's own API instead
-
-Set `FREELANCING_JOB_SOURCE=upwork`. Job search then runs against Upwork's
-GraphQL API on the user's behalf, so each user (or the deployment) needs an
-Upwork API key:
-
-1. Create a key at <https://www.upwork.com/developer/keys> with at least
-   **Common Entities - Read-Only Access** and **Read marketplace Job
-   Postings** (add **Ontology - Read-Only Access** for the category tree and
-   skill autocomplete). Upwork gates key approval on account standing; see
-   `docs/freelancing.md`.
-2. Register the redirect URI the portal shows under **Settings ->
-   Integrations** — by default
-   `http://127.0.0.1:8000/api/v1/freelancing/upwork/callback`. It is derived
-   from `API_PUBLIC_URL`; set that (and `PORTAL_URL`, where the callback sends
-   the browser afterwards) to the addresses the *browser* reaches when the
-   backend is not on the same machine.
-3. Paste the client id and secret into **Settings -> Integrations** and press
-   **Connect Upwork**. A deployment-wide key pair can instead go in
-   `UPWORK_CLIENT_ID` / `UPWORK_CLIENT_SECRET`; a user's own pair takes
-   precedence.
-
-Access tokens last 24 hours and are refreshed automatically; a session unused
-for two weeks expires and must be authorized again.
+Nothing to configure on the backend. Connect the extension (below), then
+browse Upwork as usual - a search, the find-work feeds, a job's own page.
+Every posting on screen goes into the shared list at **Freelancing -> Jobs**
+for the whole team, and opening a posting's own page brings in its full
+description, client history, screening questions and connects cost. A search
+or feed left open is refreshed every 5 minutes (never while you are using the
+tab), so new postings appear without you reloading, and **Refresh** on the
+Jobs page refreshes them all at once. The extension never reads proposals,
+messages or contracts; the panel's **Upwork** tab shows what it collected and
+when it next refreshes, and pausing it stops the refreshes too.
+Details in `docs/freelancing.md`.
 
 ### Branding
 
@@ -184,7 +151,7 @@ crops to a square, and emits every size the portal and extension use.
 
 Add an Anthropic or OpenAI key under **Settings -> Models** before generating
 a resume. Everything else - uploading a resume, exporting `.docx`, tracking
-applications, the calendar, job search, template proposal drafts - works
+applications, the calendar, the shared job list, template proposal drafts - works
 without one.
 
 ## Tests
@@ -206,16 +173,14 @@ The suite deliberately covers the things that fail silently:
   profiles — this is the closest cheap proxy for an ATS.
 - **DST edge cases** pinned to real transition dates (2026-03-08, 2026-11-01),
   including the 25-hour and 23-hour local days.
-- **The exact request each job source receives** is asserted for every search
-  parameter: the Upwork filter against a mocked Upwork
-  (`tests/test_freelancing.py`), each actor's input and run options against a
-  mocked Apify (`tests/test_freelancing_apify_vibe.py`, `tests/test_freelancing_apify.py`). A renamed field on either
-  side is a one-line change in one file, and these tests say it reached the wire.
-- **What an Apify search costs**: a slow run is polled, not restarted; "load
-  more" reads the same dataset; a repeated search reuses its run.
-- **The Freelancing flow end to end**: connect, search, focus, draft, submit,
-  book a call on the shared calendar, promote a won bid into maintenance —
-  including token refresh and the expired-session path.
+- **Upwork's wording is read from realistic captures**: a search tile and a
+  job page, as the extension sends them, become the same columns
+  (`tests/test_freelancing.py`) - pay, client history, the proposals tier,
+  screening questions, connects - and the viewer's own lines never reach the
+  shared row.
+- **Simultaneous captures of one posting make one row**, whoever sends them.
+- **The Freelancing flow end to end**: two people share the list and keep
+  their own marks; focus, draft, submit, book a call on the shared calendar.
 
 ## Layout
 
@@ -235,12 +200,9 @@ backend/app/
     orchestration/ resume_pipeline.py, form_pipeline.py, ats_report.py
     services/     job links, resume linking, resume storage, seed data
   freelancing/    THE FREELANCING CATEGORY
-    sources/      base.py (the JobSource seam), registry.py, apify_upwork.py, upwork_graphql.py
-    apify/        client.py (runs, datasets), profiles.py, vibe_scraper.py, neatrat_scraper.py
+    capture.py    Upwork's wording: an extension capture into job columns
     countries.py  ISO country codes and Upwork's regions, both ways
-    upwork/       oauth.py, client.py, queries.py, filters.py, normalize.py
-    services/     apify_connection.py, connection.py (Upwork tokens), jobs.py, tracking.py
-    snapshot.py   what every source's snapshot has in common
+    services/     jobs.py (registering, browsing, marks), tracking.py, watch.py
     proposals/    engine.py (the seam), run.py (the worker step)
   shared/         SHARED TOOLS
     calendar/     recurrence.py, tracking.py (stage <-> meeting seam)
@@ -248,7 +210,7 @@ backend/app/
   api/v1/
     auth.py settings.py generations.py      account and platform
     remote/       resumes, tailored_resumes, tailoring, exports, applications, extension
-    freelancing/  upwork, jobs, profile, proposals, tracking
+    freelancing/  jobs (capture, search), watch, profile, proposals, tracking
     shared/       meetings, maintenance, interview
 backend/prompts/  resume_generator_v1.md (frozen), proposal_generator_v1.md (placeholder)
 apps/web/src/app/
@@ -259,7 +221,7 @@ apps/web/src/app/
 apps/web/src/components/
   remote/ freelancing/ shared/   per category; shared/ holds the calendar, maintenance and interview pages that both portals mount
   portal/                        the portal shells, sidebar and switcher
-apps/extension/   WXT + React MV3 side panel (a Remote surface, plus the shared calendar)
+apps/extension/   WXT + React MV3 side panel (a Remote surface, Upwork capture, the shared calendar)
 packages/api-types/  generated OpenAPI types, shared by both clients
 docs/             architecture.md, freelancing.md, resume-markdown.md
 ```
@@ -283,17 +245,13 @@ redirect to their `/remote/...` homes.
 - **Stage names are `text` plus a lookup table, not an enum**, because users
   configure their own interview pipelines. Freelancing track stages *are* an
   enum: Upwork's states are fixed, and the board relies on their order.
-- **Job searches go through a `JobSource`**, chosen by `FREELANCING_JOB_SOURCE`
-  (default `apify`). Each provider's field names live in one file -
-  `app/freelancing/apify/vibe_scraper.py`, `neatrat_scraper.py`,
-  `app/freelancing/upwork/filters.py`.
-  Everything else speaks this API's own vocabulary, and the search form shows
-  only the filters the source in service can apply.
-- **No third-party failure answers 401.** To the portal a 401 means its own
-  session ended; a rejected Apify or Upwork token is a 409 with a code.
-- **A job snapshot is not a mirror.** Upwork's terms allow caching a posting
-  for 24 hours; unfocused, untracked snapshots are pruned after a day. A
-  focused job is the user's own list and stays.
+- **Upwork's wording lives in one file**, `app/freelancing/capture.py`. The
+  extension sends postings as the page shows them and the raw capture is
+  kept, so a change to Upwork's pages is a backend fix, not an extension
+  release, and old captures can be re-read.
+- **A job is shared; a mark is not.** One `freelance_jobs` row per Upwork job
+  id for everyone; focus and hidden are per user (`freelance_job_marks`), as
+  are tracks and proposals.
 - **Track stage changes go through `set_stage`**, so the history and the
   proposal's own status cannot drift.
 - **A meeting has exactly one owner** — an interview stage, a maintained job,
@@ -309,7 +267,8 @@ redirect to their `/remote/...` homes.
   boundary.
 - **All LLM network I/O in the extension lives in the side panel**, never the
   service worker: MV3 workers are evicted after ~30s idle and a generation
-  takes 60-180s.
+  takes 60-180s. The worker only makes short calls that must work with the
+  panel closed: the next-call badge and Upwork capture.
 - **Provider differences are capability flags, not try/except.** `effort`
   errors on Haiku 4.5; `temperature` is rejected by current Anthropic models.
   See `app/llm/catalog.py`.

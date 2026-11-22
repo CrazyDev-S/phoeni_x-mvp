@@ -7,19 +7,39 @@
  * does the fetching" advice, and it is the single most important architectural
  * decision in the extension.
  *
- * What does live here: opening the panel (which needs a user gesture) and a
- * cheap alarm that keeps the toolbar badge current while the panel is closed.
+ * What does live here: opening the panel (which needs a user gesture), a
+ * cheap alarm that keeps the toolbar badge current while the panel is closed,
+ * and Upwork capture - one short POST per page change, which a worker finishes
+ * comfortably, and which has to work with the panel closed. The client watch
+ * (`lib/upwork-watch`) is the same shape: short requests, and alerts that must
+ * arrive with the panel closed. Reading a profile for the portal
+ * (`lib/upwork-profile`) opens one tab and reads a few pages, well inside it.
  */
-import { API_BASE_KEY, NEXT_CALL_KEY, TOKEN_KEY } from "@/lib/constants";
+import { API_BASE_KEY, NEXT_CALL_KEY, TOKEN_KEY, UPWORK_CONTENT_SCRIPT } from "@/lib/constants";
+import { handleCapture, type CaptureMessage } from "@/lib/upwork-capture";
+import { installPortalBridge } from "@/lib/portal-bridge";
+import { installProfileReader } from "@/lib/upwork-profile";
+import { installWatch } from "@/lib/upwork-watch";
 
 export default defineBackground(() => {
   const ALARM = "next-call";
+  installWatch();
+  installPortalBridge();
+  installProfileReader();
 
   chrome.runtime.onInstalled.addListener(async () => {
     // Keep action.onClicked firing so we can scope the panel ourselves.
     await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
     chrome.alarms.create(ALARM, { periodInMinutes: 5 });
     await refreshNextCall();
+    // Tabs open before the install have no content script until reloaded.
+    await captureOpenUpworkTabs();
+  });
+
+  chrome.runtime.onMessage.addListener((message: CaptureMessage, sender, sendResponse) => {
+    if (message?.type !== "upwork:capture") return false;
+    void handleCapture(message, sender.tab?.id).then(sendResponse);
+    return true;
   });
 
   chrome.runtime.onStartup.addListener(() => {
@@ -42,6 +62,17 @@ export default defineBackground(() => {
     if (alarm.name === ALARM) void refreshNextCall();
   });
 });
+
+async function captureOpenUpworkTabs(): Promise<void> {
+  const tabs = await chrome.tabs.query({ url: "https://www.upwork.com/*" });
+  await Promise.allSettled(
+    tabs.flatMap((tab) =>
+      tab.id === undefined
+        ? []
+        : [chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [UPWORK_CONTENT_SCRIPT] })],
+    ),
+  );
+}
 
 async function refreshNextCall(): Promise<void> {
   try {
